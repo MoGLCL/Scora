@@ -690,3 +690,14 @@ Scora/
 The MVP web application is planned around Next.js. Supporting services (database, sandbox runtime, AST worker, authentication provider, and deployment target) are documented as decisions to finalize during implementation.
 
 The current GitHub layout keeps all required deliverable folders directly under `04 Deliverables`; no nested Phase folder is used.
+
+## Current repository layout
+
+```text
+Scora/
+├── Front/
+├── Back/
+└── README.md
+```
+
+The repository root intentionally contains only the frontend folder, backend folder, and this README. Product and design documents remain outside the code repository.
