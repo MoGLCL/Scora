@@ -688,3 +688,5 @@ Scora/
 - Research summary: `01 Research/Scora - Research & Market Validation.pdf`
 
 The MVP web application is planned around Next.js. Supporting services (database, sandbox runtime, AST worker, authentication provider, and deployment target) are documented as decisions to finalize during implementation.
+
+The current GitHub layout keeps all required deliverable folders directly under `04 Deliverables`; no nested Phase folder is used.
