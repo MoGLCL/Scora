@@ -1,0 +1,64 @@
+@startuml
+skinparam dpi 240
+title Scora — End-to-End User Flow
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 16
+skinparam defaultFontName "Readex Pro"
+skinparam defaultFontColor #163126
+skinparam ArrowColor #084C2D
+skinparam activityBorderColor #16A34A
+skinparam activityBackgroundColor #F0FAF3
+skinparam activityDiamondBorderColor #084C2D
+skinparam activityDiamondBackgroundColor #FFFFFF
+
+|Developer|
+start
+:Create account & choose skill track;
+:Accept assessment and AI-use policy;
+:Complete fundamentals checkpoint\n(AI restricted);
+:Complete engineering challenge\n(AI allowed and declared);
+
+|Scora Platform|
+:Run code in isolated sandbox;
+:Execute tests and static analysis;
+
+|Developer|
+:Complete code-grounded AI interview;
+:Diagnose and repair a hidden defect;
+:Implement a live requirement change;
+
+|Scora Platform|
+:Evaluate mandatory ownership gates;
+if (Ownership gates passed?) then (Yes)
+  :Combine correctness, quality,\nownership and integrity evidence;
+  if (High confidence?) then (Yes)
+    :Calculate SP, Trust Score\nand evidence confidence;
+  else (No)
+    |Human Reviewer|
+    :Inspect evidence and rubric;
+    :Confirm, adjust, or request follow-up;
+    |Scora Platform|
+    :Calculate versioned final result;
+  endif
+  :Publish verified Technical Report\nand Developer Passport;
+else (No)
+  :Keep skill track unverified;
+  :Publish evidence-based feedback;
+endif
+
+|Developer|
+if (Appeal or reassess?) then (Yes)
+  |Human Reviewer|
+  :Review appeal evidence;
+  |Scora Platform|
+  :Record reasoned decision;
+endif
+
+|Client|
+:Describe project requirements;
+:Search verified-only developer pool;
+:Compare evidence, recency,\nconfidence and availability;
+:Shortlist and contact developer;
+stop
+@enduml

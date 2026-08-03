@@ -1,0 +1,33 @@
+@startuml
+skinparam dpi 240
+title Scora — MVP Technology Stack
+top to bottom direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 16
+skinparam defaultFontName "Readex Pro"
+skinparam defaultFontColor #163126
+skinparam ArrowColor #084C2D
+skinparam rectangleBorderColor #16A34A
+skinparam rectangleBackgroundColor #F0FAF3
+
+rectangle "Experience\nNext.js  •  React  •  TypeScript" as frontend
+rectangle "Application API\nNestJS  •  TypeScript  •  Modular Monolith" as backend
+rectangle "Async Pipeline\nRedis  •  BullMQ" as async
+rectangle "Assessment Workers\nDockerized Linux Runners  •  Hardened Sandboxes" as workers
+rectangle "Analysis\nAutomated Tests  •  ESLint  •  Semgrep" as analysis
+rectangle "AI Layer\nProvider API behind versioned adapter" as ai
+rectangle "Data\nPostgreSQL  •  S3-compatible Object Storage" as data
+rectangle "Operations\nDocker  •  GitHub Actions  •  OpenTelemetry" as ops
+
+frontend --> backend : HTTPS / JSON
+backend --> async : enqueue assessment
+async --> workers : isolated job
+workers --> analysis : code evidence
+backend --> ai : interview & rubric
+analysis --> backend : structured metrics
+ai --> backend : structured evaluation
+backend --> data : transactional state & artifacts
+backend ..> ops
+workers ..> ops
+@enduml

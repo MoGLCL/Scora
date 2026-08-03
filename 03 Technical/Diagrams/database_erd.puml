@@ -1,0 +1,161 @@
+@startuml
+skinparam dpi 240
+title Scora — Database Draft (DBML / dbdiagram.io Model)
+hide methods
+hide stereotypes
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam defaultFontName "Readex Pro"
+skinparam defaultFontColor #163126
+skinparam ArrowColor #084C2D
+skinparam classBorderColor #16A34A
+skinparam classBackgroundColor #F0FAF3
+skinparam classHeaderBackgroundColor #DDF3E5
+skinparam classHeaderFontColor #084C2D
+
+entity users {
+  * id : uuid <<PK>>
+  --
+  email : varchar <<UQ>>
+  role : varchar
+  status : varchar
+}
+entity developer_profiles {
+  * id : uuid <<PK>>
+  --
+  user_id : uuid <<FK>>
+  display_name : varchar
+  passport_slug : varchar
+}
+entity client_profiles {
+  * id : uuid <<PK>>
+  --
+  user_id : uuid <<FK>>
+  organization_name : varchar
+}
+entity skills {
+  * id : uuid <<PK>>
+  --
+  slug : varchar
+  name : varchar
+}
+entity assessment_tracks {
+  * id : uuid <<PK>>
+  --
+  skill_id : uuid <<FK>>
+  level : varchar
+  version : int
+}
+entity challenges {
+  * id : uuid <<PK>>
+  --
+  track_id : uuid <<FK>>
+  version : int
+  rubric_version : varchar
+}
+entity assessment_attempts {
+  * id : uuid <<PK>>
+  --
+  developer_id : uuid <<FK>>
+  track_id : uuid <<FK>>
+  challenge_id : uuid <<FK>>
+  status : varchar
+}
+entity submissions {
+  * id : uuid <<PK>>
+  --
+  attempt_id : uuid <<FK>>
+  artifact_uri : varchar
+  language : varchar
+}
+entity test_runs {
+  * id : uuid <<PK>>
+  --
+  submission_id : uuid <<FK>>
+  passed_count : int
+  failed_count : int
+}
+entity quality_metrics {
+  * id : uuid <<PK>>
+  --
+  submission_id : uuid <<FK>>
+  analyzer_version : varchar
+  maintainability_score : decimal
+}
+entity interview_sessions {
+  * id : uuid <<PK>>
+  --
+  attempt_id : uuid <<FK>>
+  model_version : varchar
+  understanding_score : decimal
+}
+entity ownership_gate_results {
+  * id : uuid <<PK>>
+  --
+  attempt_id : uuid <<FK>>
+  gate_type : varchar
+  passed : boolean
+  score : decimal
+  rubric_version : varchar
+}
+entity human_reviews {
+  * id : uuid <<PK>>
+  --
+  attempt_id : uuid <<FK>>
+  reviewer_user_id : uuid <<FK>>
+  decision : varchar
+}
+entity trust_score_snapshots {
+  * id : uuid <<PK>>
+  --
+  developer_id : uuid <<FK>>
+  skill_id : uuid <<FK>>
+  attempt_id : uuid <<FK>>
+  skill_points : int
+  trust_score : decimal
+  confidence : decimal
+}
+entity technical_reports {
+  * id : uuid <<PK>>
+  --
+  snapshot_id : uuid <<FK>>
+  report_uri : varchar
+}
+entity opportunities {
+  * id : uuid <<PK>>
+  --
+  client_id : uuid <<FK>>
+  required_skill_id : uuid <<FK>>
+  status : varchar
+}
+entity shortlists {
+  * id : uuid <<PK>>
+  --
+  opportunity_id : uuid <<FK>>
+  developer_id : uuid <<FK>>
+}
+
+users ||--o| developer_profiles
+users ||--o| client_profiles
+users ||--o{ human_reviews : reviewer
+skills ||--o{ assessment_tracks
+assessment_tracks ||--o{ challenges
+developer_profiles ||--o{ assessment_attempts
+assessment_tracks ||--o{ assessment_attempts
+challenges ||--o{ assessment_attempts
+assessment_attempts ||--o{ submissions
+submissions ||--o{ test_runs
+submissions ||--o{ quality_metrics
+assessment_attempts ||--o| interview_sessions
+assessment_attempts ||--o{ ownership_gate_results
+assessment_attempts ||--o{ human_reviews
+assessment_attempts ||--o{ trust_score_snapshots
+skills ||--o{ trust_score_snapshots
+developer_profiles ||--o{ trust_score_snapshots
+trust_score_snapshots ||--o| technical_reports
+client_profiles ||--o{ opportunities
+skills ||--o{ opportunities
+opportunities ||--o{ shortlists
+developer_profiles ||--o{ shortlists
+@enduml

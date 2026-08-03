@@ -655,3 +655,36 @@ License: **TBD**
 Scora is currently under active development.
 
 Features, architecture, APIs, database structures, and technologies may change as the product evolves and technical decisions are validated.
+
+---
+
+# Phase 2 Repository Structure
+
+```text
+Scora/
+├── 01 Research/                         # Market, personas, evidence, validation
+├── 02 Business/                         # Business model and value proposition
+├── 03 Technical/                        # Technical research, architecture, diagrams
+├── 04 Deliverables/
+│   ├── Phase 1/                         # Phase 1 submission documents
+│   └── Phase 2/                         # Required Phase 2 deliverables
+│       ├── 01 - Feature List & Scope/
+│       ├── 02 - User Flow/
+│       ├── 03 - UI Screens/
+│       ├── 04 - Design System/
+│       ├── 05 - Repository/
+│       └── 06 - Implementation Structure/
+├── frontend/                            # Next.js application implementation
+├── backend/                             # Backend services and workers
+├── docs/                                # Shared project documentation
+├── assets/                              # Shared assets
+└── README.md
+```
+
+## Phase 2 links
+
+- Figma: https://www.figma.com/design/xRTj6lt28cQsDkz6bKwxBW/SCORA
+- Technical direction: `03 Technical/Scora - Technical Architecture & Next.js Plan.pdf`
+- Research summary: `01 Research/Scora - Research & Market Validation.pdf`
+
+The MVP web application is planned around Next.js. Supporting services (database, sandbox runtime, AST worker, authentication provider, and deployment target) are documented as decisions to finalize during implementation.
