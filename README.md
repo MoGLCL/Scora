@@ -1,4 +1,4 @@
-# 🚀 Scora
+# Scora
 
 > **Build Your Lucky Future**
 
@@ -12,7 +12,7 @@
 
 ---
 
-## 📌 About Scora
+## About Scora
 
 **Scora** is an AI-powered technical verification and freelance platform built specifically for software developers.
 
@@ -26,7 +26,7 @@ The platform aims to create a more reliable way for clients and companies to dis
 
 ---
 
-# 🎯 Problem
+# Problem
 
 The rapid adoption of AI coding tools has changed how software is developed.
 
@@ -44,7 +44,7 @@ This creates uncertainty during freelance hiring and technical recruitment.
 
 ---
 
-# 💡 Solution
+# Solution
 
 Scora creates a technical reputation layer for developers.
 
@@ -65,9 +65,9 @@ Companies and clients can then use these signals to make more informed hiring de
 
 ---
 
-# 👥 Target Users
+# Target Users
 
-### 👨‍💻 Developers
+### Developers
 
 Developers can:
 
@@ -79,7 +79,7 @@ Developers can:
 * Create a Developer Passport.
 * Showcase verified technical capabilities.
 
-### 👤 Clients
+### Clients
 
 Individual clients can:
 
@@ -90,7 +90,7 @@ Individual clients can:
 * Check verified skills.
 * Contact developers.
 
-### 🏢 Companies
+### Companies
 
 Companies can:
 
@@ -105,7 +105,7 @@ Companies can:
 
 ---
 
-# 🛠️ Tech Stack
+# Tech Stack
 
 > The stack below represents the current project architecture. Update versions/tools if the implementation changes.
 
@@ -148,7 +148,7 @@ Companies can:
 
 ---
 
-# 🏗️ Project Architecture
+# Project Architecture
 
 Scora follows a modular architecture separating the frontend, backend, shared resources, and documentation.
 
@@ -215,24 +215,10 @@ Database
 
 ---
 
-# 📂 Repository Structure
+# Repository Structure
 
 ```text
-Scora/
-│
-├── frontend/              # Frontend application
-│
-├── backend/               # Backend application
-│
-├── docs/                  # Project documentation
-│
-├── .github/
-│   └── workflows/         # GitHub Actions / CI
-│
-├── .env.example           # Environment variables template
-├── .gitignore
-├── README.md
-└── package.json
+Soon and sorry to late 
 ```
 
 ---
@@ -304,7 +290,7 @@ instead.
 
 ---
 
-# ▶️ Running the Project
+# Running the Project
 
 ## Start Backend
 
@@ -332,26 +318,26 @@ Frontend will run on the URL provided by the development server.
 
 ---
 
-# 🎨 Product Design
+# Product Design
 
 ## Figma
 
-🔗 **UI Design:**
+ **UI Design:**
 `[ADD FIGMA LINK]`
 
 ## User Flow
 
-🔗 **User Flow Diagram:**
+ **User Flow Diagram:**
 `[ADD USER FLOW LINK]`
 
 ## Design System
 
-🔗 **Design System / UI Kit:**
+ **Design System / UI Kit:**
 `[ADD DESIGN SYSTEM LINK]`
 
 ---
 
-# 🧩 Core Product Features
+# Core Product Features
 
 ## Developer
 
@@ -391,7 +377,7 @@ Frontend will run on the URL provided by the development server.
 
 ---
 
-# 🔐 Trust Engine
+# Trust Engine
 
 The **Trust Engine** is one of Scora's core product concepts.
 
@@ -413,7 +399,7 @@ Instead, multiple signals should contribute to an overall assessment integrity m
 
 ---
 
-# 📊 Skill Points & Trust Score
+# Skill Points & Trust Score
 
 ## Skill Points — SP
 
@@ -440,7 +426,7 @@ Trust Score
 
 ---
 
-# 🪪 Developer Passport
+# Developer Passport
 
 The Developer Passport is Scora's technical reputation profile.
 
@@ -460,7 +446,7 @@ The long-term goal is to make the Developer Passport portable and verifiable.
 
 ---
 
-# 🚧 Current Development Status
+# Current Development Status
 
 ## Phase 2 — Product Experience & Team Execution
 
@@ -488,7 +474,7 @@ The long-term goal is to make the Developer Passport portable and verifiable.
 * [ ] Testing
 * [ ] Deployment
 
-### 🔨 Current Focus
+###  Current Focus
 
 > **The team is currently working on the backend implementation and preparing the core system architecture, API structure, database layer, authentication, and foundational services required for the MVP.**
 
