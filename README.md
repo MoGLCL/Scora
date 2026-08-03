@@ -222,117 +222,17 @@ Soon and sorry to late
 
 ---
 
-# ⚙️ Environment Setup
-
-## 1. Clone the repository
-
-```bash
-git clone <REPOSITORY_URL>
-cd Scora
-```
-
-## 2. Install dependencies
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### Backend
-
-```bash
-cd ../backend
-npm install
-```
-
----
-
-## 3. Environment Variables
-
-Create a `.env` file based on `.env.example`.
-
-Example:
-
-```env
-PORT=5000
-
-DATABASE_URL=your_database_url
-
-JWT_SECRET=your_secret_key
-
-API_URL=http://localhost:5000
-
-FRONTEND_URL=http://localhost:3000
-```
-
-### Important
-
-Never commit the real `.env` file to GitHub.
-
-Use:
-
-```text
-.env
-```
-
-inside `.gitignore`.
-
-Commit:
-
-```text
-.env.example
-```
-
-instead.
-
----
-
-# Running the Project
-
-## Start Backend
-
-```bash
-cd backend
-npm run dev
-```
-
-Backend will run on:
-
-```text
-http://localhost:5000
-```
-
-## Start Frontend
-
-Open another terminal:
-
-```bash
-cd frontend
-npm run dev
-```
-
-Frontend will run on the URL provided by the development server.
-
----
-
 # Product Design
 
 ## Figma
 
  **UI Design:**
-`[ADD FIGMA LINK]`
-
-## User Flow
-
- **User Flow Diagram:**
-`[ADD USER FLOW LINK]`
+`https://www.figma.com/design/xRTj6lt28cQsDkz6bKwxBW/SCORA?node-id=234-2&t=Vs3nxGQALjQ225Gw-1`
 
 ## Design System
 
  **Design System / UI Kit:**
-`[ADD DESIGN SYSTEM LINK]`
+`(https://github.com/user-attachments/files/30656921/SCORA.pdf)`
 
 ---
 
