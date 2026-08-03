@@ -3,7 +3,6 @@
 > **Build Your Lucky Future**
 
 [![Status](https://img.shields.io/badge/Status-In%20Development-yellow)]()
-[![Phase](https://img.shields.io/badge/Phase-2-blue)]()
 [![Backend](https://img.shields.io/badge/Backend-In%20Development-orange)]()
 [![Frontend](https://img.shields.io/badge/Frontend-In%20Development-orange)]()
 [![Git](https://img.shields.io/badge/Git-Version%20Control-F05032?logo=git\&logoColor=white)]()
