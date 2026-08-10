@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/*
+  SCORA design tokens — source of truth is the Figma file:
+  https://www.figma.com/design/B8L6A9R6c7pCutZep7uXcS/SCORA  (page "Design System")
+  Primitive ramps build the brand; semantic roles are what the UI consumes.
+*/
+@theme {
+  /* Primitive / Green ramp */
+  --color-green-50: #f0faf3;
+  --color-green-100: #d4f5de;
+  --color-green-200: #a9e9bf;
+  --color-green-300: #74d99f;
+  --color-green-400: #48c779;
+  --color-green-500: #16a34a;
+  --color-green-600: #0e6d3b;
+  --color-green-700: #006b2c;
+  --color-green-800: #004021;
+  --color-green-900: #002110;
+
+  /* Primitive / Neutral ramp */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f7faf8;
+  --color-neutral-100: #eff5f0;
+  --color-neutral-200: #d6e3d9;
+  --color-neutral-300: #b8ccbd;
+  --color-neutral-400: #879b8d;
+  --color-neutral-500: #576b5c;
+  --color-neutral-600: #3e4a3d;
+  --color-neutral-700: #2a352d;
+  --color-neutral-900: #0e160f;
+
+  /* Semantic roles */
+  --color-primary: var(--color-green-700);
+  --color-background: var(--color-neutral-0);
+  --color-surface: var(--color-neutral-50);
+  --color-ink: var(--color-green-900);
+  --color-muted: var(--color-neutral-500);
+  --color-line: var(--color-neutral-200);
+  --color-success: #0e6d3b;
+  --color-warning: #9a6500;
+  --color-error: #ad2929;
+  --color-info: #186eca;
+
+  /* Landing-specific surfaces lifted from the refined frames */
+  --color-panel: #f5fbf7;
+  --color-track: #dbebe0;
+  --color-fill: #4ab86e;
+  --color-avatar: #f5fcf7;
+  --color-avatar-ring: #78c991;
+
+  /* Shape */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* Typography — Cairo headings, Tajawal body, Outfit technical, JetBrains mono */
+  --font-heading: var(--font-cairo), system-ui, sans-serif;
+  --font-body: var(--font-tajawal), system-ui, sans-serif;
+  --font-technical: var(--font-outfit), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+}
+
+@utility technical {
+  font-family: var(--font-technical);
+  font-weight: 800;
+}

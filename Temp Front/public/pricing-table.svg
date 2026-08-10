@@ -1,0 +1,1 @@
+<svg\" in line:\n                start = line.find(\"<svg\")\n                end = line.rfind(\"</svg>
