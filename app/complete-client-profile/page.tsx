@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { updateClientProfile } from "@/lib/actions/profile";
+import { uploadAvatar } from "@/lib/actions/upload";
 import {
   Building2,
   MapPin,
@@ -24,18 +25,27 @@ export default function CompleteClientProfilePage() {
   const router = useRouter();
   const { client, updateClient, addToast, userRole } = useProfile();
 
-  const [fullName, setFullName] = useState(client.fullName || "");
+  const existingNameParts=(client.fullName||"").trim().split(/\s+/);
+  const [firstName, setFirstName] = useState(existingNameParts[0]||"");
+  const [fatherName, setFatherName] = useState(existingNameParts[1]||"");
+  const [familyName, setFamilyName] = useState(existingNameParts.slice(2).join(" ")||"");
+  const fullName=[firstName,fatherName,familyName].map(x=>x.trim()).filter(Boolean).join(" ");
+  const [accountType, setAccountType] = useState<"personal" | "company">("personal");
+  const [companyName, setCompanyName] = useState(client.companyName || "");
   const [phone, setPhone] = useState(client.phone || "");
+  const [username, setUsername] = useState("");
   const [location, setLocation] = useState(client.location || "القاهرة، مصر");
   const [website, setWebsite] = useState(client.website || "");
-  const [industry, setIndustry] = useState("تكنولوجيا المعلومات والبرمجيات");
+  const [industry, setIndustry] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) {
-      setError("الاسم الشخصي إجباري");
+    if (!firstName.trim() || !fatherName.trim() || !familyName.trim()) {
+      setError("اكتب الاسم الأول واسم الأب واسم العائلة");
       return;
     }
 
@@ -43,8 +53,11 @@ export default function CompleteClientProfilePage() {
     setError("");
     const data = new FormData();
     data.set("displayName", fullName.trim());
-    data.set("companyName", "");
+    data.set("accountType", accountType);
+    data.set("companyName", accountType === "company" ? companyName.trim() : "");
+    data.set("industry", accountType === "company" ? industry : "");
     data.set("phone", phone);
+    data.set("username", username);
     data.set("location", location.trim());
     data.set("website", website.trim());
     const result = await updateClientProfile(undefined, data);
@@ -54,10 +67,10 @@ export default function CompleteClientProfilePage() {
       setLoading(false);
       return;
     }
-    updateClient({ companyName: "", fullName: fullName.trim(), phone, location: location.trim(), website: website.trim() });
+    if (avatarFile) { const avatarData=new FormData();avatarData.set("file",avatarFile);const uploaded=await uploadAvatar(avatarData);if(!uploaded.ok){setError(uploaded.error||"تعذر رفع الصورة");setLoading(false);return;} }
+    updateClient({ companyName: accountType === "company" ? companyName.trim() : "", fullName: fullName.trim(), phone, location: location.trim(), website: accountType === "company" ? website.trim() : "" });
     addToast("تم إكمال بيانات حساب العميل بنجاح!", "success");
     router.push("/dashboard");
-    router.refresh();
   };
 
   return (
@@ -92,26 +105,21 @@ export default function CompleteClientProfilePage() {
 
         {/* Form Container */}
         <form onSubmit={handleSubmit} className="bg-white rounded-[32px] border border-[#D1E3D6] p-8 md:p-10 space-y-6 shadow-sm">
+          <div className="flex flex-col items-center gap-3"><label className="group relative flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-[#C5E8D1] bg-[#E8FAF0] text-2xl font-extrabold text-[#056B38]">{avatarPreview?<img src={avatarPreview} alt="معاينة الصورة" className="h-full w-full object-cover"/>:<span>{fullName.trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("")||"؟"}</span>}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{const f=e.target.files?.[0]||null;setAvatarFile(f);if(f)setAvatarPreview(URL.createObjectURL(f))}}/></label><p className="text-xs text-[#526B5E]">صورة البروفايل اختيارية — لو سيبتها هنظهر أول حرفين من اسمك</p></div>
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#F7FAF8] p-2" role="group" aria-label="نوع حساب العميل">
+            <button type="button" onClick={()=>setAccountType("personal")} className={`h-11 rounded-xl font-bold ${accountType==="personal"?"bg-[#056B38] text-white":"text-[#526B5E]"}`}><User className="ml-2 inline h-4 w-4"/>حساب شخصي</button>
+            <button type="button" onClick={()=>setAccountType("company")} className={`h-11 rounded-xl font-bold ${accountType==="company"?"bg-[#056B38] text-white":"text-[#526B5E]"}`}><Building2 className="ml-2 inline h-4 w-4"/>حساب شركة</button>
+          </div>
           
           <div className="space-y-2">
-            <label className="block text-[13px] font-extrabold text-[#05291A]">
-              الاسم الكامل لمسؤول الحساب / العميل <span className="text-red-500">*</span>
-            </label>
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => {
-                  setFullName(e.target.value);
-                  if (error) setError("");
-                }}
-                placeholder="مثال: المهندس أحمد خالد"
-                className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 pr-11 text-[14px] font-body text-[#05291A] outline-none focus:border-[#056B38] focus:bg-white transition-all"
-              />
-              <User className="absolute right-4 w-5 h-5 text-[#526B5E]" />
-            </div>
+            <label className="block text-[13px] font-extrabold text-[#05291A]">اسم المستخدم للرابط العام <span className="text-red-500">*</span></label>
+            <input type="text" required minLength={3} maxLength={30} pattern="[a-z0-9_]+" value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} placeholder="ahmed_client" dir="ltr" className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-left" />
+            <p className="text-xs text-[#526B5E]">scora.app/profile/{username || "username"}</p>
           </div>
+
+          {accountType === "company" && <div className="space-y-2"><label className="block text-[13px] font-extrabold text-[#05291A]">اسم الشركة <span className="text-red-500">*</span></label><div className="relative flex items-center"><input required value={companyName} onChange={(e)=>setCompanyName(e.target.value)} placeholder="اسم الشركة الرسمي" className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 pr-11"/><Building2 className="absolute right-4 h-5 w-5 text-[#526B5E]"/></div></div>}
+
+          <div className="space-y-2"><label className="block text-[13px] font-extrabold text-[#05291A]">الاسم الثلاثي <span className="text-red-500">*</span></label><div className="grid gap-3 md:grid-cols-3"><input required value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="الاسم الأول" className="h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4"/><input required value={fatherName} onChange={e=>setFatherName(e.target.value)} placeholder="اسم الأب" className="h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4"/><input required value={familyName} onChange={e=>setFamilyName(e.target.value)} placeholder="اسم العائلة" className="h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4"/></div></div>
 
           <div className="space-y-2">
             <label className="block text-[13px] font-extrabold text-[#05291A]">
@@ -127,7 +135,7 @@ export default function CompleteClientProfilePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
+              <div className="space-y-2">
               <label className="block text-[13px] font-extrabold text-[#05291A]">
                 الموقع / المدينة داخل مصر
               </label>
@@ -143,24 +151,21 @@ export default function CompleteClientProfilePage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            {accountType === "company" && <div className="space-y-2">
               <label className="block text-[13px] font-extrabold text-[#05291A]">
                 مجال العمل الرئيسي
               </label>
-              <select
+              <input
+                type="text"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
+                placeholder="اكتب مجال عمل الشركة"
                 className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-[14px] font-body text-[#05291A] outline-none focus:border-[#056B38] focus:bg-white transition-all cursor-pointer"
-              >
-                <option value="تكنولوجيا المعلومات والبرمجيات">تكنولوجيا المعلومات والبرمجيات</option>
-                <option value="المنصات التعليمية والتجارة الإلكترونية">المنصات التعليمية والتجارة الإلكترونية</option>
-                <option value="حلول الذكاء الاصطناعي">حلول الذكاء الاصطناعي</option>
-                <option value="خدمات الأعمال والأنظمة">خدمات الأعمال والأنظمة</option>
-              </select>
-            </div>
+              />
+            </div>}
           </div>
 
-          <div className="space-y-2">
+          {accountType === "company" && <div className="space-y-2">
             <label className="block text-[13px] font-extrabold text-[#05291A]">
               موقع الشركة الإلكتروني (اختياري)
             </label>
@@ -174,7 +179,7 @@ export default function CompleteClientProfilePage() {
               />
               <Globe className="absolute right-4 w-5 h-5 text-[#526B5E]" />
             </div>
-          </div>
+          </div>}
 
           <button
             type="submit"

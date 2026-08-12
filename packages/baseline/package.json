@@ -1,0 +1,28 @@
+{
+  "name": "@scora/trust-baseline",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Per-developer behavioural baselines and population statistics, used to interpret behaviour relative to the person rather than to a global threshold.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@scora/trust-storage",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Append-only evidence storage and the ingestion pipeline: validation, idempotency, hash-chain linking, consent enforcement.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./sqlite": {
+      "development": "./src/sqlite.ts",
+      "types": "./dist/sqlite.d.ts",
+      "default": "./dist/sqlite.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}

@@ -5,9 +5,11 @@ import { z } from "zod";
 
 import { execute, query, queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
+import { createSession } from "@/lib/session";
 
 export interface ActionState {
   ok?: boolean;
+  projectId?: number;
   error?: string;
   fieldErrors?: Record<string, string[]>;
 }
@@ -16,11 +18,12 @@ const PhoneSchema = z.string().trim().transform((v) =>
   v.replace(/[\s\-()]/g, "").replace(/^(?:\+?20|0020)/, "").replace(/^0+/, "")
 ).refine((v) => /^1[0-25]\d{8}$/.test(v), "رقم الهاتف المصري غير صالح")
   .transform((v) => `0${v}`);
+const UsernameSchema = z.string().trim().toLowerCase().min(3).max(30).regex(/^[a-z0-9_]+$/, "اسم المستخدم يقبل حروف إنجليزية وأرقام وشرطة سفلية فقط");
 
 // ─── Developer profile ────────────────────────────────────────────────────
 
 const DeveloperProfileSchema = z.object({
-  displayName: z.string().trim().min(2).max(255),
+  displayName: z.string().trim().max(255).refine(v=>v.split(/\s+/).filter(Boolean).length>=3,"اكتب الاسم الأول واسم الأب واسم العائلة"),
   jobTitle: z.string().trim().max(255).optional().or(z.literal("")),
   bio: z.string().trim().max(5000).optional().or(z.literal("")),
   location: z.string().trim().max(255).optional().or(z.literal("")),
@@ -29,6 +32,7 @@ const DeveloperProfileSchema = z.object({
   linkedin: z.string().trim().url().max(500).optional().or(z.literal("")),
   website: z.string().trim().url().max(500).optional().or(z.literal("")),
   phone: PhoneSchema,
+  username: UsernameSchema,
 });
 
 export async function updateDeveloperProfile(
@@ -49,11 +53,14 @@ export async function updateDeveloperProfile(
     linkedin: formData.get("linkedin") ?? "",
     website: formData.get("website") ?? "",
     phone: formData.get("phone") ?? "",
+    username: formData.get("username") ?? "",
   });
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const d = parsed.data;
+  const taken = await queryOne<{ id: number }>("SELECT id FROM users WHERE username = ? AND id <> ?", [d.username, session.userId]);
+  if (taken) return { error: "اسم المستخدم مستخدم بالفعل" };
 
   await execute(
     `UPDATE developers SET
@@ -66,10 +73,11 @@ export async function updateDeveloperProfile(
       session.userId,
     ]
   );
-  await execute("UPDATE users SET full_name = ?, phone = ? WHERE id = ?", [
-    d.displayName, d.phone,
+  await execute("UPDATE users SET full_name = ?, username = ?, phone = ?, onboarding_completed_at = CURRENT_TIMESTAMP WHERE id = ?", [
+    d.displayName, d.username, d.phone,
     session.userId,
   ]);
+  await createSession(session.userId, "developer", true, session.isAdmin);
 
   revalidatePath("/profile");
   revalidatePath("/developers");
@@ -99,6 +107,9 @@ export async function setDeveloperSkills(slugs: string[]): Promise<ActionState> 
     `SELECT id FROM skills WHERE slug IN (${placeholders}) OR name IN (${placeholders})`,
     [...slugs, ...slugs]
   );
+  if (skills.length !== new Set(slugs.map((slug) => slug.trim().toLowerCase())).size) {
+    return { error: "واحدة أو أكثر من المهارات غير موجودة في قائمة مهارات المنصة" };
+  }
 
   await transaction(async (conn) => {
     await conn.execute("DELETE FROM developer_skills WHERE developer_id = ?", [dev.id]);
@@ -118,11 +129,13 @@ export async function setDeveloperSkills(slugs: string[]): Promise<ActionState> 
 // ─── Client profile ───────────────────────────────────────────────────────
 
 const ClientProfileSchema = z.object({
-  displayName: z.string().trim().min(2).max(255),
+  accountType: z.enum(["personal", "company"]),
+  displayName: z.string().trim().max(255).refine(v=>v.split(/\s+/).filter(Boolean).length>=3,"اكتب الاسم الأول واسم الأب واسم العائلة"),
   companyName: z.string().trim().max(255).optional().or(z.literal("")),
   website: z.string().trim().url().max(500).optional().or(z.literal("")),
   location: z.string().trim().max(255).optional().or(z.literal("")),
   phone: PhoneSchema,
+  username: UsernameSchema,
 });
 
 export async function updateClientProfile(
@@ -135,20 +148,26 @@ export async function updateClientProfile(
 
   const parsed = ClientProfileSchema.safeParse({
     displayName: formData.get("displayName"),
+    accountType: formData.get("accountType"),
     companyName: formData.get("companyName") ?? "",
     website: formData.get("website") ?? "",
     location: formData.get("location") ?? "",
     phone: formData.get("phone") ?? "",
+    username: formData.get("username") ?? "",
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const c = parsed.data;
+  if (c.accountType === "company" && !c.companyName) return { error: "اسم الشركة مطلوب لحساب الشركة" };
+  const taken = await queryOne<{ id: number }>("SELECT id FROM users WHERE username = ? AND id <> ?", [c.username, session.userId]);
+  if (taken) return { error: "اسم المستخدم مستخدم بالفعل" };
 
   await execute(
-    `UPDATE clients SET display_name = ?, company_name = ?, website = ?, location = ?, phone = ?
+    `UPDATE clients SET display_name = ?, account_type = ?, company_name = ?, industry = ?, website = ?, location = ?, phone = ?
      WHERE user_id = ?`,
-    [c.displayName, c.companyName || null, c.website || null, c.location || null, c.phone, session.userId]
+    [c.displayName, c.accountType, c.accountType === "company" ? (c.companyName || null) : null, c.accountType === "company" ? String(formData.get("industry") || "") || null : null, c.accountType === "company" ? c.website || null : null, c.location || null, c.phone, session.userId]
   );
-  await execute("UPDATE users SET full_name = ?, phone = ? WHERE id = ?", [c.displayName, c.phone, session.userId]);
+  await execute("UPDATE users SET full_name = ?, username = ?, phone = ?, onboarding_completed_at = CURRENT_TIMESTAMP WHERE id = ?", [c.displayName, c.username, c.phone, session.userId]);
+  await createSession(session.userId, "client", true, session.isAdmin);
 
   revalidatePath("/client-profile");
   return { ok: true };
@@ -160,10 +179,14 @@ const ProjectSchema = z.object({
   title: z.string().trim().min(5, "العنوان قصير جدًا").max(255),
   category: z.string().trim().max(100).optional().or(z.literal("")),
   description: z.string().trim().min(20, "الوصف قصير جدًا").max(10000),
-  budgetFrom: z.coerce.number().int().nonnegative(),
-  budgetTo: z.coerce.number().int().nonnegative(),
-  deadlineDays: z.coerce.number().int().positive().max(365),
+  budgetFrom: z.coerce.number().int().min(1000, "أقل ميزانية مسموحة للمشروع هي 1000 جنيه"),
+  budgetTo: z.coerce.number().int().min(1000, "أقل ميزانية مسموحة للمشروع هي 1000 جنيه"),
+  deadlineDays: z.preprocess(
+    (value) => value === "" || value === null ? undefined : value,
+    z.coerce.number().int().positive("مدة التسليم يجب أن تكون يومًا واحدًا على الأقل").max(365).optional()
+  ),
   skills: z.array(z.string()).default([]),
+  deliverables: z.array(z.string().trim().min(1).max(500)).max(30).default([]),
 });
 
 export async function createProject(
@@ -184,6 +207,7 @@ export async function createProject(
     budgetTo: formData.get("budgetTo"),
     deadlineDays: formData.get("deadlineDays"),
     skills: formData.getAll("skills").map(String),
+    deliverables: formData.getAll("deliverables").map(String),
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const p = parsed.data;
@@ -198,17 +222,17 @@ export async function createProject(
   );
   if (!client) return { error: "حساب العميل غير موجود" };
 
-  await execute(
+  const result = await execute(
     `INSERT INTO projects
-       (client_id, title, category, description, budget_from, budget_to, deadline_days, skills_json)
-     VALUES (?,?,?,?,?,?,?,?)`,
+       (client_id, title, category, description, budget_from, budget_to, deadline_days, skills_json, deliverables_json)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
     [client.id, p.title, p.category || null, p.description, p.budgetFrom, p.budgetTo,
-     p.deadlineDays, JSON.stringify(p.skills)]
+     p.deadlineDays ?? null, JSON.stringify(p.skills), JSON.stringify(p.deliverables)]
   );
 
   revalidatePath("/projects");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, projectId: result.insertId };
 }
 
 // ─── Proposals ────────────────────────────────────────────────────────────
@@ -223,6 +247,7 @@ const ProposalSchema = z.object({
 /** Shape the project-detail feed renders. */
 export interface ProposalFeedItem {
   id: string;
+  developerUserId: number;
   devName: string;
   role: string;
   trustScore: number;
@@ -255,11 +280,12 @@ export async function submitProposal(input: {
 
   const dev = await queryOne<{
     id: number;
+    user_id: number;
     display_name: string;
     job_title: string | null;
     trust_score: number;
   }>(
-    "SELECT id, display_name, job_title, trust_score FROM developers WHERE user_id = ?",
+    "SELECT id, user_id, display_name, job_title, trust_score FROM developers WHERE user_id = ?",
     [session.userId]
   );
   if (!dev) return { ok: false, error: "الملف الشخصي غير موجود" };
@@ -290,6 +316,7 @@ export async function submitProposal(input: {
     ok: true,
     proposal: {
       id: String(result.insertId || `${p.projectId}-${dev.id}`),
+      developerUserId: dev.user_id,
       devName: dev.display_name,
       role: dev.job_title ?? "",
       trustScore: dev.trust_score,

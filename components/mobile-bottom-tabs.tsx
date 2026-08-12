@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useProfile } from "@/components/profile-provider";
 import {
   Home,
@@ -18,8 +18,7 @@ import {
 
 export function MobileBottomTabs() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { userRole, setUserRole, developer, client } = useProfile();
+  const { userRole, isAdmin, username, developer, client } = useProfile();
 
   const [isDropUpOpen, setIsDropUpOpen] = useState(false);
 
@@ -38,9 +37,10 @@ export function MobileBottomTabs() {
   const safeActiveIndex = isProfileActive ? 4 : (activeIndex >= 0 ? activeIndex : 0);
 
   const currentUserName = userRole === "developer" ? developer.fullName : userRole === "client" ? client.fullName : "حساب مدير الإدارة";
-  const currentUserEmail = userRole === "developer" ? developer.email : userRole === "client" ? client.email : "admin@scora.dev";
+  const currentUserEmail = userRole === "developer" ? developer.email : userRole === "client" ? client.email : "";
   const roleBadgeLabel = userRole === "developer" ? "مطور برمجيات" : userRole === "client" ? "عميل" : "مدير النظام";
 
+  if(userRole === "guest") return <div className="fixed bottom-0 left-0 right-0 z-40 flex gap-3 border-t bg-white p-3 min-[950px]:hidden"><Link href="/login" className="flex-1 rounded-full border border-[#056B38] py-3 text-center font-bold text-[#056B38]">تسجيل الدخول</Link><Link href="/register" className="flex-1 rounded-full bg-[#056B38] py-3 text-center font-bold text-white">إنشاء حساب</Link></div>;
   return (
     <div className="block min-[950px]:hidden fixed bottom-0 left-0 right-0 z-40 font-body dir-rtl" dir="rtl">
       
@@ -82,7 +82,7 @@ export function MobileBottomTabs() {
 
           {/* Quick Menu Links */}
           <div className="space-y-1">
-            {userRole === "admin" && (
+            {isAdmin && (
               <Link
                 href="/admin"
                 onClick={() => setIsDropUpOpen(false)}
@@ -94,7 +94,7 @@ export function MobileBottomTabs() {
             )}
 
             <Link
-              href={userRole === "developer" ? "/profile" : "/client-profile"}
+              href={`/profile/${username}`}
               onClick={() => setIsDropUpOpen(false)}
               className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
             >
@@ -111,8 +111,10 @@ export function MobileBottomTabs() {
               <span>لوحة التحكم (Dashboard)</span>
             </Link>
 
+            <Link href="/chat" onClick={() => setIsDropUpOpen(false)} className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"><MessageSquare className="w-4 h-4 text-[#056B38]"/><span>المحادثات</span></Link>
+
             <Link
-              href={userRole === "developer" ? "/profile/edit" : "/client-profile/edit"}
+              href={`/profile/${username}/edit`}
               onClick={() => setIsDropUpOpen(false)}
               className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
             >
@@ -123,17 +125,12 @@ export function MobileBottomTabs() {
 
           {/* Logout Action */}
           <div className="pt-3 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={() => {
-                setUserRole("guest");
-                setIsDropUpOpen(false);
-                router.push("/");
-              }}
+            <a
+              href="/api/auth/logout"
               className="w-full py-2.5 rounded-[12px] bg-red-50 hover:bg-red-100 text-red-600 font-bold text-[13px] transition-colors cursor-pointer"
             >
               تسجيل الخروج
-            </button>
+            </a>
           </div>
 
         </div>

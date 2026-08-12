@@ -1,0 +1,31 @@
+{
+  "name": "@scora/trust-calibration",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Anti-false-positive calibration: the labelled corpus, the error rates, and the gates that stop a regression reaching a real developer.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0",
+    "@scora/trust-review": "0.1.0",
+    "@scora/trust-scoring": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\"",
+    "calibrate": "node --conditions=development src/cli.ts"
+  }
+}

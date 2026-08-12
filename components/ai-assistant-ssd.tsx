@@ -26,7 +26,7 @@ interface ChatMessage {
 
 export function AiAssistantSsd() {
   const router = useRouter();
-  const { userRole, developer, client, systemSettings, showSsdAssistant, setShowSsdAssistant, addToast } = useProfile();
+  const { userRole, isAdmin, developer, client, systemSettings, showSsdAssistant, setShowSsdAssistant, addToast } = useProfile();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -64,7 +64,7 @@ export function AiAssistantSsd() {
   ];
 
   const activePrompts =
-    userRole === "admin"
+    isAdmin
       ? adminPrompts
       : userRole === "developer"
       ? developerPrompts
@@ -77,7 +77,7 @@ export function AiAssistantSsd() {
     const timer = setInterval(() => {
       setCurrentPromptIndex((prev) => (prev + 1) % activePrompts.length);
       const expressions: Array<"normal" | "happy" | "wink" | "excited"> = ["normal", "happy", "wink", "excited"];
-      setEyeState(expressions[Math.floor(Math.random() * expressions.length)]);
+      setEyeState(expressions[(currentPromptIndex + 1) % expressions.length]);
     }, 5000);
     return () => clearInterval(timer);
   }, [activePrompts.length]);
@@ -187,7 +187,7 @@ export function AiAssistantSsd() {
       let actions: Array<{ label: string; action: () => void }> | undefined = undefined;
 
       const lower = userMsgText.toLowerCase();
-      if (userRole === "admin") {
+      if (isAdmin) {
         if (lower.includes("مقارنة") || lower.includes("مقارنه") || lower.includes("قارن")) {
           responseText = "أقدر أقارن لك بين المطورين والعملاء، الحسابات النشطة والمحظورة، أو المطورين حسب Trust Score وSP. البيانات تتحدث تلقائيًا من قاعدة البيانات.";
           actions = [{ label: "فتح إدارة المستخدمين", action: () => { router.push("/admin"); handleCloseChat(); } }];

@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { updateDeveloperProfile, setDeveloperSkills } from "@/lib/actions/profile";
 import { EgyptianLocationSelector } from "@/components/egyptian-location-selector";
+import { useRouter } from "next/navigation";
 import {
   User,
   Phone,
@@ -79,6 +80,7 @@ const SKILLS_MASTER_LIST = [
 ];
 
 export default function DeveloperOnboardingPage() {
+  const router = useRouter();
   const { developer, updateDeveloper, setUserRole, addToast } = useProfile();
 
   // Multi-step state
@@ -89,6 +91,7 @@ export default function DeveloperOnboardingPage() {
   const [fatherName, setFatherName] = useState(developer.fullName.split(" ")[1] || "");
   const [familyName, setFamilyName] = useState(developer.fullName.split(" ")[2] || "");
   const [phone, setPhone] = useState(developer.phone || "");
+  const [username, setUsername] = useState("");
 
   // Step 2: Academic Info
   const [qualificationType, setQualificationType] = useState("university");
@@ -190,6 +193,7 @@ export default function DeveloperOnboardingPage() {
     data.set("bio", bio);
     data.set("location", location);
     data.set("phone", phone);
+    data.set("username", username);
     data.set("availability", "available");
     data.set("github", github);
     data.set("linkedin", linkedin);
@@ -218,7 +222,7 @@ export default function DeveloperOnboardingPage() {
 
     setUserRole("developer");
     addToast("تهانينا! تم تفعيل الجواز الرقمي وبدء حساب المطور بنجاح.", "success");
-    window.location.href = "/profile";
+    router.push(`/profile/${username}`);
   };
 
   const fullNameDisplay = `${firstName} ${fatherName} ${familyName}`.trim() || "اسم المطور";
@@ -663,7 +667,13 @@ export default function DeveloperOnboardingPage() {
                 </span>
               </div>
 
-              <div className="space-y-2">
+                    <div className="space-y-2">
+                      <label className="block text-[13px] font-extrabold text-[#05291A]">اسم المستخدم للرابط العام</label>
+                      <input type="text" required minLength={3} maxLength={30} pattern="[a-z0-9_]+" value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} placeholder="mohamed_dev" className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-left" dir="ltr" />
+                      <p className="text-xs text-[#526B5E]">scora.app/profile/{username || "username"}</p>
+                    </div>
+
+                    <div className="space-y-2">
                 <h4 className="text-[20px] font-bold text-white font-heading">{fullNameDisplay}</h4>
                 <p className="text-[13px] text-[#D4F5E0] font-bold">{primaryTrack.split(" (")[0]}</p>
                 <div className="flex flex-col gap-1 text-[12px] text-neutral-300 pt-1">

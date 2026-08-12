@@ -22,23 +22,22 @@ import {
 } from "lucide-react";
 
 export default function CreateProjectOfferPage() {
-  const { client, addToast } = useProfile();
+  const { addToast } = useProfile();
 
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Full-Stack Web");
-  const [budgetFrom, setBudgetFrom] = useState("15000");
-  const [budgetTo, setBudgetTo] = useState("30000");
-  const [deadline, setDeadline] = useState("14");
+  const [category, setCategory] = useState("");
+  const [budgetFrom, setBudgetFrom] = useState("");
+  const [budgetTo, setBudgetTo] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [description, setDescription] = useState("");
   const [deliverablesInput, setDeliverablesInput] = useState("");
-  const [deliverables, setDeliverables] = useState<string[]>([
-    "بناء وتصميم واجهات المستخدم المتجاوبة.",
-    "ربط الـ APIs وقواعد البيانات.",
-  ]);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(["React.js", "Node.js", "TypeScript"]);
+  const [deliverables, setDeliverables] = useState<string[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [customSkillInput, setCustomSkillInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
+  const [formError, setFormError] = useState("");
 
   const availableSkills = ["React.js", "Next.js", "Node.js", "TypeScript", "Python", "Flutter", "PostgreSQL", "Tailwind CSS"];
 
@@ -67,16 +66,23 @@ export default function CreateProjectOfferPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
     if (!title.trim() || !description.trim()) {
-      addToast("يرجى ملء جميع الحقول المطلوبة لإنشاء العرض", "warn");
+      const message = "يرجى كتابة عنوان المشروع ووصف واضح له";
+      setFormError(message);
+      addToast(message, "warn");
       return;
     }
 
     const numFrom = Number(budgetFrom);
     const numTo = Number(budgetTo);
 
-    if (isNaN(numFrom) || isNaN(numTo) || numFrom < 1000 || numTo <= numFrom) {
-      addToast("يرجى إدخال نطاق ميزانية منطقي (الميزانية الأقصى يجب أن تكون أكبر من الميزانية الأدنى)", "warn");
+    if (!Number.isInteger(numFrom) || !Number.isInteger(numTo) || numFrom < 1000 || numTo < numFrom) {
+      const message = numFrom < 1000 || numTo < 1000
+        ? "أقل ميزانية مسموحة للمشروع هي 1000 جنيه"
+        : "الميزانية النهائية لا يمكن أن تكون أقل من الميزانية الابتدائية";
+      setFormError(message);
+      addToast(message, "warn");
       return;
     }
 
@@ -89,13 +95,17 @@ export default function CreateProjectOfferPage() {
     data.set("budgetTo", budgetTo);
     data.set("deadlineDays", deadline);
     selectedSkills.forEach((skill) => data.append("skills", skill));
+    deliverables.forEach((deliverable) => data.append("deliverables", deliverable));
     const result = await createProject(undefined, data);
     setIsSubmitting(false);
-    if (result.error) {
-      addToast(result.error, "warn");
+    if (!result.ok) {
+      const message = result.error ?? Object.values(result.fieldErrors ?? {}).flat()[0] ?? "تعذر نشر المشروع";
+      setFormError(message);
+      addToast(message, "warn");
       return;
     }
     setIsPublished(true);
+    setCreatedProjectId(result.projectId ?? null);
     addToast("تم نشر المشروع بنجاح", "success");
     /*
       setIsSubmitting(false);
@@ -143,11 +153,11 @@ export default function CreateProjectOfferPage() {
               تم نشر عرض المشروع بنجاح!
             </h2>
             <p className="text-[15px] text-[#526B5E] max-w-md mx-auto">
-              مشروعك "{title}" أصبح متاحاً الآن في سوق المشاريع. يمكنك متابعة المتقدمين وإجراء المقابلات واختيار المطور المناسب.
+              مشروعك «{title}» أصبح متاحاً الآن في سوق المشاريع. يمكنك متابعة المتقدمين وإجراء المقابلات واختيار المطور المناسب.
             </p>
             <div className="flex justify-center gap-4 pt-2">
               <Link
-                href="/projects/1/proposals"
+                href={createdProjectId ? `/projects/${createdProjectId}/proposals` : "/projects"}
                 className="h-[46px] px-8 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white text-[14px] font-bold transition-all flex items-center gap-2 shadow-xs"
               >
                 <span>متابعة العروض المتقدمة</span>
@@ -163,6 +173,7 @@ export default function CreateProjectOfferPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 md:p-10 space-y-8 shadow-2xs">
+            {formError && <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{formError}</div>}
             
             {/* Project Basic Info */}
             <div className="space-y-6">
@@ -182,12 +193,25 @@ export default function CreateProjectOfferPage() {
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-[#05291A]">تصنيف المشروع</label>
+                <input
+                  type="text"
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  placeholder="مثال: متجر إلكتروني، تطبيق موبايل، لوحة تحكم"
+                  className="w-full h-[48px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[14px] text-[#05291A] outline-none focus:border-[#056B38]"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#05291A]">الميزانية من (ج.م) <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     required
+                    min={1000}
+                    step={1}
                     value={budgetFrom}
                     onChange={(e) => setBudgetFrom(e.target.value)}
                     className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38]"
@@ -199,16 +223,22 @@ export default function CreateProjectOfferPage() {
                   <input
                     type="number"
                     required
+                    min={Math.max(1000, Number(budgetFrom) || 1000)}
+                    step={1}
                     value={budgetTo}
                     onChange={(e) => setBudgetTo(e.target.value)}
                     className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38]"
                   />
+                  <p className="text-[11px] text-[#526B5E]">ينفع تكتب نفس الرقم في «من» و«إلى» لو دي ميزانية المشروع الثابتة.</p>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#05291A]">مدة التسليم التقديرية (بالأيام)</label>
                   <input
                     type="number"
+                    min={1}
+                    max={365}
+                    step={1}
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
                     className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38]"

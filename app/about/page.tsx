@@ -80,7 +80,7 @@ export default function AboutPage() {
           </p>
           <div className="pt-2">
             <Link
-              href="/complete-profile"
+              href="/register"
               className="inline-flex items-center gap-2 rounded-full bg-white text-[#056B38] hover:bg-neutral-100 px-8 py-3.5 text-[14px] font-bold transition-all shadow-sm"
             >
               <span>أكمل جوازك الرقمي الآن</span>

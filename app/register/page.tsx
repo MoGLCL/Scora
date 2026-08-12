@@ -3,17 +3,15 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { SocialGrid } from "@/components/auth/social-grid";
-import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Code, Briefcase, Phone } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Code, Briefcase } from "lucide-react";
 import { register } from "@/lib/actions/auth";
 import { useProfile } from "@/components/profile-provider";
 
 export default function RegisterPage() {
   const { setUserRole, addToast, userRole, developer, client } = useProfile();
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"developer" | "client">("developer");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -26,8 +24,6 @@ export default function RegisterPage() {
         window.location.href = (!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard";
       } else if (userRole === "client") {
         window.location.href = !client.fullName ? "/complete-client-profile" : "/dashboard";
-      } else if (userRole === "admin") {
-        window.location.href = "/admin";
       }
     }
   }, [userRole, developer, client]);
@@ -38,7 +34,7 @@ export default function RegisterPage() {
     setErrorMsg("");
 
     // Strict Frontend Validation
-    if (!username.trim() || username.trim().length < 3) {
+    if (!fullName.trim() || fullName.trim().length < 3) {
       const err = "يرجى أدخل الاسم الكامل (لا يقل عن 3 أحرف)";
       setErrorMsg(err);
       addToast(err, "warn");
@@ -62,6 +58,7 @@ export default function RegisterPage() {
       return;
     }
 
+    /* Phone is collected and verified as part of mandatory onboarding.
     const cleanPhone = phone.replace(/[\s\-()]/g, "");
     if (!cleanPhone || cleanPhone.length < 10) {
       const err = "يرجى إدخال رقم موبايل مصري صحيح (مثال: 01012345678)";
@@ -69,7 +66,7 @@ export default function RegisterPage() {
       addToast(err, "warn");
       setLoading(false);
       return;
-    }
+    } */
 
     if (!acceptedTerms) {
       const err = "يجب التحديد بالموافقة على الشروط والأحكام وسياسة جمع وتوثيق نتائج التقييمات والمقابلات للمتابعة";
@@ -80,9 +77,8 @@ export default function RegisterPage() {
     }
 
     const formData = new FormData();
-    formData.append("fullName", username);
+    formData.append("fullName", fullName);
     formData.append("email", email);
-    formData.append("phone", phone);
     formData.append("password", password);
     formData.append("role", role);
 
@@ -179,15 +175,15 @@ export default function RegisterPage() {
                   type="text"
                   required
                   placeholder="أدخل اسمك الكامل"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-ink placeholder:text-neutral-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
                 />
                 <User className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Phone Number Field */}
+            {/* Phone belongs to onboarding, not account registration.
             <div>
               <label className="block text-[14px] font-bold text-ink mb-2">
                 رقم الموبايل
@@ -204,7 +200,7 @@ export default function RegisterPage() {
                 />
                 <Phone className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
               </div>
-            </div>
+            </div> */}
 
             {/* Email Field */}
             <div>
@@ -287,9 +283,6 @@ export default function RegisterPage() {
               <ArrowLeft className="w-5 h-5" />
             </button>
           </form>
-
-          {/* Social Login Grid */}
-          <SocialGrid label="أو التسجيل السريع بواسطة" />
 
           {/* Footer Link */}
           <div className="text-center text-[14px] text-muted">

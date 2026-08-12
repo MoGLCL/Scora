@@ -10,11 +10,13 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "scora_session";
 
-export type AppRole = "developer" | "client" | "admin";
+export type AppRole = "developer" | "client";
 
 export interface SessionPayload {
   userId: number;
   role: AppRole;
+  isAdmin?: boolean;
+  onboardingCompleted?: boolean;
   [key: string]: unknown;
 }
 
@@ -54,8 +56,8 @@ export async function decrypt(token?: string): Promise<SessionPayload | null> {
     const userId = Number(payload.userId);
     const role = payload.role;
     if (!Number.isInteger(userId) || userId <= 0) return null;
-    if (role !== "developer" && role !== "client" && role !== "admin") return null;
-    return { userId, role };
+    if (role !== "developer" && role !== "client") return null;
+    return { userId, role, isAdmin: payload.isAdmin === true, onboardingCompleted: payload.onboardingCompleted === true };
   } catch {
     return null;
   }

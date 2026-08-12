@@ -24,6 +24,7 @@ import {
 
 export interface ProposalComment {
   id: string;
+  developerUserId: number;
   devName: string;
   role: string;
   trustScore: number;
@@ -55,15 +56,12 @@ export function ProjectDetailClient({
   project: ProjectDetail;
   initialProposals: ProposalComment[];
 }) {
-  const { developer, userRole, addToast } = useProfile();
+  const { userRole, addToast } = useProfile();
 
   // Proposal Form State
-  const [proposedPrice, setProposedPrice] = useState("20000");
-  const [deliveryDays, setDeliveryDays] = useState("14");
-  const [proposalCover, setProposalCover] = useState(
-    "أستطيع تنفيذ وتطوير الواجهات المتجاوبة وربط الـ APIs مع اختبارات أوتوماتيكية سريعة لتسليم لوحة التحكم كاملة."
-  );
-  const [attachPassport, setAttachPassport] = useState(true);
+  const [proposedPrice, setProposedPrice] = useState("");
+  const [deliveryDays, setDeliveryDays] = useState("");
+  const [proposalCover, setProposalCover] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initial Public Proposal Comments Feed
@@ -190,7 +188,7 @@ export function ProjectDetailClient({
             </div>
 
             {/* ADD PROPOSAL FORM (FORM FOR DEVELOPER TO SUBMIT PROPOSAL COMMENT) */}
-            <div className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-6 shadow-2xs">
+            {userRole === "developer" && <div className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-6 shadow-2xs">
               <div>
                 <h2 className="text-[22px] font-extrabold text-[#05291A] font-heading">
                   إضافة عرض وتأكيد خطة العمل (Submit Proposal Comment)
@@ -256,20 +254,6 @@ export function ProjectDetailClient({
                   />
                 </div>
 
-                {/* Checkbox Attach Passport */}
-                <div className="flex items-center gap-3 p-4 rounded-[14px] bg-[#E8FAF0] border border-[#D1E3D6]">
-                  <input
-                    id="attach-passport"
-                    type="checkbox"
-                    checked={attachPassport}
-                    onChange={(e) => setAttachPassport(e.target.checked)}
-                    className="w-4 h-4 accent-[#056B38] cursor-pointer"
-                  />
-                  <label htmlFor="attach-passport" className="text-[13px] font-bold text-[#05291A] cursor-pointer">
-                    إرفاق شارة نقاط الثقة والجواز الرقمي (Verified Passport - {developer.trustScore || 92}% Trust Score)
-                  </label>
-                </div>
-
                 {/* Submit Proposal Comment Button */}
                 <button
                   type="submit"
@@ -281,7 +265,7 @@ export function ProjectDetailClient({
                 </button>
 
               </form>
-            </div>
+            </div>}
 
             {/* PUBLIC PROPOSALS COMMENTS FEED (SHOWS HOW MANY PROPOSALS AND EACH OFFER) */}
             <div className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-6 shadow-2xs">
@@ -335,9 +319,9 @@ export function ProjectDetailClient({
 
                     <div className="flex items-center justify-between text-[11px] text-[#526B5E] pt-1">
                       <span>{prop.timeAgo}</span>
-                      <Link href="/chat" className="font-bold text-[#056B38] hover:underline">
+                      {userRole === "client" && <Link href={`/chat?with=${prop.developerUserId}`} className="font-bold text-[#056B38] hover:underline">
                         بدء محادثة مباشرة مع المطور
-                      </Link>
+                      </Link>}
                     </div>
                   </div>
                 ))}

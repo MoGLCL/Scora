@@ -1,0 +1,29 @@
+{
+  "name": "@scora/trust-skills",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Layer 08: reconciles the skills a developer claimed against the skills their session actually evidences, with a verdict and confidence per skill.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0",
+    "@scora/trust-scoring": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}

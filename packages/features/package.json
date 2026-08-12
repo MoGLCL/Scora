@@ -1,0 +1,32 @@
+{
+  "name": "@scora/trust-features",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Deterministic feature extraction: turns SCORA evidence streams into explainable per-layer feature vectors.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "development": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --test \"src/**/*.test.ts\""
+  }
+}

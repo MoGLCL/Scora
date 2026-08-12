@@ -4,6 +4,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { useProfile } from "@/components/profile-provider";
+import { updateDeveloperProfile, setDeveloperSkills } from "@/lib/actions/profile";
+import { removeAvatar, uploadAvatar } from "@/lib/actions/upload";
+import { useRouter } from "next/navigation";
+import { AiPreferenceToggle } from "@/components/ai-preference-toggle";
 import { EgyptianLocationSelector } from "@/components/egyptian-location-selector";
 import { GithubIcon, LinkedinIcon } from "@/components/auth/social-icons";
 import {
@@ -21,12 +25,14 @@ import {
 } from "lucide-react";
 
 export default function EditProfilePage() {
-  const { developer, updateDeveloper, showSsdAssistant, setShowSsdAssistant, addToast } = useProfile();
+  const router = useRouter();
+  const { developer, username, updateDeveloper, addToast } = useProfile();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(developer.avatarUrl);
   const [fullName, setFullName] = useState(developer.fullName);
   const [jobTitle, setJobTitle] = useState(developer.jobTitle);
-  const [email, setEmail] = useState(developer.email);
+  const email = developer.email;
+  const [phone, setPhone] = useState(developer.phone);
   const [location, setLocation] = useState(developer.location);
   const [availability, setAvailability] = useState<"available" | "busy">(developer.availability);
   const [bio, setBio] = useState(developer.bio);
@@ -39,6 +45,8 @@ export default function EditProfilePage() {
   // Skills
   const [skills, setSkills] = useState<string[]>(developer.skills);
   const [newSkill, setNewSkill] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const handleAddSkill = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,12 +64,37 @@ export default function EditProfilePage() {
     updateDeveloper({ skills: updated });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    const data = new FormData();
+    data.set("displayName", fullName);
+    data.set("jobTitle", jobTitle);
+    data.set("bio", bio);
+    data.set("location", location);
+    data.set("availability", availability);
+    data.set("github", github);
+    data.set("linkedin", linkedin);
+    data.set("website", website);
+    data.set("phone", phone);
+    data.set("username", username);
+    const profileResult = await updateDeveloperProfile(undefined, data);
+    if (!profileResult.ok) {
+      setIsSaving(false);
+      addToast(profileResult.error ?? Object.values(profileResult.fieldErrors ?? {}).flat()[0] ?? "تعذر حفظ البيانات", "warn");
+      return;
+    }
+    const skillsResult = await setDeveloperSkills(skills);
+    if (!skillsResult.ok) {
+      setIsSaving(false);
+      addToast(skillsResult.error ?? "تعذر حفظ المهارات", "warn");
+      return;
+    }
     updateDeveloper({
       fullName,
       jobTitle,
       email,
+      phone,
       location,
       availability,
       bio,
@@ -71,8 +104,9 @@ export default function EditProfilePage() {
       linkedin,
       website,
     });
-
-    window.location.href = "/profile";
+    setIsSaving(false);
+    addToast("تم حفظ بيانات المطور في قاعدة البيانات", "success");
+    router.push(`/profile/${username}`);
   };
 
   const getInitials = (name: string) => {
@@ -136,14 +170,21 @@ export default function EditProfilePage() {
                 <input
                   id="avatar-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      const url = URL.createObjectURL(e.target.files[0]);
-                      setAvatarUrl(url);
-                      updateDeveloper({ avatarUrl: url });
-                    }
+                  disabled={isUploadingAvatar}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsUploadingAvatar(true);
+                    const data = new FormData();
+                    data.set("file", file);
+                    const result = await uploadAvatar(data);
+                    setIsUploadingAvatar(false);
+                    if (!result.ok || !result.url) return addToast(result.error ?? "تعذر رفع الصورة", "warn");
+                    setAvatarUrl(result.url);
+                    updateDeveloper({ avatarUrl: result.url });
+                    addToast("تم رفع الصورة وحفظها", "success");
                   }}
                 />
               </div>
@@ -164,9 +205,15 @@ export default function EditProfilePage() {
                   {avatarUrl && (
                     <button
                       type="button"
-                      onClick={() => {
+                      disabled={isUploadingAvatar}
+                      onClick={async () => {
+                        setIsUploadingAvatar(true);
+                        const result = await removeAvatar();
+                        setIsUploadingAvatar(false);
+                        if (!result.ok) return addToast(result.error ?? "تعذر حذف الصورة", "warn");
                         setAvatarUrl(null);
                         updateDeveloper({ avatarUrl: null });
+                        addToast("تم حذف الصورة", "success");
                       }}
                       className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-4 py-2 text-[12px] font-bold text-red-600 hover:bg-red-100 transition-all cursor-pointer"
                     >
@@ -230,15 +277,18 @@ export default function EditProfilePage() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      updateDeveloper({ email: e.target.value });
-                    }}
-                    className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
+                    readOnly
+                    aria-readonly="true"
+                    className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-neutral-500 bg-neutral-50"
                     dir="ltr"
                   />
                   <Mail className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[14px] font-bold text-ink mb-2">رقم الهاتف</label>
+                <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full h-[52px] rounded-full border border-neutral-200 px-5 text-[14px]" dir="ltr" />
               </div>
 
               {/* Location */}
@@ -282,7 +332,7 @@ export default function EditProfilePage() {
                         <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block" />
                         <span>متاح للمشاريع والعمل</span>
                       </div>
-                      <div className="text-[12px] opacity-80">يظهر وسم "متاح" للعملاء والشركات</div>
+                  <div className="text-[12px] opacity-80">يظهر وسم «متاح» للعملاء والشركات</div>
                     </div>
                   </label>
 
@@ -462,53 +512,23 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Section 5: AI Assistant Mascot Settings */}
-          <div className="rounded-[32px] border border-neutral-200/80 bg-white p-8 shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
-            <h2 className="text-[20px] font-bold text-ink font-heading mb-4 pb-3 border-b border-neutral-100 flex items-center justify-between">
-              <span>إعدادات المساعد الذكي الكرتوني (SSD Mascot)</span>
-              <span className="text-[12px] font-bold text-[#056B38] bg-[#E8FAF0] px-3 py-1 rounded-full">
-                تفضيلات العرض
-              </span>
-            </h2>
-
-            <div className="flex items-center justify-between p-4 rounded-[20px] bg-[#F7FAF8] border border-neutral-200/60">
-              <div className="space-y-1">
-                <div className="text-[15px] font-bold text-ink">إظهار المساعد الكرتوني SSD في شاشات المنصة</div>
-                <div className="text-[13px] text-muted">إظهار الروبوت الكرتوني المتفاعل والفقاعات التوضيحية في زوايا الموقع.</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSsdAssistant(!showSsdAssistant);
-                  addToast(showSsdAssistant ? "تم إخفاء المساعد الذكي SSD" : "تم تفعيل المساعد الذكي SSD", "info");
-                }}
-                className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  showSsdAssistant ? "bg-[#056B38]" : "bg-neutral-300"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                    showSsdAssistant ? "translate-x-7" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
+          <AiPreferenceToggle />
 
           {/* Bottom Save Bar */}
           <div className="flex items-center justify-end gap-4 pt-4">
             <Link
-              href="/profile"
+              href={`/profile/${username}`}
               className="inline-flex h-[52px] items-center justify-center rounded-full border border-neutral-300 bg-white px-8 text-[15px] font-bold text-ink hover:bg-neutral-50 transition-all cursor-pointer"
             >
               إلغاء
             </Link>
             <button
               type="submit"
+              disabled={isSaving}
               className="inline-flex h-[52px] items-center justify-center gap-2 rounded-full bg-primary hover:bg-[#005B27] px-8 text-[15px] font-bold text-white transition-all shadow-md cursor-pointer active:scale-95"
             >
               <CheckCircle2 className="w-5 h-5" />
-              <span>حفظ جميع التغييرات</span>
+              <span>{isSaving ? "جاري الحفظ..." : "حفظ جميع التغييرات"}</span>
             </button>
           </div>
 

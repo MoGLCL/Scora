@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { SocialGrid } from "@/components/auth/social-grid";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from "lucide-react";
 import { login } from "@/lib/actions/auth";
 import { useProfile } from "@/components/profile-provider";
@@ -22,8 +21,6 @@ export default function LoginPage() {
         window.location.href = (!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard";
       } else if (userRole === "client") {
         window.location.href = !client.fullName ? "/complete-client-profile" : "/dashboard";
-      } else if (userRole === "admin") {
-        window.location.href = "/admin";
       }
     }
   }, [userRole, developer, client]);
@@ -177,9 +174,6 @@ export default function LoginPage() {
               <ArrowLeft className="w-5 h-5" />
             </button>
           </form>
-
-          {/* Social Login Grid */}
-          <SocialGrid label="أو تسجيل الدخول بواسطة" />
 
           {/* Footer Link */}
           <div className="text-center text-[14px] text-muted">

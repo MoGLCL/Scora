@@ -1,0 +1,1 @@
+"use client";import { usePathname } from "next/navigation";import { useEffect } from "react";export function AnalyticsTracker(){const path=usePathname();useEffect(()=>{fetch('/api/analytics/visit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({path}),keepalive:true}).catch(()=>{})},[path]);return null}

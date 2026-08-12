@@ -41,7 +41,6 @@ const PhoneSchema = z
 const RegisterSchema = z.object({
   fullName: z.string().trim().min(2, "الاسم قصير جدًا").max(255),
   email: z.string().trim().toLowerCase().email("بريد إلكتروني غير صالح"),
-  phone: PhoneSchema,
   password: z
     .string()
     .min(8, "كلمة المرور 8 أحرف على الأقل")
@@ -56,18 +55,19 @@ const LoginSchema = z.object({
 });
 
 /** Landing page for a freshly authenticated user. */
-function homeFor(role: AppRole): string {
-  return role === "admin" ? "/admin" : "/dashboard";
+function homeFor(isAdmin: boolean): string {
+  return isAdmin ? "/admin" : "/dashboard";
 }
 
 export async function register(
   _prev: AuthState | undefined,
   formData: FormData
 ): Promise<AuthState> {
+  const registrationSetting=await queryOne<{setting_value:string}>("SELECT setting_value FROM platform_settings WHERE setting_key='quick_registration_enabled'");
+  if(registrationSetting?.setting_value==="false")return{ok:false,error:"التسجيل الجديد متوقف مؤقتًا بواسطة إدارة المنصة"};
   const parsed = RegisterSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
-    phone: formData.get("phone"),
     password: formData.get("password"),
     role: formData.get("role") ?? "developer",
   });
@@ -75,7 +75,7 @@ export async function register(
   if (!parsed.success) {
     return { ok: false, fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
-  const { fullName, email, phone, password, role } = parsed.data;
+  const { fullName, email, password, role } = parsed.data;
 
   const existing = await queryOne<{ id: number }>(
     "SELECT id FROM users WHERE email = ?",
@@ -90,26 +90,26 @@ export async function register(
   // The user row and its role-specific profile must both exist or neither.
   const userId = await transaction(async (conn) => {
     const [res] = await conn.execute(
-      "INSERT INTO users (email, password_hash, full_name, phone, role) VALUES (?, ?, ?, ?, ?)",
-      [email, passwordHash, fullName, phone, role]
+      "INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+      [email, passwordHash, fullName, role]
     );
     const newId = (res as { insertId: number }).insertId;
 
     if (role === "developer") {
       await conn.execute(
-        "INSERT INTO developers (user_id, display_name, phone, availability) VALUES (?, ?, ?, 'soon')",
-        [newId, fullName, phone]
+        "INSERT INTO developers (user_id, display_name, availability) VALUES (?, ?, 'soon')",
+        [newId, fullName]
       );
     } else {
       await conn.execute(
-        "INSERT INTO clients (user_id, display_name, phone) VALUES (?, ?, ?)",
-        [newId, fullName, phone]
+        "INSERT INTO clients (user_id, display_name) VALUES (?, ?)",
+        [newId, fullName]
       );
     }
     return newId;
   });
 
-  await createSession(userId, role);
+  await createSession(userId, role, false);
 
   return {
     ok: true,
@@ -132,7 +132,7 @@ export async function login(
   const { email, password } = parsed.data;
 
   const user = await queryOne<UserRow>(
-    "SELECT id, email, password_hash, role, status, suspended_until FROM users WHERE email = ?",
+    "SELECT id, email, password_hash, role, is_admin, status, suspended_until, onboarding_completed_at FROM users WHERE email = ?",
     [email]
   );
 
@@ -167,9 +167,12 @@ export async function login(
   }
 
   await execute("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
-  await createSession(user.id, user.role);
+  await createSession(user.id, user.role, Boolean(user.onboarding_completed_at), Boolean(user.is_admin));
 
-  return { ok: true, role: user.role, redirectTo: homeFor(user.role) };
+  const redirectTo = user.onboarding_completed_at
+    ? homeFor(Boolean(user.is_admin))
+    : user.role === "developer" ? "/complete-profile" : "/complete-client-profile";
+  return { ok: true, role: user.role, redirectTo };
 }
 
 export async function logout(): Promise<void> {

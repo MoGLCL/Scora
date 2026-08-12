@@ -4,21 +4,19 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useProfile } from "@/components/profile-provider";
+import { NotificationsMenu } from "@/components/notifications-menu";
 import {
   LayoutDashboard,
   User,
   Settings,
   ShieldCheck,
   LogOut,
-  ChevronDown,
-  Sparkles,
-  Briefcase,
-  UserCheck
+  MessageSquare
 } from "lucide-react";
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const { userRole, setUserRole, developer, client, addToast } = useProfile();
+  const { userRole, isAdmin, username, developer, client } = useProfile();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -73,7 +71,7 @@ export function SiteHeader() {
         </Link>
 
         {/* Center: Navigation Links - Exact 7 links from Figma (13px, Tajawal, Bold, #526B5E) */}
-        <nav className="hidden md:flex items-center gap-7 lg:gap-8 z-10">
+        <nav className="hidden xl:flex items-center gap-7 2xl:gap-8 z-10">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -98,6 +96,12 @@ export function SiteHeader() {
             /* Guest View: w-[140px] h-[44px] rounded-[12px] bg-[#056B38] text-white */
             <div className="flex items-center gap-2">
               <Link
+                href="/login"
+                className="inline-flex h-[44px] items-center justify-center rounded-[12px] border border-[#056B38] px-5 text-[13px] font-bold text-[#056B38] transition-colors hover:bg-[#E8FAF0]"
+              >
+                تسجيل الدخول
+              </Link>
+              <Link
                 href="/register"
                 className="inline-flex w-[140px] h-[44px] items-center justify-center rounded-[12px] bg-[#056B38] hover:bg-[#08592E] text-[13px] font-bold font-body text-white leading-[19px] transition-all shadow-xs cursor-pointer active:scale-95"
               >
@@ -106,7 +110,16 @@ export function SiteHeader() {
             </div>
           ) : (
             /* Logged In User View (Developer / Client / Admin) — DESKTOP ONLY (Hidden on mobile since bottom tabs has drop-up profile) */
-            <div className="hidden lg:block relative" ref={profileMenuRef}>
+            <div className="hidden min-[950px]:flex items-center gap-3 relative" ref={profileMenuRef}>
+              <Link
+                href="/chat"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#D1E3D6] bg-white px-3 text-[13px] font-bold text-[#05291A] transition-colors hover:border-[#056B38] hover:bg-[#E8FAF0] hover:text-[#056B38]"
+                aria-label="فتح المحادثات"
+              >
+                <MessageSquare className="h-5 w-5 text-[#056B38]" />
+                <span className="hidden xl:inline">المحادثات</span>
+              </Link>
+              <NotificationsMenu />
               
               {/* Profile Trigger Button (Avatar Only with Green Online Dot) */}
               <button
@@ -131,7 +144,7 @@ export function SiteHeader() {
 
               {/* POPOVER DROPDOWN MENU (Centered under avatar) */}
               {isProfileMenuOpen && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 rounded-[20px] border border-[#D1E3D6] bg-white p-3 shadow-xl space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute left-0 top-full mt-2 w-72 rounded-[20px] border border-[#D1E3D6] bg-white p-3 shadow-xl space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   
                   {/* Dropdown Header */}
                   <div className="p-2 bg-[#E8FAF0] rounded-[14px] border border-[#D1E3D6]/60 mb-2 space-y-1 text-right">
@@ -143,7 +156,7 @@ export function SiteHeader() {
                   </div>
 
                   {/* Main Links — Show Admin Panel Link ONLY when signed in as system admin */}
-                  {userRole === "admin" && (
+                  {isAdmin && (
                     <Link
                       href="/admin"
                       onClick={() => setIsProfileMenuOpen(false)}
@@ -164,7 +177,16 @@ export function SiteHeader() {
                   </Link>
 
                   <Link
-                    href={userRole === "developer" ? "/profile" : "/client-profile"}
+                    href="/chat"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
+                  >
+                    <MessageSquare className="w-4 h-4 text-[#056B38]" />
+                    <span>المحادثات</span>
+                  </Link>
+
+                  <Link
+                    href={`/profile/${username}`}
                     onClick={() => setIsProfileMenuOpen(false)}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
                   >
@@ -173,7 +195,7 @@ export function SiteHeader() {
                   </Link>
 
                   <Link
-                    href={userRole === "developer" ? "/profile/edit" : "/client-profile/edit"}
+                    href={`/profile/${username}/edit`}
                     onClick={() => setIsProfileMenuOpen(false)}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
                   >
@@ -183,19 +205,14 @@ export function SiteHeader() {
 
                   {/* Logout Button */}
                   <div className="pt-2 border-t border-neutral-100">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        setUserRole("guest");
-                        addToast("تم تسجيل الخروج بنجاح", "info");
-                        window.location.href = "/";
-                      }}
+                    <a
+                      href="/api/auth/logout"
+                      onClick={() => setIsProfileMenuOpen(false)}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-4 h-4 text-red-500" />
                       <span>تسجيل الخروج</span>
-                    </button>
+                    </a>
                   </div>
 
                 </div>

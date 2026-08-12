@@ -15,10 +15,10 @@ export function DeveloperProfileClient({ developer }: { developer: DeveloperRow 
             <p className="mt-2 text-[#526B5E]">{developer.job_title || "مطور برمجيات"}</p>
             <p className="mt-1 text-sm text-[#526B5E]">{developer.location || developer.city || ""}</p>
           </div>
-          <div className="rounded-2xl bg-[#E8FAF0] px-5 py-3 text-center">
+          <div className="flex flex-col gap-3"><div className="rounded-2xl bg-[#E8FAF0] px-5 py-3 text-center">
             <div className="text-xs text-[#526B5E]">نقاط الثقة</div>
             <div className="text-2xl font-extrabold text-[#056B38]">{developer.trust_score}%</div>
-          </div>
+          </div><Link href={`/chat?with=${developer.user_id}`} className="rounded-full bg-[#056B38] px-6 py-3 text-center font-bold text-white">💬 إرسال رسالة</Link></div>
         </div>
         {developer.bio && <p className="mt-8 leading-8 text-[#526B5E]">{developer.bio}</p>}
         <div className="mt-8 flex flex-wrap gap-2">{developer.skills.map((skill) =>

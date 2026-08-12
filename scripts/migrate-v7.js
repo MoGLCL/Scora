@@ -1,0 +1,5 @@
+const fs=require("fs"),path=require("path"),mysql=require("mysql2/promise");
+const env=path.join(__dirname,"..",".env.local");
+if(fs.existsSync(env))for(const line of fs.readFileSync(env,"utf8").split("\n")){const m=line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);if(m&&!(m[1]in process.env))process.env[m[1]]=m[2].replace(/^["']|["']$/g,"")}
+async function main(){const c=await mysql.createConnection({host:process.env.DB_HOST,port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME});await c.query(`CREATE TABLE IF NOT EXISTS user_settings(user_id BIGINT UNSIGNED NOT NULL,setting_key VARCHAR(100) NOT NULL,setting_value TEXT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,PRIMARY KEY(user_id,setting_key),CONSTRAINT fk_user_settings_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);await c.end();console.log("User settings migration complete")}
+main().catch(e=>{console.error(e);process.exit(1)});

@@ -1,0 +1,3 @@
+import { NextResponse } from "next/server";import { verifySession } from "@/lib/dal";import { execute,query } from "@/lib/db";
+export async function GET(){const s=await verifySession();if(!s)return NextResponse.json({error:"UNAUTHORIZED"},{status:401});return NextResponse.json(await query("SELECT id,body,is_read,created_at FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30",[s.userId]))}
+export async function PATCH(){const s=await verifySession();if(!s)return NextResponse.json({error:"UNAUTHORIZED"},{status:401});await execute("UPDATE notifications SET is_read=1 WHERE user_id=?",[s.userId]);return NextResponse.json({ok:true})}

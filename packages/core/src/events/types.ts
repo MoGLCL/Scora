@@ -1,0 +1,186 @@
+/**
+ * Event taxonomy.
+ *
+ * Every signal the Trust Engine acts on must trace back to one of these types.
+ * Nothing is inferred from state that was not first recorded as an immutable
+ * event, which is what makes any score defensible after the fact.
+ *
+ * Naming is a flat verb-phrase in SCREAMING_SNAKE_CASE; the owning layer comes
+ * from the registry rather than the name, so an event can be re-homed without a
+ * migration of stored data.
+ */
+
+/** L00 — the engine's observations about its own telemetry feed. */
+export const SystemEventType = {
+  EVENT_REJECTED: 'EVENT_REJECTED',
+  EVENT_SEQUENCE_GAP: 'EVENT_SEQUENCE_GAP',
+  EVENT_DUPLICATE_DROPPED: 'EVENT_DUPLICATE_DROPPED',
+  INGESTION_ANOMALY: 'INGESTION_ANOMALY',
+  CLOCK_SYNC_SAMPLE: 'CLOCK_SYNC_SAMPLE',
+  CHAIN_BREAK_DETECTED: 'CHAIN_BREAK_DETECTED',
+} as const;
+
+/** L01 — environment integrity. */
+export const EnvironmentEventType = {
+  SESSION_STARTED: 'SESSION_STARTED',
+  SESSION_RESUMED: 'SESSION_RESUMED',
+  SESSION_PAUSED: 'SESSION_PAUSED',
+  SESSION_ENDED: 'SESSION_ENDED',
+  SESSION_HEARTBEAT: 'SESSION_HEARTBEAT',
+  SANDBOX_CONNECTED: 'SANDBOX_CONNECTED',
+  SANDBOX_DISCONNECTED: 'SANDBOX_DISCONNECTED',
+  SANDBOX_RECONNECTED: 'SANDBOX_RECONNECTED',
+  WINDOW_FOCUS_GAINED: 'WINDOW_FOCUS_GAINED',
+  WINDOW_FOCUS_LOST: 'WINDOW_FOCUS_LOST',
+  TAB_VISIBLE: 'TAB_VISIBLE',
+  TAB_HIDDEN: 'TAB_HIDDEN',
+  ENVIRONMENT_INTERRUPTION: 'ENVIRONMENT_INTERRUPTION',
+  NETWORK_QUALITY_CHANGED: 'NETWORK_QUALITY_CHANGED',
+  DEVICE_CONTEXT_CHANGED: 'DEVICE_CONTEXT_CHANGED',
+  RUNTIME_INTEGRITY_VIOLATION: 'RUNTIME_INTEGRITY_VIOLATION',
+} as const;
+
+/** L02 — interaction behaviour. */
+export const InteractionEventType = {
+  FILE_OPENED: 'FILE_OPENED',
+  FILE_CLOSED: 'FILE_CLOSED',
+  FILE_CREATED: 'FILE_CREATED',
+  FILE_DELETED: 'FILE_DELETED',
+  FILE_RENAMED: 'FILE_RENAMED',
+  CURSOR_ACTIVITY_SAMPLE: 'CURSOR_ACTIVITY_SAMPLE',
+  TEXT_SELECTED: 'TEXT_SELECTED',
+  EDITOR_SCROLLED: 'EDITOR_SCROLLED',
+  SEARCH_PERFORMED: 'SEARCH_PERFORMED',
+  NAVIGATION_JUMP: 'NAVIGATION_JUMP',
+  PANEL_SWITCHED: 'PANEL_SWITCHED',
+  TERMINAL_OPENED: 'TERMINAL_OPENED',
+  TERMINAL_COMMAND_ENTERED: 'TERMINAL_COMMAND_ENTERED',
+  IDLE_PERIOD_DETECTED: 'IDLE_PERIOD_DETECTED',
+} as const;
+
+/** L03 — typing and editing behaviour. */
+export const TypingEventType = {
+  TYPING_BURST: 'TYPING_BURST',
+  TYPING_PAUSE: 'TYPING_PAUSE',
+  TEXT_INSERTED: 'TEXT_INSERTED',
+  TEXT_DELETED: 'TEXT_DELETED',
+  BACKSPACE_BURST: 'BACKSPACE_BURST',
+  CODE_PASTE: 'CODE_PASTE',
+  LARGE_INSERTION: 'LARGE_INSERTION',
+  UNDO_PERFORMED: 'UNDO_PERFORMED',
+  REDO_PERFORMED: 'REDO_PERFORMED',
+  REWRITE_DETECTED: 'REWRITE_DETECTED',
+} as const;
+
+/** L04 — code evolution. */
+export const CodeEvolutionEventType = {
+  CODE_SNAPSHOT: 'CODE_SNAPSHOT',
+  CODE_DIFF_APPLIED: 'CODE_DIFF_APPLIED',
+  FILE_SAVED: 'FILE_SAVED',
+  REFACTOR_DETECTED: 'REFACTOR_DETECTED',
+  DEPENDENCY_ADDED: 'DEPENDENCY_ADDED',
+  DEPENDENCY_REMOVED: 'DEPENDENCY_REMOVED',
+} as const;
+
+/** L05 — runtime and debugging behaviour. */
+export const RuntimeEventType = {
+  CODE_EXECUTION_STARTED: 'CODE_EXECUTION_STARTED',
+  CODE_EXECUTION_FINISHED: 'CODE_EXECUTION_FINISHED',
+  BUILD_STARTED: 'BUILD_STARTED',
+  BUILD_FINISHED: 'BUILD_FINISHED',
+  TEST_RUN_STARTED: 'TEST_RUN_STARTED',
+  TEST_RUN_FINISHED: 'TEST_RUN_FINISHED',
+  RUNTIME_ERROR_OBSERVED: 'RUNTIME_ERROR_OBSERVED',
+  DEBUG_SESSION_STARTED: 'DEBUG_SESSION_STARTED',
+  DEBUG_SESSION_ENDED: 'DEBUG_SESSION_ENDED',
+  BREAKPOINT_SET: 'BREAKPOINT_SET',
+  BREAKPOINT_HIT: 'BREAKPOINT_HIT',
+  FIX_ATTEMPTED: 'FIX_ATTEMPTED',
+  ERROR_RESOLVED: 'ERROR_RESOLVED',
+  REGRESSION_DETECTED: 'REGRESSION_DETECTED',
+} as const;
+
+/** L06 — external activity, recorded only where lawful and disclosed. */
+export const ExternalEventType = {
+  EXTERNAL_RESOURCE_ACCESSED: 'EXTERNAL_RESOURCE_ACCESSED',
+  EXTERNAL_RESOURCE_DWELL: 'EXTERNAL_RESOURCE_DWELL',
+  EXTERNAL_RESOURCE_LEFT: 'EXTERNAL_RESOURCE_LEFT',
+  EXTERNAL_ORIGIN_IMPORT: 'EXTERNAL_ORIGIN_IMPORT',
+} as const;
+
+/**
+ * L07 — controlled editor-level AI assistance (code completions and inline
+ * suggestions), equivalent to VS Code + IntelliSense.
+ *
+ * The sandbox is a professional editor, not a conversational assistant. There
+ * is deliberately no event for "asking the AI to solve the task" — the
+ * developer cannot do that inside the sandbox. External AI use is a Layer 06
+ * concern, and behaviour around it is correlated through Layers 03, 04, 05,
+ * 07, 08 and 09.
+ */
+export const AiAssistanceEventType = {
+  AI_SUGGESTION_SHOWN: 'AI_SUGGESTION_SHOWN',
+  AI_SUGGESTION_ACCEPTED: 'AI_SUGGESTION_ACCEPTED',
+  AI_SUGGESTION_REJECTED: 'AI_SUGGESTION_REJECTED',
+  AI_SUGGESTION_PARTIALLY_ACCEPTED: 'AI_SUGGESTION_PARTIALLY_ACCEPTED',
+  AI_SUGGESTION_MODIFIED: 'AI_SUGGESTION_MODIFIED',
+  AI_SUGGESTION_DELETED: 'AI_SUGGESTION_DELETED',
+  AI_SUGGESTION_TESTED: 'AI_SUGGESTION_TESTED',
+  INLINE_COMPLETION_SHOWN: 'INLINE_COMPLETION_SHOWN',
+  INLINE_COMPLETION_ACCEPTED: 'INLINE_COMPLETION_ACCEPTED',
+  INLINE_COMPLETION_REJECTED: 'INLINE_COMPLETION_REJECTED',
+} as const;
+
+/** L08 — skill and technical understanding. */
+export const SkillEventType = {
+  SKILL_CLAIMED: 'SKILL_CLAIMED',
+  ASSESSMENT_STARTED: 'ASSESSMENT_STARTED',
+  TASK_STARTED: 'TASK_STARTED',
+  TASK_SUBMITTED: 'TASK_SUBMITTED',
+  ASSESSMENT_SUBMITTED: 'ASSESSMENT_SUBMITTED',
+  VERIFICATION_CHALLENGE_ISSUED: 'VERIFICATION_CHALLENGE_ISSUED',
+  VERIFICATION_CHALLENGE_RESULT: 'VERIFICATION_CHALLENGE_RESULT',
+} as const;
+
+/** L09 — AI interview and explanation. */
+export const InterviewEventType = {
+  INTERVIEW_STARTED: 'INTERVIEW_STARTED',
+  INTERVIEW_QUESTION_ASKED: 'INTERVIEW_QUESTION_ASKED',
+  INTERVIEW_ANSWER_RECEIVED: 'INTERVIEW_ANSWER_RECEIVED',
+  INTERVIEW_ANSWER_SCORED: 'INTERVIEW_ANSWER_SCORED',
+  INTERVIEW_DIFFICULTY_ADJUSTED: 'INTERVIEW_DIFFICULTY_ADJUSTED',
+  INTERVIEW_ENDED: 'INTERVIEW_ENDED',
+  INTERVIEW_RECORDING_STORED: 'INTERVIEW_RECORDING_STORED',
+} as const;
+
+/** L10 — human review and validation. */
+export const HumanReviewEventType = {
+  REVIEW_ASSIGNED: 'REVIEW_ASSIGNED',
+  REVIEW_OPENED: 'REVIEW_OPENED',
+  REVIEW_EVIDENCE_ACCESSED: 'REVIEW_EVIDENCE_ACCESSED',
+  REVIEW_DECISION_RECORDED: 'REVIEW_DECISION_RECORDED',
+  RECOMMENDATION_OVERRIDDEN: 'RECOMMENDATION_OVERRIDDEN',
+  RESULT_RELEASED: 'RESULT_RELEASED',
+} as const;
+
+export const TrustEventType = {
+  ...SystemEventType,
+  ...EnvironmentEventType,
+  ...InteractionEventType,
+  ...TypingEventType,
+  ...CodeEvolutionEventType,
+  ...RuntimeEventType,
+  ...ExternalEventType,
+  ...AiAssistanceEventType,
+  ...SkillEventType,
+  ...InterviewEventType,
+  ...HumanReviewEventType,
+} as const;
+
+export type TrustEventType = (typeof TrustEventType)[keyof typeof TrustEventType];
+
+export const ALL_EVENT_TYPES: readonly TrustEventType[] = Object.values(TrustEventType);
+
+export function isTrustEventType(value: unknown): value is TrustEventType {
+  return typeof value === 'string' && Object.hasOwn(TrustEventType, value);
+}

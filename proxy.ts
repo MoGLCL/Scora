@@ -24,7 +24,7 @@ const PROTECTED_ROUTES = [
   "/complete-client-profile",
 ];
 
-/** Routes that require role === "admin". */
+/** Routes that require the independent admin permission. */
 const ADMIN_ROUTES = ["/admin"];
 
 /** Routes a signed-in user has no reason to see. */
@@ -37,6 +37,8 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = ADMIN_ROUTES.some((r) => pathname.startsWith(r));
   const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
   const isGuestOnlyRoute = GUEST_ONLY_ROUTES.some((r) => pathname === r);
+  const onboardingRoute = session?.role === "developer" ? "/complete-profile" : "/complete-client-profile";
+  const onboardingAllowed = pathname.startsWith(onboardingRoute) || pathname.startsWith("/laws") || pathname.startsWith("/privacy");
 
   // A cookie that fails verification is worse than no cookie: clear it so the
   // browser stops sending a token the server will keep rejecting.
@@ -60,9 +62,13 @@ export async function proxy(request: NextRequest) {
     return redirectTo(url);
   }
 
+  if (session && !session.onboardingCompleted && !onboardingAllowed) {
+    return NextResponse.redirect(new URL(onboardingRoute, request.url));
+  }
+
   if (isGuestOnlyRoute && session) {
     return NextResponse.redirect(
-      new URL(session.role === "admin" ? "/admin" : "/dashboard", request.url)
+      new URL(session.isAdmin && session.onboardingCompleted ? "/admin" : session.onboardingCompleted ? "/dashboard" : onboardingRoute, request.url)
     );
   }
 

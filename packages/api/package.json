@@ -1,0 +1,46 @@
+{
+  "name": "@scora/trust-api",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Transport-agnostic HTTP surface for the Trust Engine: authentication, RBAC, tenant isolation, access logging, and a typed client SDK.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "development": "./src/node.ts",
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./client": {
+      "development": "./src/client.ts",
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./testing": {
+      "development": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-baseline": "0.1.0",
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0",
+    "@scora/trust-scoring": "0.1.0",
+    "@scora/trust-storage": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}

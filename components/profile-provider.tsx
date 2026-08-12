@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-export type UserRole = "developer" | "client" | "guest" | "admin";
+let toastSequence = 0;
+
+export type UserRole = "developer" | "client" | "guest";
 
 export interface AdminSystemSettings {
   isAiAssistantEnabled: boolean;
@@ -33,8 +35,6 @@ export interface AdminSystemSettings {
   // One-Click & Phone OTP
   isPhoneOtpEnabled: boolean;
   phoneOtpProvider: string;
-  isOneClickDemoEnabled: boolean;
-  oneClickDefaultRole: "developer" | "client";
   // AI Engine Credentials
   aiAssistantBaseUrl: string;
   aiAssistantApiKey: string;
@@ -89,6 +89,7 @@ export interface DeveloperProfileData {
 }
 
 export interface ClientProfileData {
+  accountType: "personal" | "company";
   fullName: string;
   companyName: string;
   email: string;
@@ -131,6 +132,8 @@ interface ToastMessage {
 
 interface ProfileContextType {
   userRole: UserRole;
+  isAdmin: boolean;
+  username: string;
   setUserRole: (role: UserRole) => void;
   developer: DeveloperProfileData;
   client: ClientProfileData;
@@ -168,6 +171,7 @@ const defaultDeveloper: DeveloperProfileData = {
 };
 
 const defaultClient: ClientProfileData = {
+  accountType: "personal",
   fullName: "",
   companyName: "",
   email: "",
@@ -213,8 +217,6 @@ const defaultSystemSettings: AdminSystemSettings = {
   githubClientId: "",
   isPhoneOtpEnabled: false,
   phoneOtpProvider: "",
-  isOneClickDemoEnabled: false,
-  oneClickDefaultRole: "developer",
   aiAssistantBaseUrl: "",
   aiAssistantApiKey: "",
   trustEngineModel: "",
@@ -228,13 +230,18 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export interface InitialProfileState {
   role: UserRole;
+  isAdmin: boolean;
+  username: string;
   isAiAssistantEnabled: boolean;
+  showSsdAssistant: boolean;
   developer?: Partial<DeveloperProfileData>;
   client?: Partial<ClientProfileData>;
 }
 
 export function ProfileProvider({ children, initialProfile }: { children: React.ReactNode; initialProfile: InitialProfileState }) {
   const [userRoleState, setUserRoleState] = useState<UserRole>(initialProfile.role);
+  const [isAdmin] = useState(initialProfile.isAdmin);
+  const [username] = useState(initialProfile.username);
   const [developer, setDeveloper] = useState<DeveloperProfileData>({ ...defaultDeveloper, ...initialProfile.developer });
   const [client, setClient] = useState<ClientProfileData>({ ...defaultClient, ...initialProfile.client });
   const [systemSettings, setSystemSettings] = useState<AdminSystemSettings>({ ...defaultSystemSettings, isAiAssistantEnabled: initialProfile.isAiAssistantEnabled });
@@ -253,24 +260,9 @@ export function ProfileProvider({ children, initialProfile }: { children: React.
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedSettings = localStorage.getItem("scora_admin_system_settings");
-      if (savedSettings) {
-        try { setSystemSettings((prev) => ({ ...prev, ...JSON.parse(savedSettings) })); } catch (e) {}
-      }
-
-      const savedDev = localStorage.getItem("scora_developer_profile");
-      if (savedDev) {
-        try { setDeveloper((prev) => ({ ...prev, ...JSON.parse(savedDev) })); } catch (e) {}
-      }
-
-      const savedClient = localStorage.getItem("scora_client_profile");
-      if (savedClient) {
-        try { setClient((prev) => ({ ...prev, ...JSON.parse(savedClient) })); } catch (e) {}
-      }
-
       const handleStorage = (e: StorageEvent) => {
         if (e.key === "scora_admin_system_settings" && e.newValue) {
-          try { setSystemSettings((prev) => ({ ...prev, ...JSON.parse(e.newValue!) })); } catch (err) {}
+          try { setSystemSettings((prev) => ({ ...prev, ...JSON.parse(e.newValue!) })); } catch {}
         }
       };
 
@@ -279,72 +271,8 @@ export function ProfileProvider({ children, initialProfile }: { children: React.
     }
   }, []);
 
-  // Client-side Security Route Guard
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const pathname = window.location.pathname;
-
-    // 1. ADMIN FULL ACCESS RULE: Admin can access ALL pages except /login and /register
-    if (userRoleState === "admin") {
-      if (pathname === "/login" || pathname === "/register") {
-        window.location.href = "/admin";
-      }
-      return;
-    }
-
-    const protectedPaths = [
-      "/dashboard",
-      "/profile",
-      "/client-profile",
-      "/projects/new",
-      "/chat",
-      "/assessments",
-    ];
-    const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
-
-    if (isProtected && userRoleState === "guest") {
-      addToast("يرجى تسجيل الدخول أولاً للوصول لهذه الصفحة", "warn");
-      window.location.href = `/login?from=${encodeURIComponent(pathname)}`;
-      return;
-    }
-
-    if (pathname.startsWith("/admin") && (userRoleState as string) !== "admin") {
-      addToast("عذراً، هذه الصفحة مخصصة لمديري النظام فقط", "warn");
-      window.location.href = "/login";
-      return;
-    }
-
-    // Mandatory Developer Onboarding Guard
-    if (
-      userRoleState === "developer" &&
-      (!developer.jobTitle || developer.skills.length === 0) &&
-      !pathname.startsWith("/complete-profile") &&
-      !pathname.startsWith("/laws") &&
-      !pathname.startsWith("/login") &&
-      !pathname.startsWith("/register")
-    ) {
-      addToast("يرجى إكمال بيانات الملف الشخصي والمهارات أولاً للتمكن من استخدام المنصة", "warn");
-      window.location.href = "/complete-profile";
-      return;
-    }
-
-    // Mandatory Client Onboarding Guard
-    if (
-      userRoleState === "client" &&
-      !client.fullName &&
-      !pathname.startsWith("/complete-client-profile") &&
-      !pathname.startsWith("/laws") &&
-      !pathname.startsWith("/login") &&
-      !pathname.startsWith("/register")
-    ) {
-      addToast("يرجى إكمال بياناتك الشخصية أولاً للتمكن من استخدام المنصة", "warn");
-      window.location.href = "/complete-client-profile";
-      return;
-    }
-  }, [userRoleState, developer, client]);
-
   const addToast = (text: string, type: "success" | "info" | "warn" = "info") => {
-    const id = Date.now().toString();
+    const id = `toast-${++toastSequence}`;
     setToasts((prev) => [...prev, { id, text, type }]);
     setTimeout(() => {
       removeToast(id);
@@ -356,51 +284,23 @@ export function ProfileProvider({ children, initialProfile }: { children: React.
   };
 
   const updateDeveloper = (updated: Partial<DeveloperProfileData>) => {
-    setDeveloper((prev) => {
-      const next = { ...prev, ...updated };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("scora_developer_profile", JSON.stringify(next));
-      }
-      return next;
-    });
+    setDeveloper((prev) => ({ ...prev, ...updated }));
   };
 
   const updateClient = (updated: Partial<ClientProfileData>) => {
-    setClient((prev) => {
-      const next = { ...prev, ...updated };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("scora_client_profile", JSON.stringify(next));
-      }
-      return next;
-    });
+    setClient((prev) => ({ ...prev, ...updated }));
   };
 
   const updateSystemSettings = (updated: Partial<AdminSystemSettings>) => {
     setSystemSettings((prev) => {
-      const next = { ...prev, ...updated };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("scora_admin_system_settings", JSON.stringify(next));
-      }
-      return next;
+      return { ...prev, ...updated };
     });
   };
 
-  const [showSsdAssistant, setShowSsdAssistantState] = useState(true);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("scora_show_ssd_assistant");
-      if (saved !== null) {
-        setShowSsdAssistantState(saved === "true");
-      }
-    }
-  }, []);
+  const [showSsdAssistant, setShowSsdAssistantState] = useState(initialProfile.showSsdAssistant);
 
   const setShowSsdAssistant = (show: boolean) => {
     setShowSsdAssistantState(show);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("scora_show_ssd_assistant", String(show));
-    }
   };
 
   const addAppliedProject = (project: AppliedProjectItem) => {
@@ -414,6 +314,8 @@ export function ProfileProvider({ children, initialProfile }: { children: React.
     <ProfileContext.Provider
       value={{
         userRole: userRoleState,
+        isAdmin,
+        username,
         setUserRole,
         developer,
         client,

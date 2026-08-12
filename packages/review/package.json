@@ -1,0 +1,31 @@
+{
+  "name": "@scora/trust-review",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Layer 10: human review, the override record, and the audit trail that makes an adverse decision accountable.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-api": "0.1.0",
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0",
+    "@scora/trust-scoring": "0.1.0",
+    "@scora/trust-storage": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}

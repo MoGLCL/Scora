@@ -1,3 +1,24 @@
-import DynamicDeveloperProfilePage from "@/app/developers/[id]/page";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { query, queryOne } from "@/lib/db";
+import { verifySession } from "@/lib/dal";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import type { AppRole } from "@/lib/types";
 
-export default DynamicDeveloperProfilePage;
+const initials=(name:string)=>name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("");
+const budget=(a:number|null,b:number|null)=>a&&b?`${a.toLocaleString("ar-EG")} - ${b.toLocaleString("ar-EG")} ج.م`:a?`من ${a.toLocaleString("ar-EG")} ج.م`:"حسب الاتفاق";
+
+export default async function PublicProfile({params}:{params:Promise<{username:string}>}){
+  const username=(await params).username.toLowerCase();
+  const viewer=await verifySession();
+  const user=await queryOne<{id:number;full_name:string;username:string;role:AppRole}>("SELECT id,full_name,username,role FROM users WHERE username=? AND onboarding_completed_at IS NOT NULL AND status='active'",[username]);
+  if(!user)notFound();
+  const dev=user.role==="developer"?await queryOne<{display_name:string;job_title:string|null;bio:string|null;location:string|null;trust_score:number;skill_points:number;avatar_url:string|null}>("SELECT display_name,job_title,bio,location,trust_score,skill_points,avatar_url FROM developers WHERE user_id=?",[user.id]):null;
+  const client=user.role==="client"?await queryOne<{id:number;display_name:string;account_type:"personal"|"company";company_name:string|null;industry:string|null;website:string|null;location:string|null;avatar_url:string|null}>("SELECT id,display_name,account_type,company_name,industry,website,location,avatar_url FROM clients WHERE user_id=?",[user.id]):null;
+  if(user.role==="developer"&&!dev||user.role==="client"&&!client)notFound();
+  const projects=client?await query<{id:number;title:string;description:string|null;budget_from:number|null;budget_to:number|null;deadline_days:number|null;skills_json:string[]|string|null;posted_at:Date}>("SELECT id,title,description,budget_from,budget_to,deadline_days,skills_json,posted_at FROM projects WHERE client_id=? AND status='open' ORDER BY posted_at DESC",[client.id]):[];
+  const avatar=dev?.avatar_url??client?.avatar_url??null;const displayName=client?.account_type==="company"?(client.company_name||user.full_name):user.full_name;
+  const canChat=viewer&&viewer.userId!==user.id&&viewer.role!==user.role;
+  return <div className="min-h-screen bg-[#F7FAF8] flex flex-col" dir="rtl"><SiteHeader/><main className="mx-auto w-full max-w-[1000px] flex-1 px-6 py-12 space-y-7"><section className="rounded-[28px] border border-[#D1E3D6] bg-white p-8"><div className="flex flex-col gap-6 sm:flex-row sm:items-center"><div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E8FAF0] text-3xl font-extrabold text-[#056B38]">{avatar?<img src={avatar} alt={displayName} className="h-full w-full object-cover"/>:initials(displayName)}</div><div className="flex-1"><div className="text-sm font-bold text-[#056B38]">@{user.username}</div><h1 className="mt-1 text-3xl font-extrabold">{displayName}</h1><p className="mt-2 text-[#526B5E]">{dev?.job_title||(client?.account_type==="company"?`شركة${client.industry?` · ${client.industry}`:""}`:"عميل")}</p><p className="mt-2 text-sm text-[#526B5E]">{dev?.location||client?.location||""}</p></div>{canChat&&<Link href={`/chat?with=${user.id}`} className="rounded-full bg-[#056B38] px-6 py-3 font-bold text-white">بدء محادثة</Link>}</div>{dev?.bio&&<p className="mt-7 leading-8 text-[#526B5E]">{dev.bio}</p>}{dev&&<div className="mt-7 flex gap-3"><span className="rounded-full bg-[#E8FAF0] px-4 py-2 text-sm font-bold text-[#056B38]">Trust {dev.trust_score}%</span><span className="rounded-full bg-[#E8FAF0] px-4 py-2 text-sm font-bold text-[#056B38]">{dev.skill_points} SP</span></div>}</section>{client&&<section><h2 className="mb-4 text-2xl font-extrabold">المشاريع المفتوحة</h2><div className="grid gap-4 md:grid-cols-2">{projects.length?projects.map(p=>{let skills:string[]=[];try{skills=Array.isArray(p.skills_json)?p.skills_json:JSON.parse(p.skills_json||"[]")}catch{}return <Link href={`/projects/${p.id}`} key={p.id} className="rounded-2xl border bg-white p-6 transition hover:border-[#056B38]"><h3 className="text-lg font-extrabold">{p.title}</h3><p className="mt-2 line-clamp-3 text-sm text-[#526B5E]">{p.description}</p><div className="mt-4 font-bold text-[#056B38]">{budget(p.budget_from,p.budget_to)}</div><div className="mt-3 flex flex-wrap gap-2">{skills.map(s=><span key={s} className="rounded-full bg-[#F0F5F2] px-3 py-1 text-xs">{s}</span>)}</div></Link>}):<div className="rounded-2xl border bg-white p-8 text-center text-[#526B5E] md:col-span-2">لا توجد مشاريع مفتوحة حاليًا.</div>}</div></section>}</main><SiteFooter/></div>;
+}

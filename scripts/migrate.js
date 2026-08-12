@@ -47,7 +47,8 @@ async function main() {
       email         VARCHAR(255) NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       full_name     VARCHAR(255) NOT NULL,
-      role          ENUM('developer','client','admin') NOT NULL DEFAULT 'client',
+      role          ENUM('developer','client') NOT NULL DEFAULT 'client',
+      is_admin      TINYINT(1) NOT NULL DEFAULT 0,
       created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY uq_users_email (email)
@@ -58,6 +59,7 @@ async function main() {
       id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       user_id        BIGINT UNSIGNED NOT NULL,
       display_name   VARCHAR(255) NOT NULL,
+      account_type   ENUM('personal','company') NOT NULL DEFAULT 'personal',
       job_title      VARCHAR(255) NULL,
       headline       VARCHAR(255) NULL,
       bio            TEXT NULL,
@@ -133,6 +135,7 @@ async function main() {
       deadline_days INT UNSIGNED NULL,
       status        ENUM('open','in_progress','completed','closed') NOT NULL DEFAULT 'open',
       skills_json   JSON NULL,
+      deliverables_json JSON NULL,
       posted_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       KEY idx_projects_status (status),
@@ -195,6 +198,15 @@ async function main() {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY idx_notifications_user (user_id, is_read),
       CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+
+    `CREATE TABLE IF NOT EXISTS user_settings (
+      user_id       BIGINT UNSIGNED NOT NULL,
+      setting_key   VARCHAR(100) NOT NULL,
+      setting_value TEXT NULL,
+      updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, setting_key),
+      CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
 
     // ─── Uploaded media (avatars, images) ───────────────────────────────

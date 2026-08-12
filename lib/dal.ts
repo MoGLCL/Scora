@@ -25,20 +25,24 @@ import type {
 export const verifySession = cache(async () => {
   const session = await getSession();
   if (!session?.userId) return null;
-  const user = await queryOne<{ id: number; role: UserRow["role"]; status: UserRow["status"] }>(
-    "SELECT id, role, status FROM users WHERE id = ?",
+  const user = await queryOne<{ id: number; role: UserRow["role"]; status: UserRow["status"]; suspended_until: Date | null; is_admin: 0 | 1; onboarding_completed_at: Date | null }>(
+    "SELECT id, role, status, suspended_until, is_admin, onboarding_completed_at FROM users WHERE id = ?",
     [session.userId]
   );
   if (!user || user.status === "banned") return null;
-  if (user.status === "suspended") return null;
-  return { userId: user.id, role: user.role };
+  if (user.status === "suspended") {
+    const until = user.suspended_until;
+    if (!until || new Date(until).getTime() > Date.now()) return null;
+    await import("@/lib/db").then(({ execute }) => execute("UPDATE users SET status='active', suspended_until=NULL WHERE id=?", [user.id]));
+  }
+  return { userId: user.id, role: user.role, isAdmin: Boolean(user.is_admin), onboardingCompleted: Boolean(user.onboarding_completed_at) };
 });
 
 export const getCurrentUser = cache(async (): Promise<UserRow | null> => {
   const session = await verifySession();
   if (!session) return null;
   return queryOne<UserRow>(
-    "SELECT id, email, password_hash, full_name, role, created_at, updated_at FROM users WHERE id = ?",
+    "SELECT id, email, password_hash, full_name, username, phone, phone_verified, role, is_admin, status, suspended_until, last_login_at, onboarding_completed_at, created_at, updated_at FROM users WHERE id = ?",
     [session.userId]
   );
 });
@@ -84,14 +88,17 @@ export async function listDevelopers(): Promise<DeveloperCard[]> {
       `SELECT d.*,
               GROUP_CONCAT(s.name ORDER BY ds.sp DESC SEPARATOR ',') AS skills
        FROM developers d
+       JOIN users u ON u.id = d.user_id
        LEFT JOIN developer_skills ds ON ds.developer_id = d.id
        LEFT JOIN skills s ON s.id = ds.skill_id
+       WHERE u.status = 'active' AND u.onboarding_completed_at IS NOT NULL
        GROUP BY d.id
        ORDER BY d.trust_score DESC, d.skill_points DESC`
     );
 
     return rows.map((r) => ({
       id: String(r.id),
+      userId: r.user_id,
       initials: initialsOf(r.display_name),
       name: r.display_name,
       isVerified: Boolean(r.is_verified),
@@ -121,6 +128,7 @@ export async function getDeveloperById(id: number) {
 }
 
 function formatBudget(from: number | null, to: number | null): string {
+  if (from && to && from === to) return `${from.toLocaleString("ar-EG")} ج.م`;
   if (from && to) return `${from.toLocaleString("ar-EG")} - ${to.toLocaleString("ar-EG")} ج.م`;
   if (from) return `من ${from.toLocaleString("ar-EG")} ج.م`;
   return "حسب الاتفاق";
@@ -177,8 +185,8 @@ export async function getProjectById(id: number) {
 }
 
 export async function listProposalsForProject(projectId: number) {
-  return query<ProposalRow & { dev_name: string; job_title: string | null; trust_score: number }>(
-    `SELECT pr.*, d.display_name AS dev_name, d.job_title, d.trust_score
+  return query<ProposalRow & { dev_name: string; job_title: string | null; trust_score: number; developer_user_id: number }>(
+    `SELECT pr.*, d.display_name AS dev_name, d.job_title, d.trust_score, d.user_id AS developer_user_id
      FROM proposals pr
      JOIN developers d ON d.id = pr.developer_id
      WHERE pr.project_id = ?
@@ -228,7 +236,8 @@ export async function getProjectDetail(projectId: number) {
     };
   */
 
-  const tags = Array.isArray(row.skills_json) ? row.skills_json : [];
+  const tags = parseJsonList(row.skills_json);
+  const deliverables = parseJsonList(row.deliverables_json);
 
   return {
     id: String(row.id),
@@ -244,10 +253,7 @@ export async function getProjectDetail(projectId: number) {
     deadline: row.deadline_days ? `خلال ${row.deadline_days} يوماً` : "غير محدد",
     tags,
     description: row.description ?? "",
-    // Deliverables are captured free-form in the description for now; the
-    // dedicated column can be split out when the create-project form collects
-    // them separately.
-    deliverables: [] as string[],
+    deliverables,
   };
 }
 
@@ -256,6 +262,7 @@ export async function getProposalFeed(projectId: number) {
   const rows = await listProposalsForProject(projectId);
   return rows.map((r) => ({
     id: String(r.id),
+    developerUserId: r.developer_user_id,
     devName: r.dev_name,
     role: r.job_title ?? "",
     trustScore: r.trust_score,
@@ -264,6 +271,17 @@ export async function getProposalFeed(projectId: number) {
     deliverablesText: r.cover_text ?? "",
     timeAgo: timeAgo(r.created_at),
   }));
+}
+
+function parseJsonList(value: string[] | string | null): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function listSkills() {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -28,7 +28,16 @@ export interface ProjectCardData {
 
 export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTag, setSelectedTag] = useState("الكل");
+  const visibleProjects = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return projects;
+    return projects.filter((project) =>
+      project.title.toLowerCase().includes(query) ||
+      project.clientName.toLowerCase().includes(query) ||
+      project.description.toLowerCase().includes(query) ||
+      project.tags.some((tag) => tag.toLowerCase().includes(query))
+    );
+  }, [projects, searchQuery]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
@@ -69,10 +78,10 @@ export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-[24px] font-extrabold text-[#05291A] font-heading">
-              المشاريع المتاحة حالياً ({projects.length})
+              المشاريع المتاحة حالياً ({visibleProjects.length})
             </h2>
             <Link
-              href="/hire-developer"
+              href="/projects/new"
               className="rounded-full bg-[#056B38] hover:bg-[#08592E] text-white px-6 py-2.5 text-[13px] font-bold transition-all shadow-xs"
             >
               + أضف مشروعاً جديداً
@@ -80,7 +89,7 @@ export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
           </div>
 
           <div className="space-y-4">
-            {projects.map((proj) => (
+            {visibleProjects.length ? visibleProjects.map((proj) => (
               <div
                 key={proj.id}
                 className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-4 hover:border-[#056B38] hover:shadow-md transition-all"
@@ -129,7 +138,7 @@ export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
                   </Link>
                 </div>
               </div>
-            ))}
+            )) : <div className="rounded-[24px] border border-[#D1E3D6] bg-white p-10 text-center text-[#526B5E]">لا توجد مشاريع مطابقة للبحث الحالي.</div>}
           </div>
         </div>
 

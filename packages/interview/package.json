@@ -1,0 +1,29 @@
+{
+  "name": "@scora/trust-interview",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Layer 09: an adaptive technical interview generated from the developer's own session, with grading that separates understanding from fluency.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0",
+    "@scora/trust-skills": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}

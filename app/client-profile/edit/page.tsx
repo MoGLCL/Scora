@@ -4,7 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { useProfile } from "@/components/profile-provider";
+import { updateClientProfile } from "@/lib/actions/profile";
+import { removeAvatar, uploadAvatar } from "@/lib/actions/upload";
+import { useRouter } from "next/navigation";
 import { EgyptianLocationSelector } from "@/components/egyptian-location-selector";
+import { AiPreferenceToggle } from "@/components/ai-preference-toggle";
 import {
   User,
   Mail,
@@ -18,29 +22,39 @@ import {
 } from "lucide-react";
 
 export default function EditClientProfilePage() {
-  const { client, updateClient } = useProfile();
+  const router = useRouter();
+  const { client, username, updateClient, addToast } = useProfile();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatarUrl);
   const [fullName, setFullName] = useState(client.fullName);
   const [companyName, setCompanyName] = useState(client.companyName);
-  const [email, setEmail] = useState(client.email);
+  const [accountType, setAccountType] = useState(client.accountType);
+  const [phone, setPhone] = useState(client.phone);
+  const email = client.email;
   const [location, setLocation] = useState(client.location);
   const [website, setWebsite] = useState(client.website);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Realtime update to ProfileProvider & LocalStorage
+    setIsSaving(true);
+    const data=new FormData();data.set("accountType",accountType);data.set("displayName",fullName);data.set("companyName",accountType==="company"?companyName:"");data.set("website",accountType==="company"?website:"");data.set("location",location);data.set("phone",phone);data.set("username",username);
+    const result=await updateClientProfile(undefined,data);if(!result.ok){setIsSaving(false);addToast(result.error??Object.values(result.fieldErrors??{}).flat()[0]??"تعذر حفظ البيانات","warn");return}
     updateClient({
+      accountType,
       fullName,
       companyName,
       email,
+      phone,
       location,
       avatarUrl,
       website,
     });
 
-    // Seamless navigation back to client profile
-    window.location.href = "/client-profile";
+    addToast("تم حفظ البيانات في قاعدة البيانات","success");
+    setIsSaving(false);
+    router.push(`/profile/${username}`);
   };
 
   const getInitials = (name: string) => {
@@ -73,6 +87,7 @@ export default function EditClientProfilePage() {
 
         {/* Edit Form Card */}
         <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="grid grid-cols-2 gap-3 rounded-2xl border bg-white p-3"><button type="button" onClick={()=>setAccountType("personal")} className={`h-11 rounded-xl font-bold ${accountType==="personal"?"bg-primary text-white":"bg-neutral-50"}`}>حساب شخصي</button><button type="button" onClick={()=>setAccountType("company")} className={`h-11 rounded-xl font-bold ${accountType==="company"?"bg-primary text-white":"bg-neutral-50"}`}>حساب شركة</button></div>
           
           {/* Section 1: Avatar & Company Info */}
           <div className="rounded-[32px] border border-neutral-200/80 bg-white p-8 shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
@@ -104,14 +119,21 @@ export default function EditClientProfilePage() {
                 <input
                   id="client-avatar-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      const url = URL.createObjectURL(e.target.files[0]);
-                      setAvatarUrl(url);
-                      updateClient({ avatarUrl: url });
-                    }
+                  disabled={isUploadingAvatar}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsUploadingAvatar(true);
+                    const data = new FormData();
+                    data.set("file", file);
+                    const result = await uploadAvatar(data);
+                    setIsUploadingAvatar(false);
+                    if (!result.ok || !result.url) return addToast(result.error ?? "تعذر رفع الصورة", "warn");
+                    setAvatarUrl(result.url);
+                    updateClient({ avatarUrl: result.url });
+                    addToast("تم رفع الصورة وحفظها", "success");
                   }}
                 />
               </div>
@@ -132,9 +154,15 @@ export default function EditClientProfilePage() {
                   {avatarUrl && (
                     <button
                       type="button"
-                      onClick={() => {
+                      disabled={isUploadingAvatar}
+                      onClick={async () => {
+                        setIsUploadingAvatar(true);
+                        const result = await removeAvatar();
+                        setIsUploadingAvatar(false);
+                        if (!result.ok) return addToast(result.error ?? "تعذر حذف الصورة", "warn");
                         setAvatarUrl(null);
                         updateClient({ avatarUrl: null });
+                        addToast("تم حذف الصورة", "success");
                       }}
                       className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-4 py-2 text-[12px] font-bold text-red-600 hover:bg-red-100 transition-all cursor-pointer"
                     >
@@ -169,7 +197,7 @@ export default function EditClientProfilePage() {
               </div>
 
               {/* Company Name */}
-              <div>
+              {accountType === "company" && <div>
                 <label className="block text-[14px] font-bold text-ink mb-2">
                   اسم الشركة / المنظمة
                 </label>
@@ -186,7 +214,7 @@ export default function EditClientProfilePage() {
                   />
                   <Building className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
                 </div>
-              </div>
+              </div>}
 
               {/* Email */}
               <div>
@@ -198,16 +226,16 @@ export default function EditClientProfilePage() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      updateClient({ email: e.target.value });
-                    }}
-                    className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
+                    readOnly
+                    aria-readonly="true"
+                    className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-neutral-500 bg-neutral-50"
                     dir="ltr"
                   />
                   <Mail className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
                 </div>
               </div>
+
+              <div><label className="block text-[14px] font-bold text-ink mb-2">رقم الهاتف</label><input type="tel" required value={phone} onChange={(e)=>setPhone(e.target.value)} className="w-full h-[52px] rounded-full border border-neutral-200 px-5" dir="ltr"/></div>
 
               {/* Location */}
               <div>
@@ -222,7 +250,7 @@ export default function EditClientProfilePage() {
               </div>
 
               {/* Company Website */}
-              <div className="md:col-span-2">
+              {accountType === "company" && <div className="md:col-span-2">
                 <label className="block text-[14px] font-bold text-ink mb-2">
                   رابط موقع الشركة الإلكتروني
                 </label>
@@ -239,24 +267,27 @@ export default function EditClientProfilePage() {
                   />
                   <Globe className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
+
+          <AiPreferenceToggle />
 
           {/* Bottom Save Bar */}
           <div className="flex items-center justify-end gap-4 pt-4">
             <Link
-              href="/client-profile"
+              href={`/profile/${username}`}
               className="inline-flex h-[52px] items-center justify-center rounded-full border border-neutral-300 bg-white px-8 text-[15px] font-bold text-ink hover:bg-neutral-50 transition-all cursor-pointer"
             >
               إلغاء
             </Link>
             <button
               type="submit"
+              disabled={isSaving}
               className="inline-flex h-[52px] items-center justify-center gap-2 rounded-full bg-primary hover:bg-[#005B27] px-8 text-[15px] font-bold text-white transition-all shadow-md cursor-pointer active:scale-95"
             >
               <CheckCircle2 className="w-5 h-5" />
-              <span>حفظ جميع التغييرات</span>
+              <span>{isSaving ? "جاري الحفظ..." : "حفظ جميع التغييرات"}</span>
             </button>
           </div>
 

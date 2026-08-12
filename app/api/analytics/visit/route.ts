@@ -1,0 +1,2 @@
+import { NextRequest,NextResponse } from "next/server";import { execute } from "@/lib/db";import { verifySession } from "@/lib/dal";
+export async function POST(req:NextRequest){const s=await verifySession();const {path}=await req.json().catch(()=>({path:"/"}));const safe=typeof path==="string"?path.slice(0,500):"/";await execute("INSERT INTO page_views(user_id,path) VALUES(?,?)",[s?.userId??null,safe]);if(s)await execute("UPDATE users SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?",[s.userId]);return NextResponse.json({ok:true})}

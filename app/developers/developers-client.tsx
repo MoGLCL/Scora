@@ -7,6 +7,7 @@ import { Search, SlidersHorizontal, ChevronDown, Check, AlertTriangle, ShieldChe
 
 export interface DeveloperCardData {
   id: string;
+  userId: number;
   initials: string;
   name: string;
   isVerified: boolean;
@@ -344,7 +345,7 @@ export function DevelopersDirectoryClient({
                     شوف البروفايل
                   </Link>
                   <Link
-                    href={`/hire-developer?id=${dev.id}`}
+                    href={`/chat?with=${dev.userId}`}
                     className="inline-flex h-[44px] items-center justify-center rounded-full border border-neutral-300 bg-white px-6 text-[13px] font-bold text-ink hover:bg-neutral-50 transition-all cursor-pointer"
                   >
                     تواصل وتوظيف
@@ -356,8 +357,8 @@ export function DevelopersDirectoryClient({
           )))}
         </div>
 
-        {/* Clear High-Contrast Skeleton Loading Section */}
-        {false && <div className="space-y-4 pt-8">
+        {/* Real navigation loading is handled by app/loading.tsx. */}
+        {false && <div className="hidden" aria-hidden="true">
           <div className="flex items-center gap-2 text-[13px] font-bold text-[#0E6D3B] mb-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#0E6D3B] animate-ping inline-block" />
             <span>لسه بنحمّل بيانات مبرمجين كمان...</span>

@@ -1,0 +1,33 @@
+{
+  "name": "@scora/trust-scoring",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Layer assessment, evidence clustering and explainable Trust / Risk / Confidence scoring.",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./scenarios": {
+      "development": "./src/scenarios.ts",
+      "types": "./dist/scenarios.d.ts",
+      "default": "./dist/scenarios.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@scora/trust-core": "0.1.0",
+    "@scora/trust-features": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "node --conditions=development --test \"src/**/*.test.ts\""
+  }
+}
