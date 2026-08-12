@@ -39,7 +39,6 @@ export async function proxy(request: NextRequest) {
   const isGuestOnlyRoute = GUEST_ONLY_ROUTES.some((r) => pathname === r);
   const onboardingRoute = session?.role === "developer" ? "/complete-profile" : "/complete-client-profile";
   const onboardingAllowed = pathname.startsWith(onboardingRoute) || pathname.startsWith("/laws") || pathname.startsWith("/privacy");
-  const developerAdmissionAllowed = pathname.startsWith("/developer-assessment") || onboardingAllowed || pathname.startsWith("/api/auth/logout") || (session?.isAdmin && pathname.startsWith("/admin"));
 
   // A cookie that fails verification is worse than no cookie: clear it so the
   // browser stops sending a token the server will keep rejecting.
@@ -65,10 +64,6 @@ export async function proxy(request: NextRequest) {
 
   if (session && !session.onboardingCompleted && !onboardingAllowed) {
     return NextResponse.redirect(new URL(onboardingRoute, request.url));
-  }
-
-  if (session?.role === "developer" && session.onboardingCompleted && !session.developerApproved && !developerAdmissionAllowed) {
-    return NextResponse.redirect(new URL("/developer-assessment/pending", request.url));
   }
 
   if (isGuestOnlyRoute && session) {

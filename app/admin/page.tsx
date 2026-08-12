@@ -1,22 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertCircle,
+  AlertTriangle,
   Ban,
   Bot,
   Briefcase,
+  CheckCircle2,
   ChevronDown,
   Clock,
+  Code2,
+  FileCode,
+  Lock,
   RotateCcw,
   Search,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Trash2,
+  UserCheck,
+  UserPlus,
   Users,
-  AlertTriangle,
   X,
-  CheckCircle2
+  Award
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -24,7 +32,8 @@ import {
   decideReassessmentRequestForAdmin,
   deleteUserForAdmin,
   resetDeveloperAssessmentForAdmin,
-  updateUserForAdmin
+  updateUserForAdmin,
+  updateDeveloperTrustAndSkillPoints
 } from "@/lib/actions/admin";
 import { setAiAssistantEnabled, setQuickRegistrationEnabled } from "@/lib/actions/settings";
 import { OpenRouterSettings } from "@/components/openrouter-settings";
@@ -38,50 +47,109 @@ interface UserItem {
   phone: string;
   role: AppRole;
   isAdmin: boolean;
-  status: AccountStatus;
   skillPoints: number;
   trustScore: number;
-  joinDate: string;
+  status: AccountStatus;
   reportsCount: number;
-  approvalStatus?: string | null;
-  rejectionReason?: string | null;
+  joinDate: string;
+  approvalStatus?: string;
+  reassessmentStatus?: string;
+  reassessmentRequestId?: number;
+  reassessmentNote?: string;
+  assessmentSessionStatus?: string;
   assessmentPublicId?: string | null;
-  assessmentSessionStatus?: string | null;
   suspendedUntil?: string | null;
-  reassessmentRequestId?: number | null;
-  reassessmentStatus?: string | null;
-  reassessmentNote?: string | null;
 }
 
 interface ProjectItem {
   id: number;
   title: string;
-  category: string | null;
+  status: string;
   budgetFrom: number;
   budgetTo: number;
-  deadlineDays: number | null;
-  status: string;
-  postedAt: string;
-  ownerName: string;
-  ownerUsername: string | null;
-  accountType: "personal" | "company";
-  companyName: string | null;
   proposalsCount: number;
+  ownerName: string;
+  companyName: string | null;
+  ownerUsername: string | null;
+  accountType: string;
+  category: string | null;
+  deadlineDays: number | null;
+}
+
+interface AdminStats {
+  totals?: { users: number; active: number; visits: number; visitors: number };
+  daily?: Array<{ day: string; visits: number }>;
+}
+
+function Toast({ message, type }: { message: string; type: "success" | "warn" }) {
+  return (
+    <div
+      className={`fixed bottom-5 left-5 z-50 flex items-center gap-2 rounded-2xl px-5 py-3 font-extrabold text-sm text-white shadow-xl animate-in slide-in-from-bottom duration-300 ${
+        type === "success" ? "bg-[#056B38]" : "bg-amber-600"
+      }`}
+    >
+      <CheckCircle2 className="h-5 w-5 shrink-0" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function Stat({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
+  return (
+    <div className="flex flex-1 items-center gap-3 rounded-[22px] border border-[#D1E3D6] bg-white p-4 shadow-xs">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E8FAF0] text-[#056B38]">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <div className="text-2xl font-extrabold text-[#05291A]">{value}</div>
+        <div className="text-xs text-[#526B5E] font-bold">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function ScoraSelectControl<T extends string>({
+  value,
+  options,
+  onChange,
+  disabled
+}: {
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (val: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="relative inline-block">
+      <select
+        disabled={disabled}
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="h-10 appearance-none rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] pr-4 pl-9 text-xs font-extrabold text-[#05291A] hover:bg-[#E8FAF0] hover:border-[#056B38] focus:outline-none focus:ring-2 focus:ring-[#056B38]/20 transition-all disabled:opacity-50 cursor-pointer"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#526B5E]" />
+    </div>
+  );
 }
 
 export default function AdminPage() {
-  const { systemSettings, updateSystemSettings, addToast } = useProfile();
+  const { systemSettings, updateSystemSettings } = useProfile();
+  const [tab, setTab] = useState<"users" | "projects" | "stats" | "settings">("users");
+
   const [users, setUsers] = useState<UserItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [stats, setStats] = useState<AdminStats>({});
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | AppRole | "admin" | "restricted">("all");
-  const [tab, setTab] = useState<"users" | "projects" | "stats" | "settings">("users");
-  const [stats, setStats] = useState<{
-    totals?: { users: number; active: number; visits: number; visitors: number };
-    daily?: { day: string; visits: number }[];
-    settings?: Record<string, boolean>;
-  }>({});
+  const [filter, setFilter] = useState<"all" | "developer" | "client" | "admin" | "restricted">("all");
   const [quickRegistration, setQuickRegistration] = useState(true);
+
+  const [toast, setToast] = useState<{ message: string; type: "success" | "warn" } | null>(null);
   const [serverMessage, setServerMessage] = useState<{ text: string; kind: "success" | "error" } | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
 
@@ -91,60 +159,54 @@ export default function AdminPage() {
   const [deleteModalUser, setDeleteModalUser] = useState<UserItem | null>(null);
   const [resetTestUser, setResetTestUser] = useState<UserItem | null>(null);
 
-  const loadUsers = async () => {
-    try {
-      const response = await fetch("/api/admin/users", { cache: "no-store" });
-      if (response.ok) setUsers(await response.json());
-    } catch {
-      addToast("تعذر تحميل قائمة المستخدمين", "warn");
-    }
+  // Points Edit Modal State
+  const [pointsModalUser, setPointsModalUser] = useState<UserItem | null>(null);
+  const [editTrustScore, setEditTrustScore] = useState<number>(85);
+  const [editSkillPoints, setEditSkillPoints] = useState<number>(500);
+
+  const addToast = (message: string, type: "success" | "warn" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/users", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.users)) setUsers(data.users);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/projects", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.projects)) setProjects(data.projects);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/stats", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setStats(data);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
   useEffect(() => {
-    let active = true, userTimer: ReturnType<typeof setTimeout> | undefined;
-    const fetchUsersLoop = async () => {
-      try {
-        const response = await fetch("/api/admin/users", { cache: "no-store" });
-        if (response.ok && active) setUsers(await response.json());
-      } catch {
-        if (active) addToast("تعذر تحميل المستخدمين", "warn");
-      } finally {
-        if (active) userTimer = setTimeout(fetchUsersLoop, 8000);
-      }
-    };
-    void fetchUsersLoop();
-
-    fetch("/api/admin/projects", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setProjects)
-      .catch(() => addToast("تعذر تحميل المشاريع", "warn"));
-
-    let statsLoading = false;
-    const loadStats = () => {
-      if (statsLoading) return;
-      statsLoading = true;
-      fetch("/api/admin/stats", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : Promise.reject()))
-        .then((data) => {
-          setStats(data);
-          if (typeof data.settings?.quick_registration_enabled === "boolean") {
-            setQuickRegistration(data.settings.quick_registration_enabled);
-          }
-        })
-        .catch(() => undefined)
-        .finally(() => {
-          statsLoading = false;
-        });
-    };
-    loadStats();
-
-    const timer = window.setInterval(loadStats, 8000);
-    return () => {
-      active = false;
-      if (userTimer) clearTimeout(userTimer);
-      window.clearInterval(timer);
-    };
-  }, [addToast]);
+    void loadUsers();
+    void loadProjects();
+    void loadStats();
+  }, [loadUsers, loadProjects, loadStats]);
 
   const visible = useMemo(
     () =>
@@ -220,18 +282,23 @@ export default function AdminPage() {
     } else {
       await loadUsers();
       setSavingUserId(null);
-      setServerMessage({ text: "تمت إتاحة إعادة التقييم للمطور بنجاح وسيتم نقله للاختبار فوراً", kind: "success" });
-      addToast("تمت إتاحة إعادة التقييم للمطور", "success");
+      setServerMessage({ text: "تمت إتاحة إعادة اختبار المطور بنجاح", kind: "success" });
+      addToast("تمت موافقة وإتاحة التقييم للمطور", "success");
     }
     setResetTestUser(null);
   };
 
-  const handleDecideReassessment = async (targetUserId: string, requestId: number, decision: "approve" | "reject") => {
-    setSavingUserId(targetUserId);
+  const handleDecideReassessment = async (
+    userId: string,
+    requestId: number,
+    decision: "approve" | "reject"
+  ) => {
+    setSavingUserId(userId);
     setServerMessage(null);
     const result = await decideReassessmentRequestForAdmin({
       requestId,
-      decision
+      decision,
+      reason: decision === "approve" ? "وافقت الإدارة على طلب إعادة التقييم" : "تم رفض طلب إعادة التقييم"
     });
     if (!result.ok) {
       setSavingUserId(null);
@@ -241,62 +308,113 @@ export default function AdminPage() {
       await loadUsers();
       setSavingUserId(null);
       setServerMessage({
-        text: decision === "approve" ? "تمت الموافقة على طلب إعادة الاختبار وإتاحته للمطور" : "تم رفض طلب إعادة الاختبار",
+        text: decision === "approve" ? "تمت إتاحة إعادة الاختبار للمطور" : "تم رفض طلب إعادة الاختبار",
         kind: "success"
       });
-      addToast(decision === "approve" ? "تمت الموافقة على طلب إعادة الاختبار" : "تم رفض الطلب", "success");
+      addToast(decision === "approve" ? "تمت إتاحة الاعتماد للمطور" : "تم رفض الطلب", "success");
     }
   };
 
+  const handleSavePoints = async () => {
+    if (!pointsModalUser) return;
+    setSavingUserId(pointsModalUser.id);
+    setServerMessage(null);
+    const result = await updateDeveloperTrustAndSkillPoints({
+      userId: Number(pointsModalUser.id),
+      trustScore: Number(editTrustScore),
+      skillPoints: Number(editSkillPoints)
+    });
+    if (!result.ok) {
+      setSavingUserId(null);
+      setServerMessage({ text: result.error, kind: "error" });
+      addToast(result.error, "warn");
+    } else {
+      await loadUsers();
+      setSavingUserId(null);
+      setServerMessage({ text: "تم تحديث درجات التراست والـ SP للحساب بنجاح", kind: "success" });
+      addToast("تم تحديث درجات التراست والـ SP بنجاح", "success");
+    }
+    setPointsModalUser(null);
+  };
+
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
+    <div dir="rtl" className="min-h-screen bg-[#F7FAF8] font-sans antialiased text-[#05291A]">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-[1296px] flex-1 px-6 py-10 space-y-7">
+      {toast && <Toast message={toast.message} type={toast.type} />}
+
+      <main className="mx-auto max-w-7xl px-4 py-8 space-y-6 md:px-6">
+        {/* Page Title Header */}
+        <section className="rounded-[28px] border border-[#D1E3D6] bg-white p-6 md:p-8 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-[#E8FAF0] text-[#056B38] px-3.5 py-1 text-xs font-extrabold border border-[#D1E3D6]">
+                سيادي · لوحة التحكم
+              </span>
+              <span className="text-xs text-[#526B5E] font-bold">ربط حي مع MySQL</span>
+            </div>
+            <h1 className="mt-2 text-2xl md:text-3xl font-extrabold text-[#05291A]">
+              لوحة الإدارة والإشراف المالي والفني
+            </h1>
+            <p className="mt-1 text-xs md:text-sm text-[#526B5E]">
+              إدارة الحسابات، صلاحيات الاعتماد، درجات التراست والـ SP، وتعديل إعدادات الذكاء الاصطناعي والمشاريع.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(["users", "projects", "stats", "settings"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`rounded-full px-5 py-2.5 text-xs font-extrabold transition-all shadow-xs ${
+                  tab === t ? "bg-[#056B38] text-white shadow-md" : "bg-[#F7FAF8] text-[#526B5E] hover:bg-[#E8FAF0]"
+                }`}
+              >
+                {t === "users"
+                  ? "الحسابات والمطورون"
+                  : t === "projects"
+                  ? "المشاريع"
+                  : t === "stats"
+                  ? "الإحصائيات"
+                  : "إعدادات النظام وAI"}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Server Notification Banner */}
         {serverMessage && (
           <div
-            role="status"
-            className={`rounded-2xl border p-4 text-sm font-bold flex items-center justify-between shadow-xs ${
+            className={`rounded-2xl border p-4 text-xs font-extrabold flex items-center justify-between shadow-xs ${
               serverMessage.kind === "success"
-                ? "border-[#D1E3D6] bg-[#E8FAF0] text-[#056B38]"
-                : "border-red-200 bg-red-50 text-red-700"
+                ? "bg-[#E8FAF0] border-[#D1E3D6] text-[#056B38]"
+                : "bg-red-50 border-red-200 text-red-800"
             }`}
           >
-            <span>{serverMessage.text}</span>
-            <button type="button" onClick={() => setServerMessage(null)} className="text-gray-500 hover:text-black">
+            <div className="flex items-center gap-2">
+              {serverMessage.kind === "success" ? (
+                <CheckCircle2 className="h-5 w-5 text-[#056B38]" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              )}
+              <span>{serverMessage.text}</span>
+            </div>
+            <button type="button" onClick={() => setServerMessage(null)} className="text-current opacity-70 hover:opacity-100">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <nav className="flex flex-wrap gap-2 rounded-2xl border border-[#D1E3D6] bg-white p-2 shadow-xs">
-          {(
-            [
-              ["users", "المستخدمون والتحكم"],
-              ["projects", "المشاريع المنشورة"],
-              ["stats", "الإحصائيات والزيارات"],
-              ["settings", "إعدادات النظام و AI"]
-            ] as const
-          ).map(([k, l]) => (
-            <button
-              type="button"
-              key={k}
-              onClick={() => setTab(k)}
-              className={`rounded-xl px-6 py-3 font-extrabold text-sm transition-all ${
-                tab === k ? "bg-[#056B38] text-white shadow-xs" : "text-[#526B5E] hover:bg-[#F7FAF8]"
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </nav>
-
-        {/* Header Stats Banner */}
-        <section className="rounded-[28px] border border-[#D1E3D6] bg-white p-7 flex flex-col gap-5 md:flex-row md:items-center md:justify-between shadow-xs">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[#05291A]">لوحة التحكم والإدارة الفنية</h1>
-            <p className="mt-2 text-sm text-[#526B5E]">
-              إدارة مستخدمي منصة سكورا، مراجعة الاعتماد، تفعيل إيقاف الحسابات، والموافقة على طلبات إعادة الاختبار.
+        {/* Top Summary Stats Bar */}
+        <section className="flex flex-col md:flex-row gap-4 items-stretch justify-between">
+          <div className="flex-1 rounded-[24px] border border-[#D1E3D6] bg-white p-5 shadow-xs flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-[#526B5E]">المطورون المعتمدون</div>
+              <div className="text-2xl font-extrabold text-[#056B38] mt-1">
+                {users.filter((u) => u.role === "developer" && u.status === "active").length} مطور
+              </div>
+            </div>
+            <p className="text-xs text-[#526B5E] max-w-xs">
+              جميع الحسابات الظاهرة يتم جلبها مباشرة من جدول users و developers.
             </p>
           </div>
           <div className="flex gap-3">
@@ -482,7 +600,7 @@ export default function AdminPage() {
                             type="button"
                             disabled={savingUserId === u.id}
                             onClick={() => handleDecideReassessment(u.id, u.reassessmentRequestId!, "approve")}
-                            className="h-9 px-4 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5"
+                            className="h-9 px-4 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                             <span>موافقة على إعادة الاختبار</span>
@@ -491,7 +609,7 @@ export default function AdminPage() {
                             type="button"
                             disabled={savingUserId === u.id}
                             onClick={() => handleDecideReassessment(u.id, u.reassessmentRequestId!, "reject")}
-                            className="h-9 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white text-xs font-extrabold transition-all"
+                            className="h-9 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white text-xs font-extrabold transition-all cursor-pointer"
                           >
                             <span>رفض الطلب</span>
                           </button>
@@ -578,7 +696,7 @@ export default function AdminPage() {
                   <button
                     key={x}
                     onClick={() => setFilter(x)}
-                    className={`rounded-full px-4 py-2 text-xs font-extrabold transition-all ${
+                    className={`rounded-full px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${
                       filter === x ? "bg-[#056B38] text-white shadow-xs" : "bg-[#F7FAF8] text-[#526B5E] hover:bg-[#E8FAF0]"
                     }`}
                   >
@@ -647,12 +765,22 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      {/* Trust & Skill Points Badge */}
-                      <div className="text-xs font-bold text-[#526B5E] bg-[#F7FAF8] border border-[#D1E3D6] px-4 py-2 rounded-2xl flex items-center gap-3">
+                      {/* Interactive Editable Trust & Skill Points Badge */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPointsModalUser(u);
+                          setEditTrustScore(u.trustScore || 85);
+                          setEditSkillPoints(u.skillPoints || 500);
+                        }}
+                        title="اضغط لتعديل درجات التراست والـ SP للمستخدم مباشرة"
+                        className="text-xs font-bold text-[#526B5E] bg-[#F7FAF8] hover:bg-[#E8FAF0] border border-[#D1E3D6] hover:border-[#056B38] px-4 py-2 rounded-2xl flex items-center gap-3 transition-all cursor-pointer shadow-2xs"
+                      >
                         <div>Trust: <span className="text-[#056B38] font-extrabold">{u.trustScore}</span></div>
                         <div className="h-3 w-px bg-neutral-300" />
                         <div>SP: <span className="text-[#05291A] font-extrabold">{u.skillPoints}</span></div>
-                      </div>
+                        <Award className="h-4 w-4 text-[#056B38] shrink-0" />
+                      </button>
                     </div>
 
                     {/* Bottom Control Bar */}
@@ -675,7 +803,7 @@ export default function AdminPage() {
                           type="button"
                           disabled={savingUserId === u.id}
                           onClick={() => updateStatusOrRole(u.id, { isAdmin: !u.isAdmin })}
-                          className={`h-10 rounded-2xl px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                          className={`h-10 rounded-2xl px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
                             u.isAdmin
                               ? "bg-[#056B38] text-white hover:bg-[#005B27] shadow-xs"
                               : "border border-[#D1E3D6] bg-[#F7FAF8] text-[#05291A] hover:bg-[#E8FAF0] hover:border-[#056B38]"
@@ -706,6 +834,24 @@ export default function AdminPage() {
                           }}
                         />
 
+                        {/* Edit Trust & SP Points Action Button */}
+                        {u.role === "developer" && (
+                          <button
+                            type="button"
+                            disabled={savingUserId === u.id}
+                            onClick={() => {
+                              setPointsModalUser(u);
+                              setEditTrustScore(u.trustScore || 85);
+                              setEditSkillPoints(u.skillPoints || 500);
+                            }}
+                            title="تعديل درجات التراست والـ SP"
+                            className="h-10 rounded-2xl border border-amber-300 bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-900 px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <Award className="h-4 w-4" />
+                            <span>تعديل Trust & SP</span>
+                          </button>
+                        )}
+
                         {/* Reset Developer Assessment Button */}
                         {u.role === "developer" && (
                           <button
@@ -713,7 +859,7 @@ export default function AdminPage() {
                             disabled={savingUserId === u.id}
                             onClick={() => setResetTestUser(u)}
                             title="إعادة تفعيل اختبار تقييم المطور"
-                            className="h-10 rounded-2xl border border-[#056B38]/40 bg-[#E8FAF0] hover:bg-[#056B38] hover:text-white text-[#056B38] px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs"
+                            className="h-10 rounded-2xl border border-[#056B38]/40 bg-[#E8FAF0] hover:bg-[#056B38] hover:text-white text-[#056B38] px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
                             <span>إعادة اختبار المطور</span>
@@ -726,7 +872,7 @@ export default function AdminPage() {
                           disabled={savingUserId === u.id}
                           onClick={() => setDeleteModalUser(u)}
                           title="حذف الحساب نهائياً"
-                          className="h-10 px-3.5 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-extrabold text-xs flex items-center gap-1 transition-all"
+                          className="h-10 px-3.5 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-extrabold text-xs flex items-center gap-1 transition-all cursor-pointer"
                         >
                           <Trash2 className="h-4 w-4" />
                           <span>حذف</span>
@@ -759,7 +905,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setSuspensionModalUser(null)}
-                className="text-gray-400 hover:text-black"
+                className="text-gray-400 hover:text-black cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -784,7 +930,7 @@ export default function AdminPage() {
                     key={item.days}
                     type="button"
                     onClick={() => setSelectedSuspensionDays(item.days)}
-                    className={`p-3 rounded-2xl border text-xs font-bold text-right transition-all flex items-center justify-between ${
+                    className={`p-3 rounded-2xl border text-xs font-bold text-right transition-all flex items-center justify-between cursor-pointer ${
                       selectedSuspensionDays === item.days
                         ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] font-extrabold shadow-xs"
                         : "border-[#D1E3D6] bg-white text-[#05291A] hover:bg-[#F7FAF8]"
@@ -798,9 +944,7 @@ export default function AdminPage() {
 
               <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 font-bold flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
-                <span>
-                  سيتم رفع الإيقاف تلقائياً بعد {selectedSuspensionDays} يومًا من تاريخ الحفظ.
-                </span>
+                <span>سينتهي الإيقاف أوتوماتيكياً وينشط الحساب بعد انقضاء الفترة المحددة.</span>
               </div>
             </div>
 
@@ -808,14 +952,14 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={handleConfirmSuspension}
-                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                className="flex-1 h-11 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>تأكيد الإيقاف المؤقت</span>
+                <span>تأكيد الإيقاف</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSuspensionModalUser(null)}
-                className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8] cursor-pointer"
               >
                 إلغاء
               </button>
@@ -825,7 +969,78 @@ export default function AdminPage() {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 2. Permanent Account Deletion Confirmation Modal */}
+      {/* 2. Direct Points (Trust & SP) Editor Modal */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {pointsModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-[28px] border border-[#D1E3D6] bg-white p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <h3 className="text-lg font-extrabold text-[#05291A] flex items-center gap-2">
+                <Award className="h-5 w-5 text-[#056B38]" />
+                تعديل درجات التراست والـ SP للمستخدم
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPointsModalUser(null)}
+                className="text-gray-400 hover:text-black cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-[#526B5E]">
+                المستخدم: <strong className="text-[#05291A] font-extrabold">{pointsModalUser.name}</strong> ({pointsModalUser.email})
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-xs font-extrabold text-[#05291A]">درجة التراست (Trust Score 0 - 100):</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editTrustScore}
+                  onChange={(e) => setEditTrustScore(Number(e.target.value))}
+                  className="w-full rounded-2xl border border-[#D1E3D6] p-3 text-sm font-bold text-[#05291A] focus:outline-none focus:border-[#056B38]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-extrabold text-[#05291A]">نقاط المهارة (Skill Points - SP):</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  value={editSkillPoints}
+                  onChange={(e) => setEditSkillPoints(Number(e.target.value))}
+                  className="w-full rounded-2xl border border-[#D1E3D6] p-3 text-sm font-bold text-[#05291A] focus:outline-none focus:border-[#056B38]"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSavePoints}
+                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>حفظ وتفعيل النقاط بالحساب</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPointsModalUser(null)}
+                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8] cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 3. Delete Confirmation Modal */}
       {/* ───────────────────────────────────────────────────────────── */}
       {deleteModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
@@ -833,25 +1048,25 @@ export default function AdminPage() {
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="text-lg font-extrabold text-red-700 flex items-center gap-2">
                 <Trash2 className="h-5 w-5 text-red-600" />
-                حذف الحساب نهائياً من المنصة
+                تأكيد حذف الحساب نهائياً
               </h3>
-              <button type="button" onClick={() => setDeleteModalUser(null)} className="text-gray-400 hover:text-black">
+              <button
+                type="button"
+                onClick={() => setDeleteModalUser(null)}
+                className="text-gray-400 hover:text-black cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm text-[#526B5E]">
-                هل أنت متأكد من رغبتك في حذف حساب{" "}
-                <strong className="text-[#05291A] font-extrabold">{deleteModalUser.name}</strong> ({deleteModalUser.email}) نهائياً؟
+              <p className="text-xs text-[#526B5E] leading-relaxed">
+                هل أنت تأكد من رغبتك في حذف حساب{" "}
+                <strong className="text-[#05291A] font-extrabold">{deleteModalUser.name}</strong> ({deleteModalUser.email})؟
               </p>
-
-              <div className="rounded-2xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-800 font-bold leading-relaxed space-y-1">
-                <div className="flex items-center gap-1.5 text-red-900 font-extrabold">
-                  <AlertTriangle className="h-4 w-4 text-red-700 shrink-0" />
-                  <span>تحذير: هذه العملية لا يمكن التراجع عنها!</span>
-                </div>
-                <p>سيتم حذف بيانات الحساب والملف الشخصي وسجل الاختبارات نهائياً من قاعدة بيانات MySQL.</p>
+              <div className="rounded-2xl bg-red-50 border border-red-200 p-3 text-xs text-red-800 font-bold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                <span>تحذير: هذا الإجراء نهائي وسيتم مسح جميع بيانات الحساب والمشروعات والعروض التابعة له.</span>
               </div>
             </div>
 
@@ -859,14 +1074,15 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="flex-1 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                className="flex-1 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
+                <Trash2 className="h-4 w-4" />
                 <span>تأكيد الحذف النهائي</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDeleteModalUser(null)}
-                className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8] cursor-pointer"
               >
                 إلغاء
               </button>
@@ -876,7 +1092,7 @@ export default function AdminPage() {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 3. Developer Assessment Reset Confirmation Modal */}
+      {/* 4. Reset Assessment Modal */}
       {/* ───────────────────────────────────────────────────────────── */}
       {resetTestUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
@@ -884,21 +1100,25 @@ export default function AdminPage() {
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="text-lg font-extrabold text-[#05291A] flex items-center gap-2">
                 <RotateCcw className="h-5 w-5 text-[#056B38]" />
-                إعادة تفعيل اختبار تقييم المطور
+                إعادة تفعيل اختبار التقييم للمطور
               </h3>
-              <button type="button" onClick={() => setResetTestUser(null)} className="text-gray-400 hover:text-black">
+              <button
+                type="button"
+                onClick={() => setResetTestUser(null)}
+                className="text-gray-400 hover:text-black cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm text-[#526B5E]">
-                هل ترغب في إتاحة إعادة تقديم اختبار تقييم المطورين للمطور{" "}
-                <strong className="text-[#05291A] font-extrabold">{resetTestUser.name}</strong>؟
+              <p className="text-xs text-[#526B5E] leading-relaxed">
+                هل تريد موافقة وإعادة فتح تقديم الاختبار للمطور{" "}
+                <strong className="text-[#05291A] font-extrabold">{resetTestUser.name}</strong> ({resetTestUser.email})؟
               </p>
-
-              <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] p-3.5 text-xs text-[#056B38] font-bold leading-relaxed">
-                ستتم إعادة حالة الاعتماد للمطور وإعادة إنتاج اختبار جديد بالذكاء الاصطناعي، وإرسال تنبيه حاد للحساب بتوفر إجراء التقييم مجدداً.
+              <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] p-3 text-xs text-[#056B38] font-bold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <span>سيظهر زر "بدء الاختبار الآن" فوراً في حساب المطور لإتاحة إعادة الاعتماد.</span>
               </div>
             </div>
 
@@ -906,14 +1126,15 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={handleConfirmResetAssessment}
-                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>تأكيد إعادة الاختبار</span>
+                <CheckCircle2 className="h-4 w-4" />
+                <span>تأكيد الإتاحة وإعادة الاختبار</span>
               </button>
               <button
                 type="button"
                 onClick={() => setResetTestUser(null)}
-                className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8] cursor-pointer"
               >
                 إلغاء
               </button>
@@ -923,49 +1144,6 @@ export default function AdminPage() {
       )}
 
       <SiteFooter />
-    </div>
-  );
-}
-
-{/* ───────────────────────────────────────────────────────────── */}
-{/* Scora Custom Styled Select Dropdown Control */}
-{/* ───────────────────────────────────────────────────────────── */}
-function ScoraSelectControl({
-  value,
-  options,
-  onChange,
-  disabled
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (val: string) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="relative inline-block">
-      <select
-        disabled={disabled}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 appearance-none rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] hover:bg-[#E8FAF0] hover:border-[#056B38] text-[#05291A] text-xs font-extrabold pr-4 pl-9 cursor-pointer transition-all focus:outline-none focus:border-[#056B38] focus:ring-2 focus:ring-[#056B38]/10 disabled:opacity-50"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-white text-[#05291A] font-bold py-1">
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="absolute left-3 top-3 h-3.5 w-3.5 text-[#056B38] pointer-events-none" />
-    </div>
-  );
-}
-
-function Stat({ icon: Icon, label, value }: { icon: typeof ShieldCheck; label: string; value: number }) {
-  return (
-    <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] px-5 py-3 shadow-xs">
-      <Icon className="h-4 w-4 text-[#056B38]" />
-      <div className="mt-1 text-xs font-bold text-[#526B5E]">{label}</div>
-      <div className="text-xl font-extrabold text-[#05291A]">{value}</div>
     </div>
   );
 }
