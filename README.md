@@ -1,79 +1,67 @@
-# Scora V0.1 - التقرير الفني وحالة الكودبروجيكت
+# Scora V0.1 - التقرير الفني المباشر ودليل المشروع (Repository Documentation Master)
 
-هذا المستند يشرح الحالة الفنية الراهنة لمشروع Scora V0.1، مع توضيح البنية التحتية، الإصلاحات الأمنية والمعمارية التي تم تنفيذها، بالإضافة إلى خط أنابيب الأتمتة CI/CD والميزات الإضافية (Bonus Features)، وقائمة المهام والمشاكل المتبقية والجاري العمل على معالجتها في الكودbase.
-
----
-
-## المعمارية والبيئة البرمجية (Tech Stack)
-
-- Framework: Next.js 16 (App Router + Turbopack)
-- Language: TypeScript (Strict Type Checking)
-- Styling: Vanilla CSS Tokens + Tailwind CSS
-- Database Layer: MySQL / MariaDB (Direct Connection Pool + Server Actions)
-- Authentication & Sessions: JOSE (Stateless JWT Sessions), BcryptJS, Server-Only HTTP-First Cookies
-- CI/CD & Automation (Bonus Feature): GitHub Actions (Multi-stage CI/CD Pipeline)
+هذا المستند يمثل الدليل الرئيسي الفني لمنصة Scora V0.1. تم تنظيم وتوثيق كافة الأنظمة المعمارية، قواعد البيانات، والمسارات في مجلد الوثائق المستقل `docs/` لتوفير بيئة عمل احترافية وسهلة المتابعة للمطورين.
 
 ---
 
-## الميزات الإضافية خط أتمتة البناء والنشر (Bonus CI/CD Pipeline)
+## 📚 التوثيق الفني المعماري المتاح داخل مجلد `docs/`
 
-تم إضافة وتجهيز بيئة أتمتة كاملة للمشروع باستخدام GitHub Actions عبر ملفات التكوين في `.github/workflows`:
+تم إعداد الوثائق التخصصية وتوزيعها داخل المجلد المستقل `docs/` على النحو التالي:
 
-1. Continuous Integration Pipeline (`.github/workflows/ci.yml`):
-   - فحص جودة الكود وتوافق المعايير (ESLint Verification).
-   - الفحص التلقائي للأنواع الصارمة في TypeScript (`npx tsc --noEmit`).
-   - التحقق من بناء النسخة الإنتاجية (Next.js Production Build Verification) لكافة المسارات الـ 28.
-   - الفحص الأمني الثابت للمكتبات المستوردة (Dependency Security Audit).
-   - تخزين مؤقت تسلسلي لبناء Next.js (`actions/cache`) لتسريع الـ Workflow.
+1. **[هيكل المشروع والمعمارية (Project Structure & Architecture)](docs/PROJECT_STRUCTURE.md):**
+   شرح كامل لتقسيم المجلدات، طبقة الوصول للبيانات (DAL)، خوادم العمليات (Server Actions)، وحزم التقييم والموثوقية المعزولة داخل المونوريبو.
 
-2. Continuous Deployment Pipeline (`.github/workflows/deploy.yml`):
-   - التحقق التلقائي من جاهزية الإعدادات والمتغيرات البيئية قبل الـ Release.
-   - إنتاج وتجهيز الحزمة النهائية وتوفير الـ Artifacts للإنتاج.
+2. **[دليل إعداد بيئة التشغيل وقواعد البيانات (Environment Setup & Configuration)](docs/ENVIRONMENT_SETUP.md):**
+   خطوات التثبيت المحلي، ربط MySQL، ضبط المتغيرات البيئية في `.env.local`، وتشغيل سكربتات التحديث التتابعية من `migrate.js` حتى `migrate-v8.js`.
 
----
+3. **[التوثيق الفني الكامل للـ API و Server Actions (API Reference)](docs/API_DOCUMENTATION.md):**
+   توثيق كامل لمسارات الـ REST API الخاصة بالأدمن، الإحصائيات، التحليلات، التنبيهات، ومواصفات خوادم العمليات الخاصة بالمصادقة، تقييم المطورين بـ AI، والعروض.
 
-## التعديلات والإصلاحات المعمارية والأمنية المنفذة (Fixed Audit Issues)
-
-### 1. الحماية وإدارة الجلسات (Authentication & Security)
-- إلغاء ثغرة التجاوز التلقائي (Fake Auth Bypass): تم حذف جميع كتل الـ catch في صفحات اللوجن والريجيستر التي كانت تقوم بتسجيل الدخول التلقائي أو إنشاء حسابات افتراضية عند حدوث خطأ في الاتصال بالخادم.
-- معالجة تزوير التوكين في الـ Client (SEC-3 Cookie Forgery Fix): تم تجريد الدوال التابعة للـ Frontend مثل setUserRole من صلاحية التلاعب بالـ Cookies مباشرة. أصبحت إدارة الـ Session Cookies محصورة بالكامل في السيرفر عبر createSession و destroySession.
-- منع ثغرات IDOR في تغيير كلمة المرور (SEC-7): تم تعديل دالة changePassword لتعتمد على التحقق من الجلسة الموثقة عبر verifySession بدلاً من استقبال userId كباراميتر ممرر من العميل.
-- تنظيف المفاتيح والرموز الحساسة: تم إزالة المفاتيح والرموز السرية الافتراضية المكتوبة كودياً في الملفات التشغيلية.
-- ضبط مزامنة الجلسة اللحظية: تم حصر الاستعلام اللحظي syncUserSessionWithDb بالاعتماد الحصري على التوكين المشفر الموقّع من السيرفر.
-
-### 2. تدفق البيانات والـ Onboarding
-- حقل رقم الموبايل: تم إضافة حقل الموبايل المصري لصفحة التسجيل وتمريره في الـ FormData مع تنفيذ الفحص الأولي للـ Pattern الخاص برقم الهواتف المصرية.
-- مرونة حسابات العملاء: تم تعديل شروط إكمال بيانات العميل بحيث يكون اسم الشركة اختيارياً، لتغطية حالات العملاء الأفراد.
-- حراسة المسارات وإكمال البيانات (Mandatory Onboarding Guard): تم تفعيل Route Guards تمنع المستخدمين الجدد من تخطي شاشات إكمال البيانات قبل الاستفادة من المنصة.
-- حظر صفحات الدخول للمستخدمين المسجلين: توجيه الترافيك تلقائياً بعيداً عن /login و /register للمستخدمين المسجلين، مع تخصيص حراسة مسارات الإدارة /admin.
-
-### 3. تنقية البيانات والربط المباشر مع MySQL
-- إزالة البيانات الوهمية (Mock Data Cleanup): تم تفريغ كافة البيانات الافتراضية والرسوم البيانية المفتعلة ودرجات الـ SP الوهمية.
-- المزامنة المباشرة: تم ربط الجلسات، رتب الصلاحيات، والملفات الشخصية حياً مع جدول المستخدمين في قاعدة البيانات.
+4. **[مخطط وقواعد بيانات MySQL (Database Schema & Relations)](docs/DATABASE_SCHEMA.md):**
+   المخطط الهيكلي لقواعد البيانات (ER Diagrams)، جداول المستخدمين والمطورين والمشاريع، القيود والتكامل الترجعي (Foreign Keys)، وسجل الـ Migrations.
 
 ---
 
-## المشاكل المتبقية والمهام الجاري تنفيذها (Backlog & Work in Progress)
+## المعمارية والتقنيات الأساسية (Core Tech Stack)
 
-| # | الميزة / المشكلة | تفاصيل الحالة الفنية |
-|---|---|---|
-| 1 | مزامنة إعدادات أدمن النظام مع MySQL | إعدادات الـ SMTP، الـ OAuth Providers، والـ AI Engine تُحفظ حالياً في localStorage. جاري بناء جدول system_settings في MySQL لحفظها وتحديثها مركزياً من السيرفر. |
-| 2 | المحادثات والدعم المباشر (Live Messaging System) | واجهات الـ Chat والـ Tickets قيد العمل. جاري بناء طبقة Real-time عبر WebSockets / Polling للمراسلة الفورية بين الأطراف. |
-| 3 | نظام التنبيهات اللحظية (Notification Dispatcher) | جاري بناء الـ Notification Engine لإرسال تنبيهات لحظية للمستخدم عند تقديم عرض، قبول مشروع، أو تغيير رتبة الصلاحية. |
-| 4 | استعلامات الإحصائيات المجمعة للأدمن (Admin Aggregated SQL Queries) | بعد إزالة البيانات المالية المفتعلة، تُعرض الشاشات حالياً في حالتها الفارغة. جاري إضافة SQL Aggregation Queries لحساب العوائد الحقيقية وحجم المعاملات الفعلي. |
-| 5 | بيئة الاختبارات التلقائية (Automated E2E Testing) | إعداد بيئة اختبارات قياسية باستخدام Playwright / Jest للتحقق من سلامة كافة الـ Routes والـ Actions قبل الـ Deployment. |
+- **Framework:** Next.js 16 (App Router + Turbopack)
+- **Language:** TypeScript (Strict Type Checking)
+- **Styling:** Vanilla CSS Tokens + Tailwind CSS
+- **Database Engine:** MySQL / MariaDB (Direct Connection Pool + Server Actions)
+- **Security & Auth:** JOSE (Stateless JWT Sessions), BcryptJS, Server-Only Cookies
+- **AI Integration:** OpenRouter API (Claude 3.5 Sonnet Engine)
+- **CI/CD Automation (Bonus Feature):** GitHub Actions (Multi-stage Pipeline in `.github/workflows/`)
 
 ---
 
-## التعليمات الفنية للتشغيل والبناء
+## خط أتمتة البناء والنشر (GitHub Actions CI/CD)
+
+المشروع مجهز بخط أتمتة مستمر مدمج داخل المستودع:
+
+1. **Continuous Integration (`.github/workflows/ci.yml`):**
+   يتحقق تلقائياً من جودة الكود (ESLint)، مطابقة TypeScript الصارمة (`npx tsc --noEmit`)، وبناء النسخة الإنتاجية بكفاءة وتخزين الـ Build Artifacts.
+
+2. **Continuous Deployment (`.github/workflows/deploy.yml`):**
+   يفحص جاهزية المتغيرات البيئية والتكامل الإنتاجي فور الدمج على برانش `main` أو `Scora-V0.1`.
+
+3. **التشغيل اليدوي المباشر (Manual Trigger):**
+   يدعم الـ Workflows خاصية `workflow_dispatch` لتشغيل الفحص بضغطة زر واحدة من تبويب Actions في GitHub.
+
+---
+
+## تعليمات البدء والتشغيل السريع (Quick Start)
 
 ```bash
-# تثبيت الاعتمادات
-npm install
+# 1. تثبيت الاعتمادات والمكتبات
+npm install --legacy-peer-deps
 
-# تشغيل خادم التطوير
+# 2. تهيئة وتحديث جداول قاعدة البيانات
+node scripts/migrate.js
+node scripts/migrate-v8.js
+
+# 3. تشغيل سيرفر التطوير المحلي
 npm run dev
 
-# التحقق من الأنواع وبناء النسخة الإنتاجية
+# 4. فحص الأنواع وبناء حزمة الإنتاج
 npm run build
 ```
