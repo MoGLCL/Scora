@@ -10,6 +10,31 @@ import { appendTrustEvent } from "@/lib/trust-events";
 import { generateAssessment, gradeAssessmentAnswer } from "@/lib/openrouter";
 import { readJsonValue } from "@/lib/json-value";
 
+export async function requestReassessmentByDeveloper(note?: string) {
+  const s = await verifySession();
+  if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
+  const dev = await queryOne<{ id: number; approval_status: string }>(
+    "SELECT id, approval_status FROM developers WHERE user_id=?",
+    [s.userId]
+  );
+  if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
+
+  await transaction(async (c) => {
+    await c.execute(
+      "UPDATE developers SET approval_status = 'reset_requested', rejection_reason = ? WHERE id = ?",
+      [note?.trim() || "طلب المطور إعادة إجراء اختبار تقييم المهارات", dev.id]
+    );
+    await c.execute(
+      "INSERT INTO notifications (user_id, body) SELECT id, ? FROM users WHERE is_admin = 1 AND status = 'active'",
+      [`قدم المطور #${dev.id} طلب إتاحة إعادة إجراء اختبار تقييم المهارات.`]
+    );
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/developer-assessment/pending");
+  return { ok: true as const };
+}
+
 export async function startDeveloperAssessment() {
   const s = await verifySession();
   if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
@@ -20,32 +45,25 @@ export async function startDeveloperAssessment() {
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
   if (!s.onboardingCompleted) return { ok: false as const, error: "أكمل بياناتك الشخصية أولًا" };
 
-  // If already approved, go to dashboard
   if (dev.approval_status === "approved") {
-    redirect("/dashboard");
+    return { ok: true as const, assessmentUrl: "/dashboard" };
   }
 
-  // Check if there is an active test in progress
+  // Check if an active in_progress test session exists
   const activeSession = await queryOne<{ public_id: string; status: string }>(
     "SELECT public_id, status FROM developer_assessment_sessions WHERE developer_id=? AND status='in_progress' ORDER BY id DESC LIMIT 1",
     [dev.id]
   );
   if (activeSession) {
-    redirect(`/developer-assessment/${activeSession.public_id}`);
+    return { ok: true as const, assessmentUrl: `/developer-assessment/${activeSession.public_id}` };
   }
 
-  // If under admin review and approval_status is admin_review, stay in pending
-  if (dev.approval_status === "admin_review") {
-    const reviewSession = await queryOne<{ public_id: string }>(
-      "SELECT public_id FROM developer_assessment_sessions WHERE developer_id=? AND status='admin_review' ORDER BY id DESC LIMIT 1",
-      [dev.id]
-    );
-    if (reviewSession) {
-      redirect("/developer-assessment/pending");
-    }
-  }
+  // Expire all previous sessions for this developer so a brand new test is created
+  await execute(
+    "UPDATE developer_assessment_sessions SET status='expired' WHERE developer_id=?",
+    [dev.id]
+  );
 
-  // Fetch developer skills
   let skills = (
     await query<{ name: string }>(
       "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
@@ -65,12 +83,6 @@ export async function startDeveloperAssessment() {
   ).map((row) => row.question_text);
 
   const publicId = `assess_${randomUUID()}`;
-
-  // Expire any stuck sessions before creating a new one
-  await execute(
-    "UPDATE developer_assessment_sessions SET status='expired' WHERE developer_id=? AND status IN ('generating', 'in_progress')",
-    [dev.id]
-  );
 
   const assessmentSessionId = await transaction(async (c) => {
     const [r] = await c.execute(
@@ -147,7 +159,7 @@ export async function startDeveloperAssessment() {
   });
 
   revalidatePath("/developer-assessment/pending");
-  redirect(`/developer-assessment/${publicId}`);
+  return { ok: true as const, assessmentUrl: `/developer-assessment/${publicId}` };
 }
 
 const Submission = z.record(z.string(), z.string().trim().min(1).max(20000));

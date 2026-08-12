@@ -15,11 +15,13 @@ import {
   Trash2,
   Users,
   AlertTriangle,
-  X
+  X,
+  CheckCircle2
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import {
+  decideReassessmentRequestForAdmin,
   deleteUserForAdmin,
   resetDeveloperAssessmentForAdmin,
   updateUserForAdmin
@@ -42,6 +44,7 @@ interface UserItem {
   joinDate: string;
   reportsCount: number;
   approvalStatus?: string | null;
+  rejectionReason?: string | null;
   assessmentPublicId?: string | null;
   assessmentSessionStatus?: string | null;
   suspendedUntil?: string | null;
@@ -214,10 +217,32 @@ export default function AdminPage() {
     } else {
       await loadUsers();
       setSavingUserId(null);
-      setServerMessage({ text: "تمت إعادة إتاحة اختبار التقييم للمطور بنجاح", kind: "success" });
-      addToast("تمت إعادة إتاحة التقييم للمطور", "success");
+      setServerMessage({ text: "تمت إتاحة إعادة التقييم للمطور بنجاح وسيتم نقله للاختبار فوراً", kind: "success" });
+      addToast("تمت إتاحة إعادة التقييم للمطور", "success");
     }
     setResetTestUser(null);
+  };
+
+  const handleDecideReassessment = async (targetUserId: string, decision: "approve" | "reject") => {
+    setSavingUserId(targetUserId);
+    setServerMessage(null);
+    const result = await decideReassessmentRequestForAdmin({
+      targetUserId: Number(targetUserId),
+      decision
+    });
+    if (!result.ok) {
+      setSavingUserId(null);
+      setServerMessage({ text: result.error, kind: "error" });
+      addToast(result.error, "warn");
+    } else {
+      await loadUsers();
+      setSavingUserId(null);
+      setServerMessage({
+        text: decision === "approve" ? "تمت الموافقة على طلب إعادة الاختبار وإتاحته للمطور" : "تم رفض طلب إعادة الاختبار",
+        kind: "success"
+      });
+      addToast(decision === "approve" ? "تمت الموافقة على طلب إعادة الاختبار" : "تم رفض الطلب", "success");
+    }
   };
 
   return (
@@ -268,7 +293,7 @@ export default function AdminPage() {
           <div>
             <h1 className="text-3xl font-extrabold text-[#05291A]">لوحة التحكم والإدارة الفنية</h1>
             <p className="mt-2 text-sm text-[#526B5E]">
-              إدارة مستخدمي منصة سكورا، مراجعة الاعتماد، تفعيل إيقاف الحسابات، وإعادة اختبار المطورين مباشرة.
+              إدارة مستخدمي منصة سكورا، مراجعة الاعتماد، تفعيل إيقاف الحسابات، والموافقة على طلبات إعادة الاختبار.
             </p>
           </div>
           <div className="flex gap-3">
@@ -423,6 +448,57 @@ export default function AdminPage() {
         {/* Users Tab */}
         {tab === "users" && (
           <section className="space-y-4">
+            {/* Re-assessment Request Alert Banner */}
+            {users.some((u) => u.approvalStatus === "reset_requested") && (
+              <div className="rounded-[22px] border border-sky-300 bg-sky-50 p-5 shadow-xs space-y-3">
+                <h2 className="font-extrabold text-sky-950 flex items-center gap-2 text-base">
+                  <RotateCcw className="h-5 w-5 text-sky-700" />
+                  طلبات إعادة إجراء الاختبار من المطورين
+                </h2>
+                <div className="grid gap-2 text-sm">
+                  {users
+                    .filter((u) => u.approvalStatus === "reset_requested")
+                    .map((u) => (
+                      <div
+                        key={u.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-5 py-4 border border-sky-100 shadow-2xs"
+                      >
+                        <div>
+                          <div className="font-extrabold text-[#05291A]">
+                            #{u.id} · {u.name} ({u.email})
+                          </div>
+                          {u.rejectionReason && (
+                            <div className="text-xs text-[#526B5E] mt-1 font-bold">
+                              سبب الطلب: &quot;{u.rejectionReason}&quot;
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={savingUserId === u.id}
+                            onClick={() => handleDecideReassessment(u.id, "approve")}
+                            className="h-9 px-4 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>موافقة على إعادة الاختبار</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingUserId === u.id}
+                            onClick={() => handleDecideReassessment(u.id, "reject")}
+                            className="h-9 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white text-xs font-extrabold transition-all"
+                          >
+                            <span>رفض الطلب</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             {/* Developer Approval Action Banners */}
             {users.some(
               (u) =>
@@ -465,7 +541,7 @@ export default function AdminPage() {
 
             {users.some((u) => u.approvalStatus === "admin_review") && (
               <div className="rounded-[22px] border border-amber-300 bg-amber-50 p-5 shadow-xs">
-                <h2 className="font-extrabold text-amber-900">طلبات اعتماد مطورين جديدة تنتظر المراجعـة</h2>
+                <h2 className="font-extrabold text-amber-900">طلبات اعتماد مطورين جديدة تنتظر المراجعة</h2>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {users
                     .filter((u) => u.approvalStatus === "admin_review" && u.assessmentPublicId)
@@ -545,6 +621,11 @@ export default function AdminPage() {
                           {u.status === "banned" && (
                             <span className="rounded-full bg-red-100 text-red-700 text-[11px] font-extrabold px-2.5 py-0.5 flex items-center gap-1 border border-red-200">
                               <Ban className="h-3 w-3" /> محظور نهائياً
+                            </span>
+                          )}
+                          {u.approvalStatus === "reset_requested" && (
+                            <span className="rounded-full bg-sky-100 text-sky-900 text-[11px] font-extrabold px-2.5 py-0.5 border border-sky-300">
+                              طلب إعادة الاختبار
                             </span>
                           )}
                         </div>
