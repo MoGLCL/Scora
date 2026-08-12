@@ -1,4 +1,6 @@
-# Scora V0.1 - الهيكل التنظيمي والمعماري للمشروع (Project Structure & Architecture)
+# Scora V0.1 — الهيكل التنظيمي والمعماري للمشروع (Project Structure & Architecture)
+
+> **Navigation:** [🏠 الرئيسية (Main README)](../README.md) \| [⚙️ إعداد البيئة](ENVIRONMENT_SETUP.md) \| [📡 توثيق الـ API](API_DOCUMENTATION.md) \| [🗄️ قاعدة البيانات](DATABASE_SCHEMA.md) \| [📄 نسخة PDF](PROJECT_STRUCTURE.pdf)
 
 يوضح هذا المستند التنظيم الهيكلي للمجلدات، تقسيم المسؤوليات البرمجية (Separation of Concerns)، ومعمارية الأنظمة الفرعية داخل منصة Scora V0.1.
 
@@ -51,9 +53,15 @@ Scora-V0.1/
 │   ├── site-header.tsx            # شريط الترويسة العلوي (Navbar)
 │   └── site-footer.tsx            # التذييل السفلي للمنصة
 ├── docs/                          # وثائق وسجلات البروجيكت الفنية
+│   ├── schema.dbml            # مخطط DBML لـ dbdiagram.io
 │   ├── API_DOCUMENTATION.md       # التوثيق الفني الكامل للـ API و Server Actions
 │   ├── ENVIRONMENT_SETUP.md       # دليل إعداد وتشغيل البيئة المحلية والـ DB
-│   └── PROJECT_STRUCTURE.md       # مستند الهيكل والمعمارية (هذا الملف)
+│   ├── PROJECT_STRUCTURE.md       # مستند الهيكل والمعمارية (هذا الملف)
+│   ├── DATABASE_SCHEMA.md         # التوثيق الفني لهيكل قواعد البيانات
+│   ├── PROJECT_STRUCTURE.pdf      # نسخة PDF بهوية سكورا
+│   ├── DATABASE_SCHEMA.pdf        # نسخة PDF بهوية سكورا
+│   ├── API_ENDPOINTS.pdf          # نسخة PDF بهوية سكورا
+│   └── ARCHITECTURE_EXPLANATION.pdf # نسخة PDF بهوية سكورا
 ├── lib/                           # الطبقة الخدمية ومنطق الأعمال (Core Logic)
 │   ├── actions/                   # خوادم العمليات (Server Actions)
 │   │   ├── admin.ts               # عمليات الأدمن والإحصائيات
@@ -70,6 +78,7 @@ Scora-V0.1/
 │   ├── trust-events.ts            # سجل وتأثير أحداث الموثوقية
 │   └── types.ts                   # تعريفات الأنواع الصارمة (TypeScript Types)
 ├── packages/                      # الحزم والأنظمة الفرعية (Subsystem Monorepo)
+│   ├── core/                      # حزمة الموثوقية والأنواع الأساسية
 │   ├── review/                    # نظام تدقيق ومراجعة المشاريع
 │   ├── scoring/                   # محرك حساب درجات السكورا والموثوقية
 │   ├── skills/                    # نظام تقييم وملاحظة المهارات البرمجية
@@ -77,9 +86,9 @@ Scora-V0.1/
 ├── proxy.ts                       # بوابات وتوجيه الجلسات في الـ Edge Runtime
 ├── scripts/                       # سكربتات تهيئة وقواعد البيانات
 │   ├── migrate.js                 # تهيئة الجداول الأساسية
-│   └── migrate-v8.js              # تحديث جداول التقييم والـ AI
+│   ├── migrate-v8.js              # تحديث جداول التقييم والـ AI
+│   └── generate_docs_pdfs.py      # مولد الـ PDFs بهوية سكورا البصرية
 ├── .env.example                   # نموذج المتغيرات البيئية القياسي
-├── .env.local                     # المتغيرات البيئية المحلية (غير مرفوعة)
 ├── next.config.ts                 # إعدادات Next.js 16
 ├── package.json                   # اعتمادات المشروع والـ Scripts
 ├── README.md                      # التقرير الفني المباشر للمشروع
@@ -101,7 +110,7 @@ Scora-V0.1/
 
 ### ج. طبقة الخدمات وقواعد البيانات (`lib/actions/` & `lib/db.ts`)
 - تُنفذ كافة كتابات واستعلامات البيانات الحساسة عبر Server Actions المباشرة والمعزولة في السيرفر.
-- مجمع الاتصالات `db.ts` يعتمد على `mysql2/promise` مع إدارة تلقائية للـ Connection Pool ومنع تسريب الاستعلامات (SQL Injection Prevention).
+- مجمع الاتصالات `db.ts` يعتمد على `mysql2/promise` مع إدارة تلقائية للـ Connection Pool ومنع تسريب الاستعلامات.
 
 ### د. حزم التقييم المعزولة (`packages/`)
 - تم فصل خوارزميات حساب نقاط الموثوقية وتقييم المهارات في حزم مستقلة (`packages/scoring` و `packages/skills`) لضمان سهولة إعادة الاستخدام في أنظمة خارجية أو الخدمات الخلفية.

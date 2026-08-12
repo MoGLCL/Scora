@@ -1,0 +1,368 @@
+// Scora V0.1 — Database Schema DBML (for dbdiagram.io)
+// Copy & Paste this code directly into https://dbdiagram.io/
+
+Project Scora_V0_1 {
+  database_type: 'MySQL'
+  Note: 'Scora V0.1 — Developer Evaluation & Trust Verification Platform'
+}
+
+// --------------------------------------------------------
+// 1. Identity & Profile Tables
+// --------------------------------------------------------
+
+Table users {
+  id bigint [pk, increment, note: 'Primary identifier']
+  email varchar(255) [not null, unique, note: 'User authentication email']
+  password_hash varchar(255) [not null, note: 'Bcrypt hashed password']
+  full_name varchar(255) [not null, note: 'User full display name']
+  role EnumRole [not null, default: 'client', note: 'Account role (developer/client)']
+  is_admin tinyint(1) [not null, default: 0, note: 'System admin access flag']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Core user accounts and identity baseline'
+}
+
+Table developers {
+  id bigint [pk, increment]
+  user_id bigint [not null, unique, note: '1:1 link to users.id']
+  display_name varchar(255) [not null]
+  account_type EnumAccountType [not null, default: 'personal']
+  job_title varchar(255)
+  headline varchar(255)
+  bio text
+  location varchar(255)
+  country varchar(100)
+  city varchar(100)
+  availability EnumAvailability [not null, default: 'soon']
+  hourly_rate_min int
+  hourly_rate_max int
+  github_url varchar(500)
+  linkedin_url varchar(500)
+  portfolio_url varchar(500)
+  trust_score int [not null, default: 50, note: 'Calculated Scora Trust Score']
+  skill_points int [not null, default: 0, note: 'Accumulated Skill Points (SP)']
+  is_verified tinyint(1) [not null, default: 0]
+  experience_years int
+  avatar_url varchar(500)
+  approval_status EnumApprovalStatus [not null, default: 'profile_incomplete', note: 'AI & Admin onboarding pipeline status']
+  approved_at timestamp
+  approved_by bigint
+  rejection_reason varchar(1000)
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Developer profiles, trust metrics, and admission status'
+}
+
+Table clients {
+  id bigint [pk, increment]
+  user_id bigint [not null, unique, note: '1:1 link to users.id']
+  display_name varchar(255) [not null]
+  company_name varchar(255)
+  website varchar(500)
+  location varchar(255)
+  avatar_url varchar(500)
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Client / employer profiles'
+}
+
+// --------------------------------------------------------
+// 2. Skills & Taxonomy
+// --------------------------------------------------------
+
+Table skills {
+  id bigint [pk, increment]
+  slug varchar(100) [not null, unique]
+  name varchar(100) [not null]
+  name_ar varchar(100)
+  category EnumSkillCategory [not null, default: 'tool']
+  icon_key varchar(100)
+
+  Note: 'Taxonomy catalog of developer skills'
+}
+
+Table developer_skills {
+  id bigint [pk, increment]
+  developer_id bigint [not null]
+  skill_id bigint [not null]
+  level EnumSkillLevel [not null, default: 'beginner']
+  sp int [not null, default: 0]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'M:N mapping between developers and skills'
+}
+
+// --------------------------------------------------------
+// 3. Projects & Marketplace
+// --------------------------------------------------------
+
+Table projects {
+  id bigint [pk, increment]
+  client_id bigint [not null]
+  title varchar(255) [not null]
+  category varchar(100)
+  description text
+  budget_from int
+  budget_to int
+  deadline_days int
+  status EnumProjectStatus [not null, default: 'open']
+  skills_json json
+  deliverables_json json
+  posted_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Client posted software projects'
+}
+
+Table proposals {
+  id bigint [pk, increment]
+  project_id bigint [not null]
+  developer_id bigint [not null]
+  price int [not null]
+  delivery_days int [not null]
+  cover_text text
+  status EnumProposalStatus [not null, default: 'pending']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Developer proposals submitted for client projects'
+}
+
+// --------------------------------------------------------
+// 4. AI Developer Assessment & Onboarding Engine
+// --------------------------------------------------------
+
+Table developer_assessment_sessions {
+  id bigint [pk, increment]
+  public_id varchar(80) [not null, unique, note: 'Public uuid identifier']
+  developer_id bigint [not null]
+  status EnumAssessmentStatus [not null, default: 'generating']
+  model varchar(255) [note: 'AI model used e.g. claude-3-5-sonnet']
+  prompt_json json
+  raw_generation_json json
+  score int
+  trust_awarded int
+  sp_awarded int
+  started_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  submitted_at timestamp
+  reviewed_at timestamp
+  reviewed_by bigint
+  review_reason varchar(1000)
+
+  Note: 'AI-driven code & technical evaluation sessions'
+}
+
+Table developer_assessment_questions {
+  id bigint [pk, increment]
+  session_id bigint [not null]
+  public_id varchar(80) [not null, unique]
+  kind EnumQuestionKind [not null, note: 'Question type (mcq, interview, code)']
+  skill varchar(100) [not null]
+  question_text text [not null]
+  options_json json
+  expected_answer_json json
+  max_score int [not null, default: 10]
+  position int [not null]
+
+  Note: 'Generated questions for developer evaluation'
+}
+
+Table developer_assessment_answers {
+  id bigint [pk, increment]
+  question_id bigint [not null, unique]
+  developer_id bigint [not null]
+  answer_text mediumtext [not null]
+  score int
+  feedback text
+  answered_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Developer submitted answers and AI grading feedback'
+}
+
+// --------------------------------------------------------
+// 5. Trust Ledger & Audit Logging
+// --------------------------------------------------------
+
+Table trust_events {
+  id bigint [pk, increment]
+  event_id varchar(100) [not null, unique]
+  tenant_id varchar(100) [not null]
+  session_public_id varchar(80) [not null]
+  developer_id bigint [not null]
+  assessment_public_id varchar(80)
+  event_type varchar(100) [not null]
+  layer varchar(50) [not null]
+  source varchar(40) [not null]
+  producer_sequence int [not null]
+  chain_position int [not null]
+  occurred_at bigint [not null]
+  received_at bigint [not null]
+  payload_json json [not null]
+  previous_hash char(64)
+  event_hash char(64) [not null]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Immutable append-only cryptographic trust ledger'
+}
+
+// --------------------------------------------------------
+// 6. Messaging, Notifications & System Config
+// --------------------------------------------------------
+
+Table messages {
+  id bigint [pk, increment]
+  sender_id bigint [not null]
+  receiver_id bigint [not null]
+  body text [not null]
+  is_read tinyint(1) [not null, default: 0]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Direct message exchange between client and developer'
+}
+
+Table notifications {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  body text [not null]
+  is_read tinyint(1) [not null, default: 0]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'System and platform notifications'
+}
+
+Table user_settings {
+  user_id bigint [not null]
+  setting_key varchar(100) [not null]
+  setting_value text
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Key-value user preferences'
+}
+
+Table platform_settings {
+  setting_key varchar(100) [pk]
+  setting_value text
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Global platform & OpenRouter AI settings'
+}
+
+Table media {
+  id bigint [pk, increment]
+  owner_type varchar(50) [not null]
+  owner_id bigint [not null]
+  mime_type varchar(100) [not null]
+  size_bytes int [not null]
+  width int
+  height int
+  url varchar(1000) [not null]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Uploaded user media and attachments'
+}
+
+// --------------------------------------------------------
+// Enumerated Types
+// --------------------------------------------------------
+
+Enum EnumRole {
+  developer
+  client
+}
+
+Enum EnumAccountType {
+  personal
+  company
+}
+
+Enum EnumAvailability {
+  available
+  busy
+  soon
+}
+
+Enum EnumApprovalStatus {
+  profile_incomplete
+  assessment_in_progress
+  admin_review
+  approved
+  rejected
+}
+
+Enum EnumSkillCategory {
+  language
+  framework
+  database
+  tool
+}
+
+Enum EnumSkillLevel {
+  beginner
+  intermediate
+  advanced
+  expert
+}
+
+Enum EnumProjectStatus {
+  open
+  in_progress
+  completed
+  closed
+}
+
+Enum EnumProposalStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
+}
+
+Enum EnumAssessmentStatus {
+  generating
+  in_progress
+  admin_review
+  approved
+  rejected
+  generation_failed
+}
+
+Enum EnumQuestionKind {
+  mcq
+  interview
+  code
+}
+
+// --------------------------------------------------------
+// Foreign Key Relationships
+// --------------------------------------------------------
+
+Ref: developers.user_id - users.id [delete: cascade]
+Ref: clients.user_id - users.id [delete: cascade]
+
+Ref: developers.approved_by > users.id
+
+Ref: developer_skills.developer_id > developers.id [delete: cascade]
+Ref: developer_skills.skill_id > skills.id [delete: cascade]
+
+Ref: projects.client_id > clients.id [delete: cascade]
+
+Ref: proposals.project_id > projects.id [delete: cascade]
+Ref: proposals.developer_id > developers.id [delete: cascade]
+
+Ref: developer_assessment_sessions.developer_id > developers.id [delete: cascade]
+Ref: developer_assessment_sessions.reviewed_by > users.id
+
+Ref: developer_assessment_questions.session_id > developer_assessment_sessions.id [delete: cascade]
+
+Ref: developer_assessment_answers.question_id - developer_assessment_questions.id [delete: cascade]
+Ref: developer_assessment_answers.developer_id > developers.id [delete: cascade]
+
+Ref: trust_events.developer_id > developers.id [delete: cascade]
+
+Ref: messages.sender_id > users.id [delete: cascade]
+Ref: messages.receiver_id > users.id [delete: cascade]
+
+Ref: notifications.user_id > users.id [delete: cascade]
+Ref: user_settings.user_id > users.id [delete: cascade]

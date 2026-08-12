@@ -1,207 +1,97 @@
-# Scora V0.1 - التوثيق الفني الكامل للـ API و Server Actions (API Documentation & Server Actions Reference)
+# Scora V0.1 — التوثيق الفني الشامل لـ APIs و Server Actions (API Reference)
 
-يقدم هذا التوثيق مرجعاً شاملاً لكافة مسارات الـ REST API والـ Server Actions المتاحة داخل منصة Scora V0.1، مع توضيح صيغ الطلبات (Request Headers / Payloads)، الاستجابات المتوقعة (Response Schemas)، وأكواد الأخطاء.
+> **Navigation:** [🏠 الرئيسية (Main README)](../README.md) \| [📂 هيكل المشروع](PROJECT_STRUCTURE.md) \| [⚙️ إعداد البيئة](ENVIRONMENT_SETUP.md) \| [🗄️ قاعدة البيانات](DATABASE_SCHEMA.md) \| [📄 تحميل PDF](API_ENDPOINTS.pdf)
 
----
-
-## 1. معايير المصادقة ونموذج الاستجابة القياسي (Auth & Standards)
-
-### أ. إدارة الجلسات والصلاحيات (Session Cookie)
-تعتمد جميع المسارات المحمية على JWT Session Cookie باسم `scora_session` يتم تشفيره وإدارته عبر الخادم.
-- **Header:** `Cookie: scora_session=<JWT_TOKEN>`
-- **Content-Type:** `application/json`
-
-### ب. هيكل الاستجابة القياسي في حال الأخطاء (Error Response Schema)
-```json
-{
-  "ok": false,
-  "error": "وصف الخطأ الفني باللغة العربية",
-  "fieldErrors": {
-    "fieldName": ["رسالة الخطأ التفصيلية"]
-  }
-}
-```
+دليل مرجعي تفصيلي لجميع مسارات الـ **REST API Endpoints** وخوادم العمليات **Server Actions** لمنصة **Scora V0.1**.
 
 ---
 
-## 2. مسارات خدمات الإدارة والتحليلات (Admin & Analytics REST APIs)
+## 🔒 1. نظام المصادقة والأمان (Auth & Security Model)
 
-### `GET /api/admin/users`
-جلب قائمة المستخدمين المسجلين في النظام مع بيانات الصلاحيات والسكورا.
-- **Access Level:** Admin Only
-- **Response 200 OK:**
-```json
-{
-  "users": [
-    {
-      "id": "1",
-      "name": "أحمد محمود",
-      "email": "ahmed@example.com",
-      "role": "developer",
-      "skillPoints": 120,
-      "trustScore": 95,
-      "status": "active",
-      "joinDate": "12 أغسطس 2026"
-    }
-  ]
-}
-```
-
-### `GET /api/admin/stats`
-جلب الإحصائيات التجميعية الحية لمنصة سكورا من قاعدة البيانات.
-- **Access Level:** Admin Only
-- **Response 200 OK:**
-```json
-{
-  "totalUsers": 48,
-  "developersCount": 32,
-  "clientsCount": 16,
-  "totalProjects": 12,
-  "openProjects": 8,
-  "systemStatus": "healthy"
-}
-```
-
-### `GET /api/admin/projects`
-جلب قوائم المشاريع وإحصائيات العروض المقدمة.
-- **Access Level:** Admin Only
-- **Response 200 OK:**
-```json
-{
-  "projects": [
-    {
-      "id": "5",
-      "title": "تطوير تطبيق منصة تعليمية",
-      "clientName": "شركة التقنية الذكية",
-      "budget": "25,000 ج.م - 40,000 ج.م",
-      "status": "open",
-      "proposalsCount": 4
-    }
-  ]
-}
-```
-
-### `POST /api/admin/ai-settings`
-تحديث إعدادات وتكوين محرك الذكاء الاصطناعي و OpenRouter.
-- **Access Level:** Admin Only
-- **Request Payload:**
-```json
-{
-  "aiAssistantBaseUrl": "https://openrouter.ai/api/v1",
-  "aiAssistantApiKey": "sk-or-v1-key...",
-  "trustEngineModel": "anthropic/claude-3.5-sonnet",
-  "baseTrustPoints": 15
-}
-```
-- **Response 200 OK:**
-```json
-{
-  "ok": true,
-  "message": "تم حفظ إعدادات محرك الذكاء الاصطناعي بنجاح"
-}
-```
-
-### `POST /api/analytics/visit`
-تسجيل زيارات الصفحات وتحليلات الاستخدام.
-- **Access Level:** Public / All Users
-- **Request Payload:**
-```json
-{
-  "path": "/projects",
-  "referrer": "https://google.com"
-}
-```
-- **Response 200 OK:**
-```json
-{
-  "recorded": true
-}
-```
+تعتمد المنصة على معيارين للمصادقة:
+1. **HTTP Cookies (Stateless JWT Sessions)**: جلسات مشفرة بـ `JOSE (HS256)` تحتوي على الهوية والـ Role (`developer` أو `client` أو `admin`).
+2. **Server Actions Security Layer**: يتم فحص الجلسة عبر `verifySession()` من طبقة `lib/dal.ts` قبل تنفيذ أي أداء برمجي على قواعد البيانات.
 
 ---
 
-## 3. مسارات التنبيهات والمصادقة (Auth & Notifications APIs)
+## ⚡ 2. خوادم العمليات (Server Actions Reference — `lib/actions/`)
 
-### `GET /api/notifications`
-جلب قائمة التنبيهات اللحظية للمستخدم الحالي.
-- **Access Level:** Authenticated User (Developer / Client / Admin)
-- **Response 200 OK:**
-```json
-{
-  "notifications": [
-    {
-      "id": "101",
-      "title": "تم قبول عرضك",
-      "message": "تم اختيار عرضك للمشروع تطوير منصة تعليمية",
-      "createdAt": "2026-08-12T14:30:00Z",
-      "read": false
-    }
-  ]
-}
-```
+### أ. المصادقة والجلسات (`lib/actions/auth.ts`)
 
-### `POST /api/auth/logout`
-إنهاء الجلسة وتدمير الكوكي المشفر في السيرفر.
-- **Access Level:** Authenticated User
-- **Response 200 OK:**
-```json
-{
-  "ok": true,
-  "redirectTo": "/login"
-}
-```
+#### 1. `registerAction(formData: FormData)`
+- **الوصف**: إنشاء حساب جديد في المنصة كمطور أو عميل.
+- **المدخلات (Zod Schema)**:
+  - `email`: string (valid email format)
+  - `password`: string (min 6 chars)
+  - `full_name`: string
+  - `role`: `'developer'` | `'client'`
+- **المخرجات**: `{ success: true, redirectUrl: string }` أو `{ success: false, error: string }`.
+
+#### 2. `loginAction(formData: FormData)`
+- **الوصف**: تسجيل الدخول والتحقق من كلمة المرور وإنشاء توكين الجلسة في الكوكيز.
+- **المدخلات**: `email`, `password`.
+- **المخرجات**: التوجيه التلقائي إلى `/dashboard` أو `/admin`.
+
+#### 3. `logoutAction()`
+- **الوصف**: إنهاء الجلسة الحالية ومسح الكوكيز.
 
 ---
 
-## 4. مرجع خوادم العمليات (Server Actions API Reference)
+### ب. إدارة الملفات والمشاريع (`lib/actions/profile.ts` & `proposals.ts`)
 
-### أ. خدمات المصادقة (`lib/actions/auth.ts`)
+#### 1. `completeDeveloperOnboarding(data)`
+- **الوصف**: إكمال بيانات الملف الشخصي للمطور عند التسجيل الأول (المهارات، المسمى الوظيفي، الروابط).
+- **المدخلات**: `job_title`, `headline`, `bio`, `location`, `github_url`, `skills: string[]`.
 
-#### `register(_prev, formData)`
-إنشاء حساب جديد للمطور أو العميل وتسجيل بياناته في MySQL.
-- **Inputs:** `fullName`, `email`, `phone`, `password`, `role` (`developer` | `client`).
-- **Returns:** `{ ok: true, role, redirectTo }` أو `{ ok: false, error }`.
+#### 2. `createProjectAction(data)`
+- **الوصف**: إضافة مشروع جديد بواسطة العميل.
+- **المدخلات**: `title`, `category`, `description`, `budget_from`, `budget_to`, `deadline_days`, `skills`.
 
-#### `login(_prev, formData)`
-التحقق من بيانات الدخول وإنشاء جلسة JWT مشفرة.
-- **Inputs:** `email`, `password`.
-- **Returns:** `{ ok: true, role, redirectTo }` أو `{ ok: false, error }`.
-
-#### `changePassword(currentPassword, newPassword)`
-تحديث كلمة المرور للمستخدم الحالي بعد التأكد من الجلسة.
-- **Inputs:** `currentPassword`, `newPassword`.
-- **Returns:** `{ ok: true }` أو `{ ok: false, error }`.
+#### 3. `submitProposalAction(data)`
+- **الوصف**: تقديم عرض برمجي من مطور على مشروع مفتوح.
+- **المدخلات**: `project_id`, `price`, `delivery_days`, `cover_text`.
 
 ---
 
-### ب. خدمات الجلسات والملفات الشخصية (`lib/actions/user-session.ts` & `lib/actions/profile.ts`)
+### ج. محرك التقييم بـ AI (`lib/actions/developer-assessment.ts`)
 
-#### `syncUserSessionWithDb()`
-مزامنة وتحديث حالة الجلسة لحظياً وقراءة البيانات من جدول `users` بـ MySQL.
-- **Returns:** `UserDbSessionResult` تحتوي على الهوية، الرتبة، تفاصيل المطور أو العميل.
+#### 1. `startAssessmentSession()`
+- **الوصف**: إنتاج جلسة تقييم تفاعلية بالذكاء الاصطناعي بناءً على تخصص المطور عبر OpenRouter API.
+- **المخرجات**: `sessionPublicId`, أسئلة التقييم (MCQ / Interview / Code).
 
-#### `updateDeveloperProfile(_prev, formData)`
-تحديث بيانات الملف الشخصي للمطور (المسمى الوظيفي، النبذة، المهارات، الروابط).
-
-#### `createProject(_prev, formData)`
-نشر مشروع جديد بواسطة حساب عميل.
-- **Inputs:** `title`, `category`, `description`, `budgetFrom`, `budgetTo`, `deadlineDays`, `skills`.
-
-#### `submitProposal(input)`
-تقديم عرض جديد بواسطة مطور على مشروع مفتوح.
-- **Inputs:** `{ projectId, amount, deliveryDays, coverLetter }`.
-- **Returns:** `{ ok: true, proposal }` أو `{ ok: false, error }`.
+#### 2. `submitAnswerAction(sessionPublicId, questionPublicId, answerText)`
+- **الوصف**: حفظ إجابة المطور وتقييمها لحظياً عبر الـ AI Engine مع احتساب درجات الـ SP والثقة.
 
 ---
 
-### ج. خدمات تقييم المطورين والـ AI (`lib/actions/developer-assessment.ts`)
+### د. خدمات الإدارة والأدمن (`lib/actions/admin.ts`)
 
-#### `submitDeveloperAssessment(input)`
-إرسال استجابات المطور لاختبار المهارات والملاءمة وتحليلها بواسطة نموذج الذكاء الاصطناعي OpenRouter لحساب نقاط السكورا.
-- **Inputs:** `{ developerId, answers, assessmentCategory }`.
-- **Returns:** `{ ok: true, scoreResult: { trustScore, skillPoints, aiFeedback } }`.
+#### 1. `reviewDeveloperAction(developerId, decision, reason)`
+- **الوصف**: اعتماد أو رفض طلب انضمام مطور من قبل الأدمن.
+- **المدخلات**: `developerId`, `decision: 'approved' | 'rejected'`, `reason`.
 
-#### `submitAdmissionDecision(input)`
-اعتماد أو رفض طلب انضمام المطور بواسطة أدمن النظام.
-- **Inputs:** `{ developerId, decision: "approved" | "rejected", adminNotes }`.
-- **Returns:** `{ ok: true }`.
+#### 2. `updatePlatformSettingsAction(settings)`
+- **الوصف**: تحديث إعدادات نموذج الذكاء الاصطناعي بـ OpenRouter وبوابة المنصة.
+
+---
+
+## 🌐 3. مسارات الـ REST API Endpoints (`app/api/`)
+
+### 1. خدمات الإدارة والمسؤولين (`/api/admin/*`)
+| Route | Method | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/admin/stats` | `GET` | Admin | استرجاع إحصائيات المنصة الشاملة (المستخدمين، التقييمات، السكورا). |
+| `/api/admin/developers` | `GET` | Admin | قائمة المطورين مع فلترة حالة الاعتماد والـ Trust Score. |
+| `/api/admin/settings` | `GET / POST` | Admin | قراءة وتحديث إعدادات OpenRouter AI والحسابات. |
+
+### 2. خدمات التقييم والـ AI (`/api/developer-assessment/*`)
+| Route | Method | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/developer-assessment/session` | `POST` | Dev | توليد جلسة تقييم جديدة. |
+| `/api/developer-assessment/submit` | `POST` | Dev | تقديم الإجابات وتقييمها. |
+
+### 3. الإشعارات والتحليلات (`/api/notifications` & `/api/analytics`)
+| Route | Method | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/notifications` | `GET / PATCH` | Auth User | جلب الإشعارات وتحديدها كـ Read. |
+| `/api/analytics` | `GET` | Admin | سجل تحليلات الزيارات والأداء. |
