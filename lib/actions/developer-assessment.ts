@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { InterviewEventType, SkillEventType } from "@scora/trust-core";
-import { execute, query, queryOne, transaction } from "@/lib/db";
+import { query, queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import { appendTrustEvent } from "@/lib/trust-events";
 import { generateAssessment, gradeAssessmentAnswer } from "@/lib/openrouter";
@@ -13,22 +13,31 @@ import { readJsonValue } from "@/lib/json-value";
 export async function requestReassessmentByDeveloper(note?: string) {
   const s = await verifySession();
   if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
+  const parsedNote = z.string().trim().max(1000).optional().safeParse(note);
+  if (!parsedNote.success) return { ok: false as const, error: "سبب الطلب يجب ألا يتجاوز 1000 حرف" };
   const dev = await queryOne<{ id: number; approval_status: string }>(
     "SELECT id, approval_status FROM developers WHERE user_id=?",
     [s.userId]
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
-
-  await transaction(async (c) => {
-    await c.execute(
-      "UPDATE developers SET approval_status = 'reset_requested', rejection_reason = ? WHERE id = ?",
-      [note?.trim() || "طلب المطور إعادة إجراء اختبار تقييم المهارات", dev.id]
-    );
+  if (!["approved", "rejected"].includes(dev.approval_status)) {
+    return {
+      ok: false as const,
+      error: "لا يمكن طلب إعادة الاختبار في الحالة الحالية",
+    };
+  }
+  const created = await transaction(async (c) => {
+    await c.execute("SELECT id FROM developers WHERE id=? FOR UPDATE", [dev.id]);
+    const [pendingRows] = await c.execute("SELECT id FROM developer_reassessment_requests WHERE developer_id=? AND status='pending' LIMIT 1", [dev.id]);
+    if ((pendingRows as { id: number }[]).length) return false;
+    await c.execute("INSERT INTO developer_reassessment_requests(developer_id,requested_by,note) VALUES(?,?,?)", [dev.id, s.userId, parsedNote.data || null]);
     await c.execute(
       "INSERT INTO notifications (user_id, body) SELECT id, ? FROM users WHERE is_admin = 1 AND status = 'active'",
       [`قدم المطور #${dev.id} طلب إتاحة إعادة إجراء اختبار تقييم المهارات.`]
     );
+    return true;
   });
+  if (!created) return { ok: false as const, error: "تم إرسال طلب إعادة الاختبار بالفعل" };
 
   revalidatePath("/admin");
   revalidatePath("/developer-assessment/pending");
@@ -44,36 +53,21 @@ export async function startDeveloperAssessment() {
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
   if (!s.onboardingCompleted) return { ok: false as const, error: "أكمل بياناتك الشخصية أولًا" };
-
-  if (dev.approval_status === "approved") {
-    return { ok: true as const, assessmentUrl: "/dashboard" };
+  if (!["profile_incomplete", "assessment_in_progress", "reset_approved"].includes(dev.approval_status)) {
+    return {
+      ok: false as const,
+      error: dev.approval_status === "reset_requested" ? "طلب إعادة الاختبار ما زال قيد مراجعة الإدارة" : "لا يمكنك بدء اختبار جديد قبل موافقة الإدارة",
+    };
   }
 
-  // Check if an active in_progress test session exists
-  const activeSession = await queryOne<{ public_id: string; status: string }>(
-    "SELECT public_id, status FROM developer_assessment_sessions WHERE developer_id=? AND status='in_progress' ORDER BY id DESC LIMIT 1",
-    [dev.id]
-  );
-  if (activeSession) {
-    return { ok: true as const, assessmentUrl: `/developer-assessment/${activeSession.public_id}` };
-  }
-
-  // Expire all previous sessions for this developer so a brand new test is created
-  await execute(
-    "UPDATE developer_assessment_sessions SET status='expired' WHERE developer_id=?",
-    [dev.id]
-  );
-
-  let skills = (
+  const skills = (
     await query<{ name: string }>(
       "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
       [dev.id]
     )
   ).map((x) => x.name);
 
-  if (!skills.length) {
-    skills = ["JavaScript", "Problem Solving", "Web Development"];
-  }
+  if (!skills.length) return { ok: false as const, error: "أضف مهارة واحدة على الأقل من ملفك قبل بدء الاختبار" };
 
   const previousQuestions = (
     await query<{ question_text: string }>(
@@ -84,7 +78,14 @@ export async function startDeveloperAssessment() {
 
   const publicId = `assess_${randomUUID()}`;
 
-  const assessmentSessionId = await transaction(async (c) => {
+  const sessionStart = await transaction(async (c) => {
+    const [developerRows] = await c.execute("SELECT approval_status FROM developers WHERE id=? FOR UPDATE", [dev.id]);
+    const lockedDeveloper = (developerRows as { approval_status: string }[])[0];
+    if (!lockedDeveloper || !["profile_incomplete", "assessment_in_progress", "reset_approved"].includes(lockedDeveloper.approval_status)) return { denied: true as const };
+    const [activeRows] = await c.execute("SELECT public_id,status FROM developer_assessment_sessions WHERE developer_id=? AND status IN ('generating','in_progress') ORDER BY id DESC LIMIT 1", [dev.id]);
+    const active = (activeRows as { public_id: string; status: string }[])[0];
+    if (active) return { existing: active };
+    await c.execute("UPDATE developer_assessment_sessions SET status='expired' WHERE developer_id=? AND status NOT IN ('generating','in_progress')", [dev.id]);
     const [r] = await c.execute(
       "INSERT INTO developer_assessment_sessions(public_id,developer_id,status,duration_seconds) VALUES(?,?,'generating',?)",
       [publicId, dev.id, 3600]
@@ -94,8 +95,15 @@ export async function startDeveloperAssessment() {
       "INSERT INTO notifications(user_id,body) SELECT id,? FROM users WHERE is_admin=1 AND status='active'",
       [`بدأ مطور جديد طلب الاعتماد، ويجري الآن إنشاء اختباره بالذكاء الاصطناعي (${publicId}).`]
     );
-    return Number((r as { insertId: number }).insertId);
+    return { id: Number((r as { insertId: number }).insertId) };
   });
+  if ("denied" in sessionStart) return { ok: false as const, error: "لم تعد إعادة الاختبار متاحة لهذا الحساب" };
+  if ("existing" in sessionStart && sessionStart.existing) {
+    return sessionStart.existing.status === "in_progress"
+      ? { ok: true as const, assessmentUrl: `/developer-assessment/${sessionStart.existing.public_id}` }
+      : { ok: false as const, error: "يجري إنشاء اختبارك بالفعل، انتظر اكتمال توليد الأسئلة" };
+  }
+  const assessmentSessionId = sessionStart.id;
 
   let generated;
   try {

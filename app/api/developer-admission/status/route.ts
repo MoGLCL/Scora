@@ -9,8 +9,8 @@ export async function GET() {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const developer = await queryOne<{ approval_status: string }>(
-    "SELECT approval_status FROM developers WHERE user_id=?",
+  const developer = await queryOne<{ id:number; approval_status: string }>(
+    "SELECT id,approval_status FROM developers WHERE user_id=?",
     [s.userId]
   );
   if (!developer) {
@@ -26,6 +26,7 @@ export async function GET() {
     "SELECT das.public_id, das.status FROM developer_assessment_sessions das JOIN developers d ON d.id=das.developer_id WHERE d.user_id=? ORDER BY das.id DESC LIMIT 1",
     [s.userId]
   );
+  const reassessment = await queryOne<{status:string;decision_reason:string|null}>("SELECT status,decision_reason FROM developer_reassessment_requests WHERE developer_id=? ORDER BY id DESC LIMIT 1",[developer.id]);
 
   const isPendingOrInProgress = status === "pending" || status === "assessment_in_progress";
   const needsGeneration =
@@ -38,5 +39,7 @@ export async function GET() {
     assessmentUrl: latest?.status === "in_progress" ? `/developer-assessment/${latest.public_id}` : null,
     needsGeneration,
     generationFailed: latest?.status === "generation_failed",
+    reassessmentStatus: reassessment?.status ?? null,
+    reassessmentReason: reassessment?.decision_reason ?? null,
   });
 }

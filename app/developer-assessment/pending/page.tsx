@@ -2,27 +2,26 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   BookOpen,
-  CheckCircle2,
   Code2,
   FileText,
   HelpCircle,
-  Lock,
   Scale,
   ShieldCheck,
-  Sparkles,
   User,
   Zap
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { verifySession } from "@/lib/dal";
+import { queryOne } from "@/lib/db";
 import { AdmissionStatus } from "@/components/admission-status";
 
 export default async function Page() {
   const session = await verifySession();
   if (!session) redirect("/login");
   if (session.role !== "developer") redirect("/dashboard");
-  if (session.developerApprovalStatus === "approved") redirect("/dashboard");
+  const developer = await queryOne<{ approval_status: string }>("SELECT approval_status FROM developers WHERE user_id=?", [session.userId]);
+  if (!developer) redirect("/complete-profile");
 
   return (
     <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">

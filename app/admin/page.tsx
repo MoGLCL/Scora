@@ -48,6 +48,9 @@ interface UserItem {
   assessmentPublicId?: string | null;
   assessmentSessionStatus?: string | null;
   suspendedUntil?: string | null;
+  reassessmentRequestId?: number | null;
+  reassessmentStatus?: string | null;
+  reassessmentNote?: string | null;
 }
 
 interface ProjectItem {
@@ -223,11 +226,11 @@ export default function AdminPage() {
     setResetTestUser(null);
   };
 
-  const handleDecideReassessment = async (targetUserId: string, decision: "approve" | "reject") => {
+  const handleDecideReassessment = async (targetUserId: string, requestId: number, decision: "approve" | "reject") => {
     setSavingUserId(targetUserId);
     setServerMessage(null);
     const result = await decideReassessmentRequestForAdmin({
-      targetUserId: Number(targetUserId),
+      requestId,
       decision
     });
     if (!result.ok) {
@@ -449,7 +452,7 @@ export default function AdminPage() {
         {tab === "users" && (
           <section className="space-y-4">
             {/* Re-assessment Request Alert Banner */}
-            {users.some((u) => u.approvalStatus === "reset_requested") && (
+            {users.some((u) => u.reassessmentStatus === "pending") && (
               <div className="rounded-[22px] border border-sky-300 bg-sky-50 p-5 shadow-xs space-y-3">
                 <h2 className="font-extrabold text-sky-950 flex items-center gap-2 text-base">
                   <RotateCcw className="h-5 w-5 text-sky-700" />
@@ -457,7 +460,7 @@ export default function AdminPage() {
                 </h2>
                 <div className="grid gap-2 text-sm">
                   {users
-                    .filter((u) => u.approvalStatus === "reset_requested")
+                    .filter((u) => u.reassessmentStatus === "pending" && u.reassessmentRequestId)
                     .map((u) => (
                       <div
                         key={u.id}
@@ -467,9 +470,9 @@ export default function AdminPage() {
                           <div className="font-extrabold text-[#05291A]">
                             #{u.id} · {u.name} ({u.email})
                           </div>
-                          {u.rejectionReason && (
+                          {u.reassessmentNote && (
                             <div className="text-xs text-[#526B5E] mt-1 font-bold">
-                              سبب الطلب: &quot;{u.rejectionReason}&quot;
+                              سبب الطلب: &quot;{u.reassessmentNote}&quot;
                             </div>
                           )}
                         </div>
@@ -478,7 +481,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             disabled={savingUserId === u.id}
-                            onClick={() => handleDecideReassessment(u.id, "approve")}
+                            onClick={() => handleDecideReassessment(u.id, u.reassessmentRequestId!, "approve")}
                             className="h-9 px-4 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5"
                           >
                             <CheckCircle2 className="h-4 w-4" />
@@ -487,7 +490,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             disabled={savingUserId === u.id}
-                            onClick={() => handleDecideReassessment(u.id, "reject")}
+                            onClick={() => handleDecideReassessment(u.id, u.reassessmentRequestId!, "reject")}
                             className="h-9 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white text-xs font-extrabold transition-all"
                           >
                             <span>رفض الطلب</span>
@@ -623,7 +626,7 @@ export default function AdminPage() {
                               <Ban className="h-3 w-3" /> محظور نهائياً
                             </span>
                           )}
-                          {u.approvalStatus === "reset_requested" && (
+                          {u.reassessmentStatus === "pending" && (
                             <span className="rounded-full bg-sky-100 text-sky-900 text-[11px] font-extrabold px-2.5 py-0.5 border border-sky-300">
                               طلب إعادة الاختبار
                             </span>
@@ -796,12 +799,7 @@ export default function AdminPage() {
               <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 font-bold flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
                 <span>
-                  تاريخ رفع الإيقاف القادم تلقائياً:{" "}
-                  {new Date(Date.now() + selectedSuspensionDays * 86400000).toLocaleDateString("ar-EG", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric"
-                  })}
+                  سيتم رفع الإيقاف تلقائياً بعد {selectedSuspensionDays} يومًا من تاريخ الحفظ.
                 </span>
               </div>
             </div>

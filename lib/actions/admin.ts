@@ -140,7 +140,7 @@ export async function resetDeveloperAssessmentForAdmin(targetUserId: number) {
 
   await transaction(async (conn) => {
     await conn.execute(
-      `UPDATE developers SET approval_status = 'reset_approved', trust_score = 0, skill_points = 0, is_verified = 0, rejection_reason = NULL WHERE id = ?`,
+      `UPDATE developers SET approval_status = 'reset_approved', rejection_reason = NULL WHERE id = ?`,
       [dev.id]
     );
     await conn.execute(
@@ -161,43 +161,42 @@ export async function resetDeveloperAssessmentForAdmin(targetUserId: number) {
 }
 
 export async function decideReassessmentRequestForAdmin(input: {
-  targetUserId: number;
+  requestId: number;
   decision: "approve" | "reject";
   reason?: string;
 }) {
-  await requireAdmin();
-  const dev = await queryOne<{ id: number }>("SELECT id FROM developers WHERE user_id = ?", [input.targetUserId]);
-  if (!dev) {
-    return { ok: false as const, error: "المطور غير موجود" };
-  }
-
-  if (input.decision === "approve") {
-    await transaction(async (conn) => {
+  const actor = await requireAdmin();
+  const parsed = z.object({requestId:z.coerce.number().int().positive(),decision:z.enum(["approve","reject"]),reason:z.string().trim().max(1000).optional()}).safeParse(input);
+  if(!parsed.success)return{ok:false as const,error:"بيانات طلب إعادة الاختبار غير صالحة"};
+  const decided = await transaction(async (conn) => {
+    const [requestRows] = await conn.execute("SELECT rr.id,rr.developer_id,d.user_id,rr.status FROM developer_reassessment_requests rr JOIN developers d ON d.id=rr.developer_id WHERE rr.id=? FOR UPDATE",[parsed.data.requestId]);
+    const request=(requestRows as {id:number;developer_id:number;user_id:number;status:string}[])[0];
+    if(!request||request.status!=="pending")return false;
+    if (parsed.data.decision === "approve") {
       await conn.execute(
-        "UPDATE developers SET approval_status = 'reset_approved', trust_score = 0, skill_points = 0, is_verified = 0, rejection_reason = NULL WHERE id = ?",
-        [dev.id]
+        "UPDATE developers SET approval_status = 'reset_approved', rejection_reason = NULL WHERE id = ?",
+        [request.developer_id]
       );
       await conn.execute(
         "UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ?",
-        [dev.id]
+        [request.developer_id]
       );
+      await conn.execute("UPDATE developer_reassessment_requests SET status='approved',decided_by=?,decision_reason=?,decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",[actor.userId,parsed.data.reason??null,request.id]);
       await conn.execute(
         "INSERT INTO notifications (user_id, body) VALUES (?, ?)",
-        [input.targetUserId, "وافقت الإدارة على طلب إعادة تقييم مهاراتك. يمكنك الآن الضغط على 'بدء الاختبار الآن' لبدء التقييم التلقائي."]
+        [request.user_id, "وافقت الإدارة على طلب إعادة تقييم مهاراتك. يمكنك الآن الضغط على 'بدء الاختبار الآن' لبدء التقييم التلقائي."]
       );
-    });
-  } else {
-    await transaction(async (conn) => {
-      await conn.execute(
-        "UPDATE developers SET approval_status = 'rejected', rejection_reason = ? WHERE id = ?",
-        [input.reason?.trim() || "تم رفض طلب إعادة التقييم من قِبل الإدارة", dev.id]
-      );
+    } else {
+      const reason=parsed.data.reason||"تم رفض طلب إعادة التقييم من قِبل الإدارة";
+      await conn.execute("UPDATE developer_reassessment_requests SET status='rejected',decided_by=?,decision_reason=?,decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",[actor.userId,reason,request.id]);
       await conn.execute(
         "INSERT INTO notifications (user_id, body) VALUES (?, ?)",
-        [input.targetUserId, `تم رفض طلب إعادة تقييم المهارات: ${input.reason || "تواصل مع الدعم الفني"}`]
+        [request.user_id, `تم رفض طلب إعادة تقييم المهارات: ${reason}`]
       );
-    });
-  }
+    }
+    return true;
+  });
+  if(!decided)return{ok:false as const,error:"طلب إعادة الاختبار غير موجود أو تمت مراجعته بالفعل"};
 
   revalidatePath("/admin");
   revalidatePath("/developer-assessment/pending");

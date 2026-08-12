@@ -128,7 +128,7 @@ export function AdmissionStatus() {
 
   return (
     <div className="space-y-6">
-      {/* Current Status Card */}
+      {/* Main Status Card */}
       <div className="rounded-[28px] border border-[#D1E3D6] bg-white p-6 md:p-8 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 pb-5">
           <div className="flex items-center gap-3">
@@ -158,7 +158,7 @@ export function AdmissionStatus() {
                 {status === "admin_review"
                   ? "طلب اعتمادك قيد المراجعة الفنية من الإدارة"
                   : status === "reset_requested"
-                  ? "تم إرسال طلب إعادة الاختبار إلى الإدارة"
+                  ? "تم إرسال طلب إعادة الاختبار إلى الإدارة (بانتظار الموافقة)"
                   : status === "reset_approved"
                   ? "وافقت الإدارة على طلب إعادة الاختبار! جاهز للبدء"
                   : status === "pending" || status === "assessment_in_progress"
@@ -213,65 +213,57 @@ export function AdmissionStatus() {
           </div>
         )}
 
-        {/* Ready / Reset Approved Action Bar */}
-        {(status === "pending" || status === "assessment_in_progress" || status === "reset_approved") && (
-          <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h4 className="font-extrabold text-[#05291A] text-sm flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-[#056B38]" />
-                مستعد لبدء الاختبار الجديد الآن؟
-              </h4>
-              <p className="text-xs text-[#526B5E]">
-                سيتولى الذكاء الاصطناعي صياغة أسئلة برمجية مخصصة لمهاراتك وتوليد نموذج الاختبار فوراً.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              disabled={loadingTest}
-              onClick={handleManualStart}
-              className="h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white px-8 font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 w-full md:w-auto"
-            >
-              {loadingTest ? (
-                <>
-                  <Clock className="h-4 w-4 animate-spin" />
-                  <span>جاري توليد الأسئلة والدخول للاختبار...</span>
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="h-5 w-5" />
-                  <span>بدء الاختبار الآن</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Rejected or Admin Review Request Re-test Button */}
-        {(status === "rejected" || status === "admin_review") && (
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] p-5">
+        {/* Always Visible Action Control Box */}
+        <div className="rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <h4 className="font-extrabold text-[#05291A] text-sm">ترغب في تقديم طلب إعادة إجراء التقييم؟</h4>
-              <p className="text-xs text-[#526B5E] mt-0.5">
-                يمكنك إرسال طلب رسمي للإدارة لمراجعة ملفك وإتاحة إعادة تقديم الاختبار مرة أخرى.
+              <h4 className="font-extrabold text-[#05291A] text-base flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-[#056B38]" />
+                خيارات تقييم المهارات والاختبار
+              </h4>
+              <p className="text-xs text-[#526B5E] mt-1">
+                يمكنك بدء نموذج الاختبار فوراً أو تقديم طلب رسمي للإدارة لإتاحة فرصة جديدة لإجراء التقييم.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setRequestModalOpen(true)}
-              className="h-11 rounded-full border border-[#056B38] bg-[#E8FAF0] text-[#056B38] hover:bg-[#056B38] hover:text-white px-6 font-extrabold text-xs transition-all flex items-center gap-2 shrink-0"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>طلب إعادة الاختبار من الإدارة</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto shrink-0">
+              {/* Primary Start Test Button */}
+              <button
+                type="button"
+                disabled={loadingTest}
+                onClick={handleManualStart}
+                className="h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white px-7 font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 flex-1 sm:flex-initial"
+              >
+                {loadingTest ? (
+                  <>
+                    <Clock className="h-4 w-4 animate-spin" />
+                    <span>جاري التوليد والدخول...</span>
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="h-5 w-5" />
+                    <span>بدء الاختبار الآن</span>
+                  </>
+                )}
+              </button>
+
+              {/* Always Visible Request Re-test Button */}
+              <button
+                type="button"
+                onClick={() => setRequestModalOpen(true)}
+                className="h-11 rounded-full border border-[#056B38] bg-[#E8FAF0] text-[#056B38] hover:bg-[#056B38] hover:text-white px-6 font-extrabold text-xs transition-all flex items-center justify-center gap-2 shadow-xs flex-1 sm:flex-initial"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>طلب إعادة الاختبار من الإدارة</span>
+              </button>
+            </div>
           </div>
-        )}
+        </div>
 
         {status === "reset_requested" && (
           <div className="rounded-2xl bg-sky-50 border border-sky-200 p-4 text-xs text-sky-900 font-bold flex items-center gap-2">
             <Clock className="h-4 w-4 text-sky-700 shrink-0" />
-            <span>طلب إعادة الاختبار قيد مراجعة الأدمن حالياً. ستصلك إشعار فور الموافقة.</span>
+            <span>طلب إعادة الاختبار الخاص بك قيد مراجعة الأدمن حالياً. ستصلك تنبيه فور الموافقة.</span>
           </div>
         )}
       </div>
@@ -296,7 +288,7 @@ export function AdmissionStatus() {
 
             <div className="space-y-3">
               <p className="text-xs text-[#526B5E] leading-relaxed">
-                اكتب توضيحاً للإدارة بسبب طلب إعادة الاختبار (مثل: تحديث المهارات، مشكلة تقنية سابقة، إلخ):
+                اكتب توضيحاً للإدارة بسبب طلب إعادة الاختبار (مثلاً: إضافة مهارات جديدة، حدوث عطل تقني، إلخ):
               </p>
 
               <textarea
