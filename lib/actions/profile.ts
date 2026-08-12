@@ -73,11 +73,12 @@ export async function updateDeveloperProfile(
       session.userId,
     ]
   );
+  await execute("UPDATE developers SET approval_status = CASE WHEN approval_status='approved' THEN 'approved' ELSE 'profile_incomplete' END WHERE user_id = ?", [session.userId]);
   await execute("UPDATE users SET full_name = ?, username = ?, phone = ?, onboarding_completed_at = CURRENT_TIMESTAMP WHERE id = ?", [
     d.displayName, d.username, d.phone,
     session.userId,
   ]);
-  await createSession(session.userId, "developer", true, session.isAdmin);
+  await createSession(session.userId, "developer", true, session.isAdmin, session.developerApprovalStatus==="approved");
 
   revalidatePath("/profile");
   revalidatePath("/developers");

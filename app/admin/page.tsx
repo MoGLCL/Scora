@@ -6,11 +6,11 @@ import { Ban, Bot, Briefcase, Search, ShieldCheck, Users } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { updateUserForAdmin } from "@/lib/actions/admin";
-import { setAiAssistantEnabled, setQuickRegistrationEnabled } from "@/lib/actions/settings";
+import { setAiAssistantEnabled, setQuickRegistrationEnabled, setOpenRouterSettings } from "@/lib/actions/settings";
 import { useProfile } from "@/components/profile-provider";
 import type { AccountStatus, AppRole } from "@/lib/types";
 
-interface UserItem { id: string; name: string; email: string; role: AppRole; isAdmin: boolean; status: AccountStatus; skillPoints: number; trustScore: number; joinDate: string; reportsCount: number }
+interface UserItem { id: string; name: string; email: string; role: AppRole; isAdmin: boolean; status: AccountStatus; skillPoints: number; trustScore: number; joinDate: string; reportsCount: number; approvalStatus?:string|null; assessmentPublicId?:string|null }
 interface ProjectItem { id:number;title:string;category:string|null;budgetFrom:number;budgetTo:number;deadlineDays:number|null;status:string;postedAt:string;ownerName:string;ownerUsername:string|null;accountType:"personal"|"company";companyName:string|null;proposalsCount:number }
 
 export default function AdminPage() {
@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [tab,setTab]=useState<"users"|"projects"|"stats"|"settings">("users");
   const [stats,setStats]=useState<{totals?:{users:number;active:number;visits:number;visitors:number};daily?:{day:string;visits:number}[];settings?:Record<string,boolean>}>({});
   const [quickRegistration,setQuickRegistration]=useState(true);
+  const [aiConfig,setAiConfig]=useState({apiKey:"",model:"",siteUrl:"http://localhost:3000",siteTitle:"SCORA",hasApiKey:false});
   const load = () => fetch("/api/admin/users", { cache: "no-store" }).then((r) => r.ok ? r.json() : Promise.reject()).then(setUsers).catch(() => addToast("تعذر تحميل المستخدمين", "warn"));
   const loadProjects = () => fetch("/api/admin/projects", { cache: "no-store" }).then((r) => r.ok ? r.json() : Promise.reject()).then(setProjects).catch(() => addToast("تعذر تحميل المشاريع", "warn"));
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function AdminPage() {
       })
       .catch(() => undefined);
     loadStats();
+    fetch("/api/admin/ai-settings",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(d=>setAiConfig(x=>({...x,...d,apiKey:""}))).catch(()=>undefined);
 
     // Keep read-only counters live without replacing the editable users list.
     // Replacing it on a timer can overwrite an admin's in-progress interaction.

@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { execute, query, type SqlParam } from "@/lib/db";
+import { queryOne, transaction } from "@/lib/db";
+import { createHash } from "node:crypto";
+import { HumanReviewEventType } from "@scora/trust-core";
+import { appendTrustEvent } from "@/lib/trust-events";
 import { verifySession } from "@/lib/dal";
 import type { AccountStatus, AppRole } from "@/lib/types";
 
@@ -20,6 +24,8 @@ export interface DbUserItem {
   reportsCount: number;
   joinDate: string;
   joinedDate: string;
+  approvalStatus?: string;
+  assessmentPublicId?: string | null;
 }
 
 async function requireAdmin() {
@@ -33,9 +39,10 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
   const rows = await query<{
     id: number; email: string; full_name: string; phone: string | null;
     role: AppRole; is_admin: 0 | 1; status: AccountStatus; created_at: Date;
-    skill_points: number | null; trust_score: number | null; reports_count: number;
+    skill_points: number | null; trust_score: number | null; reports_count: number; approval_status:string|null; assessment_public_id:string|null;
   }>(`SELECT u.id, u.email, u.full_name, u.phone, u.role, u.is_admin, u.status, u.created_at,
-             d.skill_points, d.trust_score,
+             d.skill_points, d.trust_score, d.approval_status,
+             (SELECT das.public_id FROM developer_assessment_sessions das WHERE das.developer_id=d.id ORDER BY das.id DESC LIMIT 1) assessment_public_id,
              (SELECT COUNT(*) FROM support_tickets st WHERE st.reported_user_id = u.id) reports_count
       FROM users u LEFT JOIN developers d ON d.user_id = u.id
       ORDER BY u.id DESC`);
@@ -47,9 +54,12 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
       role: row.role, isAdmin: Boolean(row.is_admin), status: row.status, skillPoints: Number(row.skill_points ?? 0),
       trustScore: Number(row.trust_score ?? 0), reportsCount: Number(row.reports_count),
       joinDate: joinedDate, joinedDate,
+      approvalStatus: row.approval_status ?? undefined, assessmentPublicId: row.assessment_public_id,
     };
   });
 }
+
+export async function decideDeveloperAdmission(input:{assessmentPublicId:string;decision:"approved"|"rejected";reason:string}){const actor=await requireAdmin();const p=z.object({assessmentPublicId:z.string().min(10),decision:z.enum(["approved","rejected"]),reason:z.string().trim().min(10).max(1000)}).safeParse(input);if(!p.success)return{ok:false as const,error:"اكتب سبب قرار واضح (10 حروف على الأقل)"};const row=await queryOne<{id:number;developer_id:number;status:string;max_score:number;answer_score:number}>(`SELECT das.id,das.developer_id,das.status,COALESCE(SUM(q.max_score),0) max_score,COALESCE(SUM(a.score),0) answer_score FROM developer_assessment_sessions das LEFT JOIN developer_assessment_questions q ON q.session_id=das.id LEFT JOIN developer_assessment_answers a ON a.question_id=q.id WHERE das.public_id=? GROUP BY das.id`,[p.data.assessmentPublicId]);if(!row||row.status!=="admin_review")return{ok:false as const,error:"الطلب غير موجود أو تمت مراجعته"};const score=row.max_score?Math.round(row.answer_score/row.max_score*100):0;const trust=p.data.decision==="approved"?Math.max(50,Math.min(90,score)):0,sp=p.data.decision==="approved"?Math.max(0,score*10):0;await transaction(async c=>{await c.execute("UPDATE developer_assessment_sessions SET status=?,score=?,trust_awarded=?,sp_awarded=?,reviewed_at=CURRENT_TIMESTAMP,reviewed_by=?,review_reason=? WHERE id=?",[p.data.decision,score,trust,sp,actor.userId,p.data.reason,row.id]);await c.execute("UPDATE developers SET approval_status=?,approved_at=?,approved_by=?,rejection_reason=?,is_verified=?,trust_score=?,skill_points=? WHERE id=?",[p.data.decision,p.data.decision==="approved"?new Date():null,p.data.decision==="approved"?actor.userId:null,p.data.decision==="rejected"?p.data.reason:null,p.data.decision==="approved"?1:0,trust,sp,row.developer_id]);const u=await c.execute("SELECT user_id FROM developers WHERE id=?",[row.developer_id]) as unknown as [Array<{user_id:number}>];const userId=u[0]?.[0]?.user_id;if(userId)await c.execute("INSERT INTO notifications(user_id,body) VALUES(?,?)",[userId,p.data.decision==="approved"?"تم اعتماد حسابك كمطور ويمكنك استخدام المنصة الآن.":`تم رفض طلب اعتماد المطور: ${p.data.reason}`]);const rationaleHash=createHash("sha256").update(p.data.reason).digest("hex");await appendTrustEvent({sessionPublicId:p.data.assessmentPublicId,developerId:row.developer_id,assessmentPublicId:p.data.assessmentPublicId,type:HumanReviewEventType.REVIEW_DECISION_RECORDED,source:"HUMAN",payload:{reviewId:`review_${p.data.assessmentPublicId}`,reviewerId:`reviewer_${actor.userId}`,decision:p.data.decision==="approved"?"APPROVE":"REJECT",rationaleLength:p.data.reason.length,rationaleHash,reviewDurationMs:0}},c);await appendTrustEvent({sessionPublicId:p.data.assessmentPublicId,developerId:row.developer_id,assessmentPublicId:p.data.assessmentPublicId,type:HumanReviewEventType.RESULT_RELEASED,source:"HUMAN",payload:{reviewId:`review_${p.data.assessmentPublicId}`,releasedBy:`reviewer_${actor.userId}`,channel:"dashboard",scheduledFor:null}},c)});revalidatePath("/admin");return{ok:true as const}}
 
 const UserUpdateSchema = z.object({
   userId: z.coerce.number().int().positive(),

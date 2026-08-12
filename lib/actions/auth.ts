@@ -131,8 +131,8 @@ export async function login(
   }
   const { email, password } = parsed.data;
 
-  const user = await queryOne<UserRow>(
-    "SELECT id, email, password_hash, role, is_admin, status, suspended_until, onboarding_completed_at FROM users WHERE email = ?",
+  const user = await queryOne<UserRow & { approval_status: string | null }>(
+    "SELECT u.id, u.email, u.password_hash, u.role, u.is_admin, u.status, u.suspended_until, u.onboarding_completed_at, d.approval_status FROM users u LEFT JOIN developers d ON d.user_id=u.id WHERE u.email = ?",
     [email]
   );
 
@@ -167,7 +167,7 @@ export async function login(
   }
 
   await execute("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
-  await createSession(user.id, user.role, Boolean(user.onboarding_completed_at), Boolean(user.is_admin));
+  await createSession(user.id, user.role, Boolean(user.onboarding_completed_at), Boolean(user.is_admin), user.role!=="developer"||user.approval_status==="approved");
 
   const redirectTo = user.onboarding_completed_at
     ? homeFor(Boolean(user.is_admin))

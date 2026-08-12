@@ -14,8 +14,8 @@ import {
 export { encrypt, decrypt, SESSION_COOKIE };
 export type { AppRole, SessionPayload };
 
-export async function createSession(userId: number, role: AppRole, onboardingCompleted = false, isAdmin = false): Promise<void> {
-  const token = await encrypt({ userId, role, onboardingCompleted, isAdmin });
+export async function createSession(userId: number, role: AppRole, onboardingCompleted = false, isAdmin = false, developerApproved = role!=="developer"): Promise<void> {
+  const token = await encrypt({ userId, role, onboardingCompleted, isAdmin, developerApproved });
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,

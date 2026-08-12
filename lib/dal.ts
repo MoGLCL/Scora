@@ -25,8 +25,8 @@ import type {
 export const verifySession = cache(async () => {
   const session = await getSession();
   if (!session?.userId) return null;
-  const user = await queryOne<{ id: number; role: UserRow["role"]; status: UserRow["status"]; suspended_until: Date | null; is_admin: 0 | 1; onboarding_completed_at: Date | null }>(
-    "SELECT id, role, status, suspended_until, is_admin, onboarding_completed_at FROM users WHERE id = ?",
+  const user = await queryOne<{ id: number; role: UserRow["role"]; status: UserRow["status"]; suspended_until: Date | null; is_admin: 0 | 1; onboarding_completed_at: Date | null; approval_status:string|null }>(
+    "SELECT u.id, u.role, u.status, u.suspended_until, u.is_admin, u.onboarding_completed_at, d.approval_status FROM users u LEFT JOIN developers d ON d.user_id=u.id WHERE u.id = ?",
     [session.userId]
   );
   if (!user || user.status === "banned") return null;
@@ -35,7 +35,7 @@ export const verifySession = cache(async () => {
     if (!until || new Date(until).getTime() > Date.now()) return null;
     await import("@/lib/db").then(({ execute }) => execute("UPDATE users SET status='active', suspended_until=NULL WHERE id=?", [user.id]));
   }
-  return { userId: user.id, role: user.role, isAdmin: Boolean(user.is_admin), onboardingCompleted: Boolean(user.onboarding_completed_at) };
+  return { userId: user.id, role: user.role, isAdmin: Boolean(user.is_admin), onboardingCompleted: Boolean(user.onboarding_completed_at), developerApprovalStatus:user.role==="developer"?(user.approval_status??"profile_incomplete"):null };
 });
 
 export const getCurrentUser = cache(async (): Promise<UserRow | null> => {
@@ -91,7 +91,7 @@ export async function listDevelopers(): Promise<DeveloperCard[]> {
        JOIN users u ON u.id = d.user_id
        LEFT JOIN developer_skills ds ON ds.developer_id = d.id
        LEFT JOIN skills s ON s.id = ds.skill_id
-       WHERE u.status = 'active' AND u.onboarding_completed_at IS NOT NULL
+       WHERE u.status = 'active' AND u.onboarding_completed_at IS NOT NULL AND d.approval_status='approved'
        GROUP BY d.id
        ORDER BY d.trust_score DESC, d.skill_points DESC`
     );

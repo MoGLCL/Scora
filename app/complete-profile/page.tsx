@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { updateDeveloperProfile, setDeveloperSkills } from "@/lib/actions/profile";
+import { startDeveloperAssessment } from "@/lib/actions/developer-assessment";
 import { EgyptianLocationSelector } from "@/components/egyptian-location-selector";
 import { useRouter } from "next/navigation";
 import {
@@ -222,7 +223,8 @@ export default function DeveloperOnboardingPage() {
 
     setUserRole("developer");
     addToast("تهانينا! تم تفعيل الجواز الرقمي وبدء حساب المطور بنجاح.", "success");
-    router.push(`/profile/${username}`);
+    const assessmentResult = await startDeveloperAssessment();
+    if (assessmentResult && !assessmentResult.ok) addToast(assessmentResult.error, "warn");
   };
 
   const fullNameDisplay = `${firstName} ${fatherName} ${familyName}`.trim() || "اسم المطور";
