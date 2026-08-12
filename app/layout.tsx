@@ -4,6 +4,7 @@ import { ProfileProvider } from "@/components/profile-provider";
 import { AiAssistantSsd } from "@/components/ai-assistant-ssd";
 import { MobileBottomTabs } from "@/components/mobile-bottom-tabs";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { DemoNoticeModal } from "@/components/demo-notice-modal";
 import { getCurrentClient, getCurrentDeveloper, getCurrentUser, verifySession } from "@/lib/dal";
 import { query, queryOne } from "@/lib/db";
 import "./globals.css";
@@ -96,6 +97,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
           <AiAssistantSsd />
           <MobileBottomTabs />
+          <DemoNoticeModal />
           <AnalyticsTracker />
         </ProfileProvider>
       </body>

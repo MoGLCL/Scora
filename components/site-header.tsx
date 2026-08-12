@@ -70,8 +70,8 @@ export function SiteHeader() {
           <span>Scora</span>
         </Link>
 
-        {/* Center: Navigation Links - Exact 7 links from Figma (13px, Tajawal, Bold, #526B5E) */}
-        <nav className="hidden xl:flex items-center gap-7 2xl:gap-8 z-10">
+        {/* Center: Navigation Links - Perfectly Centered Horizontally and Vertically */}
+        <nav className="hidden xl:flex items-center gap-7 2xl:gap-8 absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
