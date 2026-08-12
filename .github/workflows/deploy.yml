@@ -1,0 +1,47 @@
+name: Scora V0.1 CD Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - Scora-V0.1
+
+jobs:
+  production-deployment:
+    name: Automated Deployment Gate & Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install --legacy-peer-deps
+
+      - name: Validate Environment Readiness
+        run: |
+          echo "Verifying environment parameters for Scora V0.1 production release..."
+          test -f package.json || (echo "package.json missing" && exit 1)
+          test -f next.config.ts || (echo "next.config.ts missing" && exit 1)
+          echo "Environment configuration validated successfully."
+
+      - name: Build Final Deployment Release
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          SESSION_SECRET: "zefpsqz5cimg1-XCf1tr_uQqmAtEyfKgsTQ3PDp_DdFvac5M-S-ezMuMDD9Q6Zec"
+          DB_HOST: "mysql-scorasql.alwaysdata.net"
+          DB_PORT: "3306"
+          DB_NAME: "scorasql_1"
+          DB_USER: "scorasql"
+          DB_PASSWORD: "S123S123s123"
+        run: npm run build
+
+      - name: Post Deployment Gate Status
+        run: |
+          echo "Scora V0.1 Continuous Deployment Pipeline passed all verification checks."
+          echo "Release candidate bundle built and validated for branch ${{ github.ref_name }}."

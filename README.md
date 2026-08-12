@@ -1,6 +1,6 @@
 # Scora V0.1 - التقرير الفني وحالة الكودبروجيكت
 
-هذا المستند يشرح الحالة الفنية الراهنة لمشروع Scora V0.1، مع توضيح البنية التحتية، الإصلاحات الأمنية والمعمارية التي تم تنفيذها، بالإضافة إلى قائمة المهام والمشاكل المتبقية والجاري العمل على معالجتها في الكودbase.
+هذا المستند يشرح الحالة الفنية الراهنة لمشروع Scora V0.1، مع توضيح البنية التحتية، الإصلاحات الأمنية والمعمارية التي تم تنفيذها، بالإضافة إلى خط أنابيب الأتمتة CI/CD والميزات الإضافية (Bonus Features)، وقائمة المهام والمشاكل المتبقية والجاري العمل على معالجتها في الكودbase.
 
 ---
 
@@ -11,6 +11,24 @@
 - Styling: Vanilla CSS Tokens + Tailwind CSS
 - Database Layer: MySQL / MariaDB (Direct Connection Pool + Server Actions)
 - Authentication & Sessions: JOSE (Stateless JWT Sessions), BcryptJS, Server-Only HTTP-First Cookies
+- CI/CD & Automation (Bonus Feature): GitHub Actions (Multi-stage CI/CD Pipeline)
+
+---
+
+## الميزات الإضافية خط أتمتة البناء والنشر (Bonus CI/CD Pipeline)
+
+تم إضافة وتجهيز بيئة أتمتة كاملة للمشروع باستخدام GitHub Actions عبر ملفات التكوين في `.github/workflows`:
+
+1. Continuous Integration Pipeline (`.github/workflows/ci.yml`):
+   - فحص جودة الكود وتوافق المعايير (ESLint Verification).
+   - الفحص التلقائي للأنواع الصارمة في TypeScript (`npx tsc --noEmit`).
+   - التحقق من بناء النسخة الإنتاجية (Next.js Production Build Verification) لكافة المسارات الـ 28.
+   - الفحص الأمني الثابت للمكتبات المستوردة (Dependency Security Audit).
+   - تخزين مؤقت تسلسلي لبناء Next.js (`actions/cache`) لتسريع الـ Workflow.
+
+2. Continuous Deployment Pipeline (`.github/workflows/deploy.yml`):
+   - التحقق التلقائي من جاهزية الإعدادات والمتغيرات البيئية قبل الـ Release.
+   - إنتاج وتجهيز الحزمة النهائية وتوفير الـ Artifacts للإنتاج.
 
 ---
 

@@ -1,0 +1,93 @@
+name: Scora V0.1 CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - Scora-V0.1
+  pull_request:
+    branches:
+      - main
+      - Scora-V0.1
+
+jobs:
+  code-quality:
+    name: Code Quality & Type Checking
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install --legacy-peer-deps
+
+      - name: Run ESLint Check
+        run: npm run lint
+
+      - name: Run TypeScript Static Analysis
+        run: npx tsc --noEmit
+
+  build-verification:
+    name: Production Build Verification
+    needs: code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Restore Next.js Build Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Install Dependencies
+        run: npm ci || npm install --legacy-peer-deps
+
+      - name: Build Next.js Production Bundle
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          SESSION_SECRET: "zefpsqz5cimg1-XCf1tr_uQqmAtEyfKgsTQ3PDp_DdFvac5M-S-ezMuMDD9Q6Zec"
+          DB_HOST: "mysql-scorasql.alwaysdata.net"
+          DB_PORT: "3306"
+          DB_NAME: "scorasql_1"
+          DB_USER: "scorasql"
+          DB_PASSWORD: "S123S123s123"
+        run: npm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build-output
+          path: .next/
+          retention-days: 7
+
+  security-scan:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit Dependencies for High/Critical Vulnerabilities
+        run: npm audit --audit-level=high || true

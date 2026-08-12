@@ -33,6 +33,8 @@ export function DevelopersDirectoryClient({
   const [sortBy, setSortBy] = useState<"trust" | "sp">("trust");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [minimumTrust, setMinimumTrust] = useState(0);
+  const [availabilityOnly, setAvailabilityOnly] = useState(false);
 
   // Filtered and Sorted Developers
   const filteredDevelopers = useMemo(() => {
@@ -48,6 +50,8 @@ export function DevelopersDirectoryClient({
           dev.skills.some((s) => s.toLowerCase().includes(query));
 
         if (!matchesSearch) return false;
+        if (dev.trustScore < minimumTrust) return false;
+        if (availabilityOnly && dev.availabilityType !== "available") return false;
 
         // Quick filter tags
         if (activeQuickFilter === "90+") return dev.trustScore >= 90;
@@ -61,7 +65,7 @@ export function DevelopersDirectoryClient({
         if (sortBy === "trust") return b.trustScore - a.trustScore;
         return b.skillPoints - a.skillPoints;
       });
-  }, [initialDevelopers, searchQuery, activeQuickFilter, sortBy]);
+  }, [initialDevelopers, searchQuery, activeQuickFilter, sortBy, minimumTrust, availabilityOnly]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-body dir-rtl" dir="rtl">
@@ -156,6 +160,13 @@ export function DevelopersDirectoryClient({
 
           </div>
 
+          {showFiltersModal && <div className="rounded-[22px] border border-[#D1E3D6] bg-white p-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <label className="space-y-2 text-sm font-bold text-[#05291A]"><span>الحد الأدنى للثقة: {minimumTrust}</span>
+              <input type="range" min="0" max="100" step="5" value={minimumTrust} onChange={(e) => setMinimumTrust(Number(e.target.value))} className="w-full accent-[#056B38]" />
+            </label>
+            <label className="flex items-center gap-3 text-sm font-bold text-[#05291A] cursor-pointer"><input type="checkbox" checked={availabilityOnly} onChange={(e) => setAvailabilityOnly(e.target.checked)} className="h-5 w-5 accent-[#056B38]" /> المتاحون للعمل الآن فقط</label>
+          </div>}
+
           {/* Quick Filter Tag Pills */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-[12px] font-bold text-muted ml-2">فلترة سريعة:</span>
@@ -236,8 +247,8 @@ export function DevelopersDirectoryClient({
         <div className="space-y-4">
           {filteredDevelopers.length === 0 ? (
             <div className="p-12 rounded-[28px] border border-neutral-200 bg-white text-center space-y-3">
-              <div className="text-[18px] font-extrabold text-[#05291A]">لا يوجد مطورين مسجلين حالياً</div>
-              <p className="text-[13px] text-[#526B5E]">عند قيام المطورين بالتسجيل وإكمال بياناتهم ستظهر ملفاتهم الموثقة هنا تلقائياً.</p>
+              <div className="text-[18px] font-extrabold text-[#05291A]">مفيش مبرمجين مناسبين دلوقتي 😅</div>
+              <p className="text-[13px] text-[#526B5E]">يا إما الفلاتر شديدة شوية، يا إما المنصة لسه بتصحى من النوم. جرّب تخفف البحث.</p>
             </div>
           ) : (
             filteredDevelopers.map((dev) => (
@@ -346,7 +357,7 @@ export function DevelopersDirectoryClient({
         </div>
 
         {/* Clear High-Contrast Skeleton Loading Section */}
-        <div className="space-y-4 pt-8">
+        {false && <div className="space-y-4 pt-8">
           <div className="flex items-center gap-2 text-[13px] font-bold text-[#0E6D3B] mb-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#0E6D3B] animate-ping inline-block" />
             <span>لسه بنحمّل بيانات مبرمجين كمان...</span>
@@ -429,7 +440,7 @@ export function DevelopersDirectoryClient({
 
             </div>
           </div>
-        </div>
+        </div>}
 
       </main>
     </div>
