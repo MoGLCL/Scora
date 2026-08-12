@@ -1,0 +1,10 @@
+import "server-only";
+import { query,transaction } from "@/lib/db";
+import { readJsonValue } from "@/lib/json-value";
+import { gradeAssessmentAnswer } from "@/lib/openrouter";
+
+export async function finalizeAssessmentSession(sessionId:number,developerId:number){
+  const questions=await query<{id:number;kind:string;skill:string;question_text:string;expected_answer_json:unknown;max_score:number;draft_text:string|null}>("SELECT q.id,q.kind,q.skill,q.question_text,q.expected_answer_json,q.max_score,a.draft_text FROM developer_assessment_questions q LEFT JOIN developer_assessment_answers a ON a.question_id=q.id AND a.developer_id=? WHERE q.session_id=? ORDER BY q.position",[developerId,sessionId]);
+  const graded=await Promise.all(questions.map(async q=>{const answer=q.draft_text?.trim()||"لم تتم الإجابة";const grade=await gradeAssessmentAnswer({kind:q.kind,skill:q.skill,question:q.question_text,expectedAnswer:readJsonValue(q.expected_answer_json),answer,maxScore:q.max_score});return{q,answer,grade}}));
+  await transaction(async c=>{for(const{q,answer,grade}of graded)await c.execute("INSERT INTO developer_assessment_answers(question_id,developer_id,answer_text,draft_text,answer_type,score,feedback) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE answer_text=VALUES(answer_text),draft_text=VALUES(draft_text),score=VALUES(score),feedback=VALUES(feedback),answered_at=CURRENT_TIMESTAMP",[q.id,developerId,answer,answer,q.kind==="code"?"code":q.kind==="mcq"?"mcq":"text",grade.score,grade.feedback]);await c.execute("UPDATE developer_assessment_sessions SET status='admin_review',current_phase='completed',submitted_at=COALESCE(submitted_at,CURRENT_TIMESTAMP),last_saved_at=CURRENT_TIMESTAMP WHERE id=?",[sessionId]);await c.execute("UPDATE developers SET approval_status='admin_review' WHERE id=?",[developerId]);await c.execute("INSERT INTO notifications(user_id,body) SELECT id,'يوجد اختبار مطور جديد جاهز للمراجعة في لوحة الإدارة.' FROM users WHERE is_admin=1 AND status='active'")});
+}

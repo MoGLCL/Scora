@@ -1,4 +1,7 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../lib";
 
 /*
   SCORA design tokens — source of truth is the Figma file:
@@ -212,7 +215,6 @@
   animation: ssdWindowToCloudMorph 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
   transform-origin: bottom right;
 }
-
 
 
 

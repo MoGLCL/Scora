@@ -1,0 +1,12 @@
+"use client";
+import { useEffect, useState } from "react";
+import { setOpenRouterSettings } from "@/lib/actions/settings";
+
+export function OpenRouterSettings({notify}:{notify:(message:string,type:"success"|"warn")=>void}) {
+  const [config,setConfig]=useState({apiKey:"",model:"",siteUrl:"http://localhost:3000",siteTitle:"SCORA",hasApiKey:false});
+  const [saving,setSaving]=useState(false);
+  const [message,setMessage]=useState<{text:string;ok:boolean}|null>(null);
+  useEffect(()=>{fetch("/api/admin/ai-settings",{cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error((await r.json()).error||"تعذر التحميل");return r.json()}).then(data=>setConfig(value=>({...value,...data,apiKey:""}))).catch(error=>setMessage({text:error instanceof Error?error.message:"تعذر تحميل إعدادات OpenRouter",ok:false}))},[]);
+  const save=async()=>{setSaving(true);setMessage(null);try{const result=await setOpenRouterSettings(config);if(!result.ok){setMessage({text:result.error,ok:false});notify(result.error,"warn");return}setConfig(value=>({...value,apiKey:"",hasApiKey:true}));setMessage({text:"تم حفظ إعدادات OpenRouter في قاعدة البيانات",ok:true});notify("تم حفظ إعدادات OpenRouter","success")}finally{setSaving(false)}};
+  return <section className="rounded-[24px] border bg-white p-6"><h2 className="font-extrabold">OpenRouter</h2><p className="mt-1 text-xs text-[#526B5E]">نفس النموذج يشغّل المساعد ويولّد ويقيّم اختبارات المطورين. المفتاح لا يرجع للمتصفح.</p><div className="mt-4 grid gap-3 md:grid-cols-2"><input type="password" value={config.apiKey} onChange={e=>setConfig(x=>({...x,apiKey:e.target.value}))} placeholder={config.hasApiKey?"مفتاح محفوظ":"API key"} className="rounded-xl border p-3"/><input value={config.model} onChange={e=>setConfig(x=>({...x,model:e.target.value}))} placeholder="openai/gpt-4.1-mini" className="rounded-xl border p-3"/><input value={config.siteUrl} onChange={e=>setConfig(x=>({...x,siteUrl:e.target.value}))} className="rounded-xl border p-3"/><input value={config.siteTitle} onChange={e=>setConfig(x=>({...x,siteTitle:e.target.value}))} className="rounded-xl border p-3"/></div>{message&&<p role="status" className={`mt-3 rounded-lg p-3 text-sm font-bold ${message.ok?"bg-emerald-50 text-emerald-800":"bg-red-50 text-red-700"}`}>{message.text}</p>}<button disabled={saving} type="button" onClick={save} className="mt-4 rounded-full bg-[#056B38] px-5 py-2 font-bold text-white disabled:opacity-60">{saving?"جارٍ الحفظ...":"حفظ إعدادات AI"}</button></section>;
+}

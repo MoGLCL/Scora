@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { updateDeveloperProfile, setDeveloperSkills } from "@/lib/actions/profile";
+import { uploadAvatar } from "@/lib/actions/upload";
 import { startDeveloperAssessment } from "@/lib/actions/developer-assessment";
 import { EgyptianLocationSelector } from "@/components/egyptian-location-selector";
 import { useRouter } from "next/navigation";
@@ -93,6 +94,10 @@ export default function DeveloperOnboardingPage() {
   const [familyName, setFamilyName] = useState(developer.fullName.split(" ")[2] || "");
   const [phone, setPhone] = useState(developer.phone || "");
   const [username, setUsername] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(developer.avatarUrl);
+  const [isStartingAssessment, setIsStartingAssessment] = useState(false);
+  const [assessmentError, setAssessmentError] = useState("");
 
   // Step 2: Academic Info
   const [qualificationType, setQualificationType] = useState("university");
@@ -174,6 +179,10 @@ export default function DeveloperOnboardingPage() {
         addToast("يرجى ملء الاسم الأول وعائلة الحساب إجباريًا", "warn");
         return;
       }
+      if (!username.trim()) {
+        addToast("اسم المستخدم مطلوب لإنشاء رابط البروفايل", "warn");
+        return;
+      }
     }
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
@@ -187,6 +196,9 @@ export default function DeveloperOnboardingPage() {
   };
 
   const handleCompleteOnboarding = async () => {
+    if (isStartingAssessment) return;
+    setIsStartingAssessment(true);
+    setAssessmentError("");
     const fullCombinedName = `${firstName.trim()} ${fatherName.trim()} ${familyName.trim()}`.trim();
     const data = new FormData();
     data.set("displayName", fullCombinedName || developer.fullName);
@@ -202,12 +214,22 @@ export default function DeveloperOnboardingPage() {
     const profileResult = await updateDeveloperProfile(undefined, data);
     if (!profileResult.ok) {
       addToast(profileResult.error ?? Object.values(profileResult.fieldErrors ?? {}).flat()[0] ?? "تعذر حفظ الملف الشخصي", "warn");
-      return;
+      setIsStartingAssessment(false); return;
     }
     const skillsResult = await setDeveloperSkills(selectedSkills);
     if (!skillsResult.ok) {
       addToast(skillsResult.error ?? "تعذر حفظ المهارات", "warn");
-      return;
+      setIsStartingAssessment(false); return;
+    }
+    if (avatarFile) {
+      const avatarData = new FormData();
+      avatarData.set("file", avatarFile);
+      const avatarResult = await uploadAvatar(avatarData);
+      if (!avatarResult.ok) {
+        addToast(avatarResult.error ?? "تعذر رفع الصورة الشخصية", "warn");
+        setIsStartingAssessment(false); return;
+      }
+      updateDeveloper({ avatarUrl: avatarResult.url ?? null });
     }
     updateDeveloper({
       fullName: fullCombinedName || developer.fullName,
@@ -224,10 +246,12 @@ export default function DeveloperOnboardingPage() {
     setUserRole("developer");
     addToast("تهانينا! تم تفعيل الجواز الرقمي وبدء حساب المطور بنجاح.", "success");
     const assessmentResult = await startDeveloperAssessment();
-    if (assessmentResult && !assessmentResult.ok) addToast(assessmentResult.error, "warn");
+    if (assessmentResult && !assessmentResult.ok) { setAssessmentError(assessmentResult.error); addToast(assessmentResult.error, "warn"); }
+    setIsStartingAssessment(false);
   };
 
   const fullNameDisplay = `${firstName} ${fatherName} ${familyName}`.trim() || "اسم المطور";
+  const initials = [firstName, familyName].filter(Boolean).map((name) => name.trim()[0]).join("").slice(0, 2).toUpperCase() || "SC";
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
@@ -286,16 +310,17 @@ export default function DeveloperOnboardingPage() {
             {/* STEP 1: PERSONAL INFO */}
             {currentStep === 1 && (
               <div className="space-y-6">
-                <div>
+                <div className="flex items-start justify-between gap-5">
                   <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
                     الخطوة 1: البيانات الشخصية والأساسية
                   </h3>
                   <p className="text-[13px] text-[#526B5E] mt-1">
                     أدخل اسمك الرسمي ورقم هاتفك للتوثيق والاتصال بالشركات.
                   </p>
+                  <label className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-[#D1E3D6] bg-[#F7FAF8] text-[#056B38] transition hover:border-[#056B38]" title="اختيار صورة شخصية">{avatarPreview?<img src={avatarPreview} alt="معاينة الصورة" className="h-full w-full object-cover"/>:<User className="h-7 w-7"/>}<span className="absolute inset-x-0 bottom-0 bg-[#05291A]/80 py-1 text-center text-[9px] font-bold text-white">تغيير</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e=>{const file=e.target.files?.[0]??null;setAvatarFile(file);if(file)setAvatarPreview(URL.createObjectURL(file))}}/></label>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-[#05291A]">الاسم الأول *</label>
                     <input
@@ -328,7 +353,7 @@ export default function DeveloperOnboardingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start"><div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#05291A]">رقم الهاتف للتوثيق *</label>
                   <div className="relative flex items-center">
                     <input
@@ -340,7 +365,7 @@ export default function DeveloperOnboardingPage() {
                     />
                     <Phone className="w-4 h-4 text-[#526B5E] absolute right-3 pointer-events-none" />
                   </div>
-                </div>
+                </div><div className="space-y-1.5"><label className="text-[13px] font-bold text-[#05291A]">اسم المستخدم لرابط البروفايل *</label><input type="text" required minLength={3} maxLength={30} value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} placeholder="مثال: mohamed_dev" className="h-[46px] w-full rounded-xl border border-[#D1E3D6] bg-white px-4 text-left text-[#05291A] placeholder:text-[#87988F] outline-none focus:border-[#056B38]" dir="ltr"/><p className="text-xs text-[#526B5E]">scora.app/profile/{username||"username"}</p></div></div>
               </div>
             )}
 
@@ -646,13 +671,15 @@ export default function DeveloperOnboardingPage() {
                 <button
                   type="button"
                   onClick={handleCompleteOnboarding}
-                  className="h-[46px] px-8 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white font-bold text-[14px] flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                  disabled={isStartingAssessment}
+                  className="h-[46px] px-8 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white font-bold text-[14px] flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:cursor-wait disabled:opacity-60"
                 >
                   <CheckCircle2 className="w-5 h-5" />
-                  <span>تأكيد وتفعيل الجواز الرقمي</span>
+                  <span>{isStartingAssessment?"جارٍ تجهيز الاختبار...":"تأكيد والانتقال للاختبار"}</span>
                 </button>
               )}
             </div>
+            {assessmentError&&<p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{assessmentError}</p>}
 
           </div>
 
@@ -670,9 +697,7 @@ export default function DeveloperOnboardingPage() {
               </div>
 
                     <div className="space-y-2">
-                      <label className="block text-[13px] font-extrabold text-[#05291A]">اسم المستخدم للرابط العام</label>
-                      <input type="text" required minLength={3} maxLength={30} pattern="[a-z0-9_]+" value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} placeholder="mohamed_dev" className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-left" dir="ltr" />
-                      <p className="text-xs text-[#526B5E]">scora.app/profile/{username || "username"}</p>
+                      <div className="flex items-center gap-4"><div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#339E61] bg-[#E8FAF0] text-xl font-extrabold text-[#056B38]">{avatarPreview?<img src={avatarPreview} alt={fullNameDisplay} className="h-full w-full object-cover"/>:initials}</div><div className="min-w-0"><div className="truncate text-sm font-bold text-[#D4F5E0]">@{username||"username"}</div><div className="mt-1 text-[11px] text-neutral-400">الصورة اختيارية</div></div></div>
                     </div>
 
                     <div className="space-y-2">

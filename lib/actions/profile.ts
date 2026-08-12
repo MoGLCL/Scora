@@ -23,7 +23,7 @@ const UsernameSchema = z.string().trim().toLowerCase().min(3).max(30).regex(/^[a
 // ─── Developer profile ────────────────────────────────────────────────────
 
 const DeveloperProfileSchema = z.object({
-  displayName: z.string().trim().max(255).refine(v=>v.split(/\s+/).filter(Boolean).length>=3,"اكتب الاسم الأول واسم الأب واسم العائلة"),
+  displayName: z.string().trim().max(255).refine(v=>v.split(/\s+/).filter(Boolean).length>=2,"اكتب الاسم الأول واسم العائلة"),
   jobTitle: z.string().trim().max(255).optional().or(z.literal("")),
   bio: z.string().trim().max(5000).optional().or(z.literal("")),
   location: z.string().trim().max(255).optional().or(z.literal("")),

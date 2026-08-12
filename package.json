@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@scora/trust-core": "file:packages/core",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "jose": "^6.2.8",
     "lucide-react": "^1.31.0",
+    "monaco-editor": "^0.56.0",
     "mysql2": "^3.23.3",
     "next": "16.3.0",
     "react": "19.2.8",

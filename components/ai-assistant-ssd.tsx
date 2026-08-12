@@ -100,6 +100,7 @@ export function AiAssistantSsd() {
   // Handle Morphing Open Transition Sequence: Antenna spark turns to orbiting REAL CLOUD -> window morphs open
   const handleOpenChat = () => {
     setIsMorphing(true);
+    /* Legacy local-response logic is intentionally unreachable; live AI errors are surfaced above without fake replies. */
     setTimeout(() => {
       setIsOpen(true);
       setIsMorphing(false);
@@ -166,7 +167,7 @@ export function AiAssistantSsd() {
   };
 
   // Chat Logic
-  const handleSend = (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputText.trim()) return;
 
@@ -182,6 +183,18 @@ export function AiAssistantSsd() {
     setInputText("");
     setEyeState("excited");
 
+    try {
+      const response=await fetch("/api/ai/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:userMsgText})});
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error||"AI_UNAVAILABLE");
+      setMessages((prev)=>[...prev,{id:(Date.now()+1).toString(),sender:"ssd",text:data.answer,time:new Date().toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})}]);
+      setEyeState("happy");
+      return;
+    } catch {
+      setMessages((prev)=>[...prev,{id:(Date.now()+1).toString(),sender:"ssd",text:"خدمة المساعد غير متاحة حاليًا. لم يتم إنشاء رد بديل أو بيانات وهمية.",time:new Date().toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})}]);
+      setEyeState("normal");
+      return;
+    }
     setTimeout(() => {
       let responseText = "أنا هنا لمساعدتك! اختر إحدى التوصيات الذكية أدناه للتحكم في المنصة.";
       let actions: Array<{ label: string; action: () => void }> | undefined = undefined;
