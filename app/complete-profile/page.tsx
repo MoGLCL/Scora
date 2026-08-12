@@ -244,10 +244,22 @@ export default function DeveloperOnboardingPage() {
     });
 
     setUserRole("developer");
-    addToast("تهانينا! تم تفعيل الجواز الرقمي وبدء حساب المطور بنجاح.", "success");
+    addToast("تهانينا! تم تفعيل الجواز الرقمي وجارٍ الانتقال إلى الاختبار...", "success");
     const assessmentResult = await startDeveloperAssessment();
-    if (assessmentResult && !assessmentResult.ok) { setAssessmentError(assessmentResult.error); addToast(assessmentResult.error, "warn"); }
-    setIsStartingAssessment(false);
+    if (assessmentResult && assessmentResult.ok && assessmentResult.assessmentUrl) {
+      window.location.href = assessmentResult.assessmentUrl;
+      return;
+    }
+    if (assessmentResult && !assessmentResult.ok) {
+      setAssessmentError(assessmentResult.error);
+      addToast(assessmentResult.error, "warn");
+      setIsStartingAssessment(false);
+      if (assessmentResult.error?.includes("يجري") || assessmentResult.error?.includes("بالفعل") || assessmentResult.error?.includes("إنشاء")) {
+        window.location.href = "/developer-assessment/pending";
+      }
+      return;
+    }
+    window.location.href = "/developer-assessment/pending";
   };
 
   const fullNameDisplay = `${firstName} ${fatherName} ${familyName}`.trim() || "اسم المطور";
