@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock,
   PlayCircle,
   RotateCcw,
   Send,
   ShieldCheck,
   Sparkles,
-  X
+  X,
+  XCircle
 } from "lucide-react";
 import {
   requestReassessmentByDeveloper,
@@ -21,6 +21,7 @@ import {
 export function AdmissionStatus() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [reassessmentReason, setReassessmentReason] = useState<string | null>(null);
   const [loadingTest, setLoadingTest] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestReason, setRequestReason] = useState("");
@@ -33,26 +34,28 @@ export function AdmissionStatus() {
     try {
       const response = await fetch("/api/developer-admission/status", { cache: "no-store" });
       if (!response.ok) {
-        setError("تعذر قراءة حالة الاعتماد من السيرفر");
         return;
       }
       const data = await response.json();
-      setStatus(data.status);
+      const currentStatus = data.status || "pending";
+      setStatus(currentStatus);
+      if (data.reassessmentReason) {
+        setReassessmentReason(data.reassessmentReason);
+      }
+      setError(""); // Clear any stale error state on successful response
 
       if (data.assessmentUrl) {
         window.location.href = data.assessmentUrl;
         return;
       }
 
-      if (data.status === "approved") {
-        router.replace("/dashboard");
+      if (currentStatus === "approved") {
+        window.location.href = "/dashboard";
         return;
       }
 
-      if (
-        (data.status === "reset_approved" || data.needsGeneration) &&
-        !recovering.current
-      ) {
+      // Auto-start ONLY IF admin explicitly approved reset (status === "reset_approved")
+      if (currentStatus === "reset_approved" && !recovering.current) {
         recovering.current = true;
         setLoadingTest(true);
         const result = await startDeveloperAssessment();
@@ -65,7 +68,7 @@ export function AdmissionStatus() {
         }
       }
     } catch {
-      setError("حدث خطأ في الاتصال بالخادم");
+      // Ignore background loop network glitches silently
     }
   };
 
@@ -76,13 +79,20 @@ export function AdmissionStatus() {
     const checkLoop = async () => {
       if (!active) return;
       await fetchStatus();
-      if (active) timer = setTimeout(checkLoop, 6000);
+      if (active) timer = setTimeout(checkLoop, 1500); // Fast 1.5s live polling
     };
 
     void checkLoop();
 
+    const fallbackTimer = setTimeout(() => {
+      if (active && status === null) {
+        setStatus("pending");
+      }
+    }, 1500);
+
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       if (timer) clearTimeout(timer);
     };
   }, [router]);
@@ -91,11 +101,17 @@ export function AdmissionStatus() {
     setLoadingTest(true);
     setError("");
     recovering.current = true;
-    const result = await startDeveloperAssessment();
-    if (result && result.ok && result.assessmentUrl) {
-      window.location.href = result.assessmentUrl;
-    } else if (result && !result.ok) {
-      setError(result.error);
+    try {
+      const result = await startDeveloperAssessment();
+      if (result && result.ok && result.assessmentUrl) {
+        window.location.href = result.assessmentUrl;
+      } else if (result && !result.ok) {
+        setError(result.error);
+        setLoadingTest(false);
+        recovering.current = false;
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع أثناء إنشاء الاختبار");
       setLoadingTest(false);
       recovering.current = false;
     }
@@ -109,6 +125,7 @@ export function AdmissionStatus() {
     if (!res.ok) {
       setError(res.error);
     } else {
+      setError("");
       setRequestModalOpen(false);
       setStatus("reset_requested");
     }
@@ -149,7 +166,7 @@ export function AdmissionStatus() {
             )}
             {status === "rejected" && (
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 border border-red-200">
-                <AlertTriangle className="h-6 w-6" />
+                <XCircle className="h-6 w-6" />
               </div>
             )}
 
@@ -160,21 +177,21 @@ export function AdmissionStatus() {
                   : status === "reset_requested"
                   ? "تم إرسال طلب إعادة الاختبار إلى الإدارة (بانتظار الموافقة)"
                   : status === "reset_approved"
-                  ? "وافقت الإدارة على طلب إعادة الاختبار! جاهز للبدء"
-                  : status === "pending" || status === "assessment_in_progress"
-                  ? "حسابك جاهز لإجراء تقييم المهارات بالذكاء الاصطناعي"
+                  ? "وافقت الإدارة على طلب إعادة الاختبار! يمكنك البدء الآن"
                   : status === "rejected"
-                  ? "تم رفض طلب الاعتماد السابق"
-                  : `حالة الحساب: ${status}`}
+                  ? "تم رفض طلب إعادة الاختبار / الاعتماد من قِبل الأدمن"
+                  : "طلب الاعتماد مفعل - يمكنك بدء الاختبار الآن"}
               </h2>
               <p className="text-xs text-[#526B5E] mt-0.5">
                 {status === "admin_review"
                   ? "تم تسليم أجوبة اختبارك بنجاح، ويقوم فريق الإدارة بمراجعة النتائج لاعتماد حسابك."
                   : status === "reset_requested"
                   ? "سيقوم الأدمن بمراجعة طلبك وإتاحة إعادة الاختبار لك قريباً."
-                  : status === "reset_approved" || status === "pending" || status === "assessment_in_progress"
-                  ? "اضغط على زر 'بدء الاختبار الآن' وسيتم توليد اختبارك ونقلك إليه مباشرة."
-                  : "يمكنك تقديم طلب إعادة إجراء الاختبار للإدارة لمراجعته."}
+                  : status === "reset_approved"
+                  ? "تم منحك الصلاحية من الأدمن. اضغط على زر 'بدء الاختبار الآن' أدناه."
+                  : status === "rejected"
+                  ? "نأسف، لقد قمت الإدارة بمراجعة طلبك ورفضه. يمكنك تقديم طلب جديد للتوضيح للإدارة إذا أردت."
+                  : "اضغط على زر بدء الاختبار أدناه للتقييم البرمجي."}
               </p>
             </div>
           </div>
@@ -187,6 +204,8 @@ export function AdmissionStatus() {
                 ? "bg-sky-100 text-sky-900 border border-sky-300"
                 : status === "rejected"
                 ? "bg-red-100 text-red-700 border border-red-200"
+                : status === "reset_approved"
+                ? "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6]"
                 : "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6]"
             }`}
           >
@@ -195,12 +214,38 @@ export function AdmissionStatus() {
               : status === "reset_requested"
               ? "بانتظار موافقة الأدمن"
               : status === "reset_approved"
-              ? "تمت موافقة الإدارة"
+              ? "تمت موافقة الأدمن (صلاحية مفعلة)"
               : status === "rejected"
-              ? "طلب مرفوض"
-              : "جاهز للاختبار"}
+              ? "تم الرفض بواسطة الأدمن ❌"
+              : "صلاحية مفعلة"}
           </span>
         </div>
+
+        {/* AI Generation Loading Banner & Apology Note */}
+        {loadingTest && (
+          <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] p-4 text-xs font-bold text-[#056B38] space-y-2 animate-pulse">
+            <div className="flex items-center gap-2 font-extrabold">
+              <Clock className="h-5 w-5 text-[#056B38] animate-spin shrink-0" />
+              <span>جاري إنشاء وتوليد أسئلة الاختبار البرمجي بالذكاء الاصطناعي...</span>
+            </div>
+            <p className="text-[11px] text-[#526B5E] leading-relaxed font-normal">
+              نعتذر، قد تستغرق عملية توليد الأسئلة وتجهيز الاختبار بالذكاء الاصطناعي بضع ثوانٍ إضافية. جاري تجهيز اختبارك وسيتم رفع سرعة واستجابة الخدمة قريباً!
+            </p>
+          </div>
+        )}
+
+        {/* Rejection Notice Banner */}
+        {status === "rejected" && (
+          <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-xs text-red-900 font-bold space-y-2">
+            <div className="flex items-center gap-2 text-red-900 font-extrabold">
+              <XCircle className="h-5 w-5 text-red-600 shrink-0" />
+              <span>إشعار الإدارة: تم رفض الطلب</span>
+            </div>
+            <p className="text-red-800 leading-relaxed font-normal">
+              {reassessmentReason || "قام الأدمن بمراجعة طلب الاعتماد الخاص بك وقرر عدم منح صلاحية إعادة الاختبار حالياً."}
+            </p>
+          </div>
+        )}
 
         {/* Error Banners */}
         {error && (
@@ -209,11 +254,10 @@ export function AdmissionStatus() {
               <AlertTriangle className="h-4 w-4 shrink-0 text-red-700" />
               <span>{error}</span>
             </div>
-            <p className="text-red-700">تأكد من ضبط إعدادات OpenRouter بواسطة أدمن النظام، ثم اضغط إعادة المحاولة بالأسفل.</p>
           </div>
         )}
 
-        {/* Always Visible Action Control Box */}
+        {/* Action Controls Box */}
         <div className="rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] p-5 space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
@@ -222,40 +266,50 @@ export function AdmissionStatus() {
                 خيارات تقييم المهارات والاختبار
               </h4>
               <p className="text-xs text-[#526B5E] mt-1">
-                يمكنك بدء نموذج الاختبار فوراً أو تقديم طلب رسمي للإدارة لإتاحة فرصة جديدة لإجراء التقييم.
+                {status === "reset_approved"
+                  ? "تم منحك الصلاحية بنجاح من الإدارة، يمكنك البدء الآن."
+                  : status === "rejected"
+                  ? "الاختبار مغلق بسبب رفض الإدارة للطلب السابق. يمكنك تقديم طلب جديد للتوضيح."
+                  : status === "reset_requested"
+                  ? "طلبك قيد مراجعة الأدمن في لوحة التحكم."
+                  : "اضغط على زر بدء الاختبار أدناه."}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto shrink-0">
-              {/* Primary Start Test Button */}
-              <button
-                type="button"
-                disabled={loadingTest}
-                onClick={handleManualStart}
-                className="h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white px-7 font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 flex-1 sm:flex-initial"
-              >
-                {loadingTest ? (
-                  <>
-                    <Clock className="h-4 w-4 animate-spin" />
-                    <span>جاري التوليد والدخول...</span>
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="h-5 w-5" />
-                    <span>بدء الاختبار الآن</span>
-                  </>
-                )}
-              </button>
+              {/* Primary Start Test Button - RENDERED WHEN ADMIN APPROVES OR PENDING INITIAL */}
+              {(status === "reset_approved" || status === "pending") && (
+                <button
+                  type="button"
+                  disabled={loadingTest}
+                  onClick={handleManualStart}
+                  className="h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white px-7 font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer flex-1 sm:flex-initial"
+                >
+                  {loadingTest ? (
+                    <>
+                      <Clock className="h-4 w-4 animate-spin" />
+                      <span>جاري التوليد والدخول...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="h-5 w-5" />
+                      <span>بدء الاختبار الآن</span>
+                    </>
+                  )}
+                </button>
+              )}
 
-              {/* Always Visible Request Re-test Button */}
-              <button
-                type="button"
-                onClick={() => setRequestModalOpen(true)}
-                className="h-11 rounded-full border border-[#056B38] bg-[#E8FAF0] text-[#056B38] hover:bg-[#056B38] hover:text-white px-6 font-extrabold text-xs transition-all flex items-center justify-center gap-2 shadow-xs flex-1 sm:flex-initial"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>طلب إعادة الاختبار من الإدارة</span>
-              </button>
+              {/* Request Re-test Button */}
+              {status !== "reset_requested" && status !== "reset_approved" && (
+                <button
+                  type="button"
+                  onClick={() => setRequestModalOpen(true)}
+                  className="h-11 rounded-full border border-[#056B38] bg-[#E8FAF0] text-[#056B38] hover:bg-[#056B38] hover:text-white px-6 font-extrabold text-xs transition-all flex items-center justify-center gap-2 shadow-xs flex-1 sm:flex-initial cursor-pointer"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>طلب إعادة الاختبار من الإدارة</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -263,7 +317,7 @@ export function AdmissionStatus() {
         {status === "reset_requested" && (
           <div className="rounded-2xl bg-sky-50 border border-sky-200 p-4 text-xs text-sky-900 font-bold flex items-center gap-2">
             <Clock className="h-4 w-4 text-sky-700 shrink-0" />
-            <span>طلب إعادة الاختبار الخاص بك قيد مراجعة الأدمن حالياً. ستصلك تنبيه فور الموافقة.</span>
+            <span>تم إرسال طلبك للإدارة. سيزول هذا التنبيه ويظهر زر "بدء الاختبار الآن" أوتوماتيكياً فور موافقة الأدمن.</span>
           </div>
         )}
       </div>
@@ -280,7 +334,7 @@ export function AdmissionStatus() {
               <button
                 type="button"
                 onClick={() => setRequestModalOpen(false)}
-                className="text-gray-400 hover:text-black"
+                className="text-gray-400 hover:text-black cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -305,14 +359,14 @@ export function AdmissionStatus() {
                 type="button"
                 disabled={requestSubmitting}
                 onClick={handleSendReassessmentRequest}
-                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {requestSubmitting ? "جاري الإرسال..." : "إرسال الطلب للإدارة"}
               </button>
               <button
                 type="button"
                 onClick={() => setRequestModalOpen(false)}
-                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8] cursor-pointer"
               >
                 إلغاء
               </button>

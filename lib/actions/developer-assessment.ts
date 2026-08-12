@@ -9,6 +9,24 @@ import { verifySession } from "@/lib/dal";
 import { appendTrustEvent } from "@/lib/trust-events";
 import { generateAssessment, gradeAssessmentAnswer } from "@/lib/openrouter";
 import { readJsonValue } from "@/lib/json-value";
+import { finalizeAssessmentSession } from "@/lib/assessment-finalize";
+
+export async function submitAndFinalizeAssessment(publicId: string) {
+  const s = await verifySession();
+  if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك" };
+  const session = await queryOne<{ id: number; developer_id: number; status: string }>(
+    "SELECT das.id, das.developer_id, das.status FROM developer_assessment_sessions das JOIN developers d ON d.id=das.developer_id WHERE das.public_id=? AND d.user_id=?",
+    [publicId, s.userId]
+  );
+  if (!session) return { ok: false as const, error: "جلسة الاختبار غير موجودة" };
+
+  await finalizeAssessmentSession(session.id, session.developer_id);
+  revalidatePath("/admin");
+  revalidatePath("/developer-assessment/pending");
+  revalidatePath("/complete-profile");
+  revalidatePath("/dashboard");
+  return { ok: true as const };
+}
 
 export async function requestReassessmentByDeveloper(note?: string) {
   const s = await verifySession();
@@ -20,24 +38,21 @@ export async function requestReassessmentByDeveloper(note?: string) {
     [s.userId]
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
-  if (!["approved", "rejected"].includes(dev.approval_status)) {
-    return {
-      ok: false as const,
-      error: "لا يمكن طلب إعادة الاختبار في الحالة الحالية",
-    };
-  }
+
   const created = await transaction(async (c) => {
     await c.execute("SELECT id FROM developers WHERE id=? FOR UPDATE", [dev.id]);
     const [pendingRows] = await c.execute("SELECT id FROM developer_reassessment_requests WHERE developer_id=? AND status='pending' LIMIT 1", [dev.id]);
     if ((pendingRows as { id: number }[]).length) return false;
     await c.execute("INSERT INTO developer_reassessment_requests(developer_id,requested_by,note) VALUES(?,?,?)", [dev.id, s.userId, parsedNote.data || null]);
+    await c.execute("UPDATE developers SET approval_status='reset_requested' WHERE id=?", [dev.id]);
     await c.execute(
       "INSERT INTO notifications (user_id, body) SELECT id, ? FROM users WHERE is_admin = 1 AND status = 'active'",
       [`قدم المطور #${dev.id} طلب إتاحة إعادة إجراء اختبار تقييم المهارات.`]
     );
     return true;
   });
-  if (!created) return { ok: false as const, error: "تم إرسال طلب إعادة الاختبار بالفعل" };
+
+  if (!created) return { ok: false as const, error: "تم إرسال طلب إعادة الاختبار للإدارة بالفعل وبانتظار الموافقة" };
 
   revalidatePath("/admin");
   revalidatePath("/developer-assessment/pending");
@@ -53,21 +68,23 @@ export async function startDeveloperAssessment() {
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
   if (!s.onboardingCompleted) return { ok: false as const, error: "أكمل بياناتك الشخصية أولًا" };
-  if (!["profile_incomplete", "assessment_in_progress", "reset_approved"].includes(dev.approval_status)) {
+  if (!["profile_incomplete", "assessment_in_progress", "reset_approved", "pending", "approved"].includes(dev.approval_status)) {
     return {
       ok: false as const,
       error: dev.approval_status === "reset_requested" ? "طلب إعادة الاختبار ما زال قيد مراجعة الإدارة" : "لا يمكنك بدء اختبار جديد قبل موافقة الإدارة",
     };
   }
 
-  const skills = (
+  let skills = (
     await query<{ name: string }>(
       "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
       [dev.id]
     )
   ).map((x) => x.name);
 
-  if (!skills.length) return { ok: false as const, error: "أضف مهارة واحدة على الأقل من ملفك قبل بدء الاختبار" };
+  if (!skills.length) {
+    skills = ["JavaScript", "Problem Solving"];
+  }
 
   const previousQuestions = (
     await query<{ question_text: string }>(
@@ -81,7 +98,7 @@ export async function startDeveloperAssessment() {
   const sessionStart = await transaction(async (c) => {
     const [developerRows] = await c.execute("SELECT approval_status FROM developers WHERE id=? FOR UPDATE", [dev.id]);
     const lockedDeveloper = (developerRows as { approval_status: string }[])[0];
-    if (!lockedDeveloper || !["profile_incomplete", "assessment_in_progress", "reset_approved"].includes(lockedDeveloper.approval_status)) return { denied: true as const };
+    if (!lockedDeveloper || !["profile_incomplete", "assessment_in_progress", "reset_approved", "pending", "approved"].includes(lockedDeveloper.approval_status)) return { denied: true as const };
     const [activeRows] = await c.execute("SELECT public_id,status FROM developer_assessment_sessions WHERE developer_id=? AND status IN ('generating','in_progress') ORDER BY id DESC LIMIT 1", [dev.id]);
     const active = (activeRows as { public_id: string; status: string }[])[0];
     if (active) return { existing: active };
