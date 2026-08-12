@@ -67,31 +67,6 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
   });
 }
 
-export async function updateDeveloperTrustAndSkillPoints(input: {
-  userId: number;
-  trustScore: number;
-  skillPoints: number;
-}) {
-  const actor = await requireAdmin();
-  const parsed = z.object({
-    userId: z.coerce.number().int().positive(),
-    trustScore: z.coerce.number().int().min(0).max(100),
-    skillPoints: z.coerce.number().int().min(0).max(10000),
-  }).safeParse(input);
-
-  if (!parsed.success) return { ok: false as const, error: "بيانات نقاط التراست أو SP غير صالحة" };
-
-  await execute(
-    "UPDATE developers SET trust_score = ?, skill_points = ?, approval_status = 'approved', is_verified = 1 WHERE user_id = ?",
-    [parsed.data.trustScore, parsed.data.skillPoints, parsed.data.userId]
-  );
-
-  revalidatePath("/admin");
-  revalidatePath("/developers");
-  revalidatePath("/dashboard");
-  return { ok: true as const };
-}
-
 export async function decideDeveloperAdmission(input: {
   assessmentPublicId: string;
   decision: "approved" | "rejected";
