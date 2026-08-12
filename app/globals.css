@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+/*
+  SCORA design tokens — source of truth is the Figma file:
+  https://www.figma.com/design/B8L6A9R6c7pCutZep7uXcS/SCORA  (page "Design System")
+  Primitive ramps build the brand; semantic roles are what the UI consumes.
+*/
+@theme {
+  /* Primitive / Green ramp */
+  --color-green-50: #f0faf3;
+  --color-green-100: #d4f5de;
+  --color-green-200: #a9e9bf;
+  --color-green-300: #74d99f;
+  --color-green-400: #48c779;
+  --color-green-500: #16a34a;
+  --color-green-600: #0e6d3b;
+  --color-green-700: #006b2c;
+  --color-green-800: #004021;
+  --color-green-900: #002110;
+
+  /* Primitive / Neutral ramp */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f7faf8;
+  --color-neutral-100: #eff5f0;
+  --color-neutral-200: #d6e3d9;
+  --color-neutral-300: #b8ccbd;
+  --color-neutral-400: #879b8d;
+  --color-neutral-500: #576b5c;
+  --color-neutral-600: #3e4a3d;
+  --color-neutral-700: #2a352d;
+  --color-neutral-900: #0e160f;
+
+  /* Semantic roles */
+  --color-primary: var(--color-green-700);
+  --color-background: var(--color-neutral-0);
+  --color-surface: var(--color-neutral-50);
+  --color-ink: var(--color-green-900);
+  --color-muted: var(--color-neutral-500);
+  --color-line: var(--color-neutral-200);
+  --color-success: #0e6d3b;
+  --color-warning: #9a6500;
+  --color-error: #ad2929;
+  --color-info: #186eca;
+
+  /* Landing-specific surfaces lifted from the refined frames */
+  --color-panel: #f5fbf7;
+  --color-track: #dbebe0;
+  --color-fill: #4ab86e;
+  --color-avatar: #f5fcf7;
+  --color-avatar-ring: #78c991;
+
+  /* Shape */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* Typography — Cairo headings, Tajawal body, Outfit technical, JetBrains mono */
+  --font-heading: var(--font-cairo), system-ui, sans-serif;
+  --font-body: var(--font-tajawal), system-ui, sans-serif;
+  --font-technical: var(--font-outfit), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+}
+
+@utility technical {
+  font-family: var(--font-technical);
+  font-weight: 800;
+}
+
+@keyframes ssdChatPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes ssdChatPopOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+}
+
+@keyframes ssdOrbitCloudLoop {
+  0% {
+    transform: rotate(0deg) translateY(-28px) scale(0.6);
+    opacity: 0.5;
+    filter: blur(2px);
+  }
+  25% {
+    transform: rotate(90deg) translateY(-32px) scale(1.2);
+    opacity: 0.9;
+  }
+  50% {
+    transform: rotate(180deg) translateY(-36px) scale(1.5);
+    opacity: 1;
+    filter: blur(1px);
+  }
+  75% {
+    transform: rotate(270deg) translateY(-32px) scale(1.2);
+    opacity: 0.9;
+  }
+  100% {
+    transform: rotate(360deg) translateY(-28px) scale(2);
+    opacity: 1;
+    filter: blur(6px);
+  }
+}
+
+@keyframes ssdCloudToWindowMorph {
+  0% {
+    opacity: 0;
+    transform: scale(0.12) translateY(50px);
+    border-radius: 9999px;
+    filter: blur(10px);
+    box-shadow: 0 0 50px rgba(52, 211, 153, 0.9);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.03) translateY(-6px);
+    border-radius: 36px;
+    filter: blur(0px);
+    box-shadow: 0 10px 30px rgba(5, 107, 56, 0.3);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    border-radius: 28px;
+    filter: blur(0px);
+  }
+}
+
+/* REVERSE CLOSING ANIMATION SEQUENCE */
+@keyframes ssdWindowToCloudMorph {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    border-radius: 28px;
+    filter: blur(0px);
+  }
+  65% {
+    opacity: 0.8;
+    transform: scale(0.3) translateY(30px);
+    border-radius: 9999px;
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.1) translateY(50px);
+    border-radius: 9999px;
+    filter: blur(12px);
+  }
+}
+
+@keyframes ssdOrbitCloudReverse {
+  0% {
+    transform: rotate(360deg) translateY(-28px) scale(2);
+    opacity: 1;
+    filter: blur(6px);
+  }
+  50% {
+    transform: rotate(180deg) translateY(-36px) scale(1.4);
+    opacity: 0.9;
+    filter: blur(2px);
+  }
+  100% {
+    transform: rotate(0deg) translateY(-28px) scale(0.5);
+    opacity: 0;
+    filter: blur(0px);
+  }
+}
+
+.animate-ssd-orbit-cloud {
+  animation: ssdOrbitCloudLoop 0.45s ease-in-out forwards;
+}
+
+.animate-ssd-orbit-cloud-reverse {
+  animation: ssdOrbitCloudReverse 0.45s ease-in-out forwards;
+}
+
+.animate-ssd-morph-window {
+  animation: ssdCloudToWindowMorph 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: bottom right;
+}
+
+.animate-ssd-morph-window-close {
+  animation: ssdWindowToCloudMorph 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+  transform-origin: bottom right;
+}
+
+
+
+
+
