@@ -13,7 +13,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Trash2,
-  UserCheck,
   Users,
   AlertTriangle,
   X
@@ -228,9 +227,9 @@ export default function AdminPage() {
         {serverMessage && (
           <div
             role="status"
-            className={`rounded-2xl border p-4 text-sm font-bold flex items-center justify-between animate-in fade-in duration-200 ${
+            className={`rounded-2xl border p-4 text-sm font-bold flex items-center justify-between shadow-xs ${
               serverMessage.kind === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                ? "border-[#D1E3D6] bg-[#E8FAF0] text-[#056B38]"
                 : "border-red-200 bg-red-50 text-red-700"
             }`}
           >
@@ -242,7 +241,7 @@ export default function AdminPage() {
         )}
 
         {/* Navigation Tabs */}
-        <nav className="flex flex-wrap gap-2 rounded-2xl border border-[#D1E3D6] bg-white p-2 shadow-sm">
+        <nav className="flex flex-wrap gap-2 rounded-2xl border border-[#D1E3D6] bg-white p-2 shadow-xs">
           {(
             [
               ["users", "المستخدمون والتحكم"],
@@ -256,7 +255,7 @@ export default function AdminPage() {
               key={k}
               onClick={() => setTab(k)}
               className={`rounded-xl px-6 py-3 font-extrabold text-sm transition-all ${
-                tab === k ? "bg-[#056B38] text-white shadow-sm" : "text-[#526B5E] hover:bg-[#F7FAF8]"
+                tab === k ? "bg-[#056B38] text-white shadow-xs" : "text-[#526B5E] hover:bg-[#F7FAF8]"
               }`}
             >
               {l}
@@ -265,7 +264,7 @@ export default function AdminPage() {
         </nav>
 
         {/* Header Stats Banner */}
-        <section className="rounded-[28px] border border-[#D1E3D6] bg-white p-7 flex flex-col gap-5 md:flex-row md:items-center md:justify-between shadow-sm">
+        <section className="rounded-[28px] border border-[#D1E3D6] bg-white p-7 flex flex-col gap-5 md:flex-row md:items-center md:justify-between shadow-xs">
           <div>
             <h1 className="text-3xl font-extrabold text-[#05291A]">لوحة التحكم والإدارة الفنية</h1>
             <p className="mt-2 text-sm text-[#526B5E]">
@@ -282,7 +281,7 @@ export default function AdminPage() {
         {tab === "settings" && (
           <>
             <OpenRouterSettings notify={addToast} />
-            <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 flex items-center justify-between shadow-sm">
+            <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 flex items-center justify-between shadow-xs">
               <div>
                 <h2 className="font-extrabold text-[#05291A] flex items-center gap-2 text-lg">
                   <Bot className="h-5 w-5 text-[#056B38]" /> مساعد الذكاء الاصطناعي العامة (AI Assistant)
@@ -306,7 +305,7 @@ export default function AdminPage() {
                 {systemSettings.isAiAssistantEnabled ? "مفعّل" : "متوقف"}
               </button>
             </section>
-            <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 flex items-center justify-between shadow-sm">
+            <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 flex items-center justify-between shadow-xs">
               <div>
                 <h2 className="font-extrabold text-[#05291A] text-lg">التسجيل السريع للحسابات</h2>
                 <p className="mt-1 text-xs text-[#526B5E]">السماح بإنشاء حسابات مطورين وعملاء جديدة من صفحة التسجيل.</p>
@@ -333,7 +332,7 @@ export default function AdminPage() {
 
         {/* Stats Tab */}
         {tab === "stats" && (
-          <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 shadow-sm">
+          <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 shadow-xs">
             <div className="grid gap-3 md:grid-cols-4">
               <Stat icon={Users} label="كل الحسابات" value={stats.totals?.users ?? 0} />
               <Stat icon={ShieldCheck} label="نشط آخر 15 دقيقة" value={stats.totals?.active ?? 0} />
@@ -363,7 +362,7 @@ export default function AdminPage() {
         {/* Projects Tab */}
         {tab === "projects" && (
           <section className="space-y-4">
-            <div className="flex items-center justify-between rounded-[22px] border border-[#D1E3D6] bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between rounded-[22px] border border-[#D1E3D6] bg-white p-5 shadow-xs">
               <div>
                 <h2 className="flex items-center gap-2 text-xl font-extrabold text-[#05291A]">
                   <Briefcase className="h-5 w-5 text-[#056B38]" /> المشاريع المنشورة
@@ -377,7 +376,7 @@ export default function AdminPage() {
             <div className="grid gap-4">
               {projects.length ? (
                 projects.map((project) => (
-                  <article key={project.id} className="rounded-[22px] border border-[#D1E3D6] bg-white p-6 shadow-sm">
+                  <article key={project.id} className="rounded-[22px] border border-[#D1E3D6] bg-white p-6 shadow-xs">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <Link
@@ -430,7 +429,7 @@ export default function AdminPage() {
                 u.role === "developer" &&
                 ["generating", "generation_failed"].includes(u.assessmentSessionStatus ?? "")
             ) && (
-              <div className="rounded-[22px] border border-sky-300 bg-sky-50 p-5 shadow-sm">
+              <div className="rounded-[22px] border border-sky-300 bg-sky-50 p-5 shadow-xs">
                 <h2 className="font-extrabold text-sky-950">محاولات اعتماد المطورين</h2>
                 <div className="mt-3 grid gap-2 text-sm">
                   {users
@@ -465,8 +464,8 @@ export default function AdminPage() {
             )}
 
             {users.some((u) => u.approvalStatus === "admin_review") && (
-              <div className="rounded-[22px] border border-amber-300 bg-amber-50 p-5 shadow-sm">
-                <h2 className="font-extrabold text-amber-900">طلبات اعتماد مطورين جديدة تنتظر المراجعة</h2>
+              <div className="rounded-[22px] border border-amber-300 bg-amber-50 p-5 shadow-xs">
+                <h2 className="font-extrabold text-amber-900">طلبات اعتماد مطورين جديدة تنتظر المراجعـة</h2>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {users
                     .filter((u) => u.approvalStatus === "admin_review" && u.assessmentPublicId)
@@ -474,7 +473,7 @@ export default function AdminPage() {
                       <Link
                         key={u.id}
                         href={`/admin/developers/${u.assessmentPublicId}/review`}
-                        className="rounded-full bg-amber-900 hover:bg-amber-950 px-5 py-2 text-sm font-bold text-white transition-all shadow-sm flex items-center gap-2"
+                        className="rounded-full bg-amber-900 hover:bg-amber-950 px-5 py-2 text-sm font-bold text-white transition-all shadow-xs flex items-center gap-2"
                       >
                         <span>مراجعة طلب {u.name}</span>
                         <ShieldCheck className="h-4 w-4" />
@@ -485,7 +484,7 @@ export default function AdminPage() {
             )}
 
             {/* Filter and Search Toolbar */}
-            <div className="rounded-[22px] border border-[#D1E3D6] bg-white p-4 flex flex-col gap-3 md:flex-row md:justify-between shadow-sm">
+            <div className="rounded-[22px] border border-[#D1E3D6] bg-white p-4 flex flex-col gap-3 md:flex-row md:justify-between shadow-xs">
               <div className="relative md:w-96">
                 <Search className="absolute right-3.5 top-3 h-4 w-4 text-[#526B5E]" />
                 <input
@@ -501,7 +500,7 @@ export default function AdminPage() {
                     key={x}
                     onClick={() => setFilter(x)}
                     className={`rounded-full px-4 py-2 text-xs font-extrabold transition-all ${
-                      filter === x ? "bg-[#056B38] text-white shadow-sm" : "bg-[#F7FAF8] text-[#526B5E] hover:bg-[#E8FAF0]"
+                      filter === x ? "bg-[#056B38] text-white shadow-xs" : "bg-[#F7FAF8] text-[#526B5E] hover:bg-[#E8FAF0]"
                     }`}
                   >
                     {x === "all"
@@ -518,127 +517,137 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Users List Grid */}
+            {/* Users List Cards */}
             <div className="grid gap-3">
               {visible.length ? (
                 visible.map((u) => (
                   <article
                     key={u.id}
-                    className="rounded-[24px] border border-[#D1E3D6] bg-white p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm hover:border-[#056B38]/30 transition-all"
+                    className="rounded-[24px] border border-[#D1E3D6] bg-white p-5 flex flex-col gap-4 shadow-xs hover:border-[#056B38]/40 transition-all"
                   >
-                    {/* User Identity Info */}
-                    <div className="space-y-1 min-w-[240px]">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-[#05291A] text-base">
-                          #{u.id} · {u.name}
-                        </span>
-                        {u.isAdmin && (
-                          <span className="rounded-full bg-[#056B38] text-white text-[11px] font-extrabold px-2.5 py-0.5">
-                            أدمن
+                    {/* Top Row: Info & Main Details */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-[#05291A] text-base">
+                            #{u.id} · {u.name}
                           </span>
-                        )}
-                        {u.status === "suspended" && (
-                          <span className="rounded-full bg-amber-100 text-amber-800 text-[11px] font-extrabold px-2.5 py-0.5 flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> موقوف
-                          </span>
-                        )}
-                        {u.status === "banned" && (
-                          <span className="rounded-full bg-red-100 text-red-700 text-[11px] font-extrabold px-2.5 py-0.5 flex items-center gap-1">
-                            <Ban className="h-3 w-3" /> محظور
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-xs text-[#526B5E] flex flex-wrap gap-x-3 gap-y-1">
-                        <span>{u.email}</span>
-                        {u.phone && <span>· {u.phone}</span>}
-                        <span>· انضم {u.joinDate}</span>
-                      </div>
-
-                      {u.status === "suspended" && u.suspendedUntil && (
-                        <div className="text-xs font-bold text-amber-700 mt-1 flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-amber-600" />
-                          <span>تاريخ انتهاء الإيقاف: {u.suspendedUntil}</span>
+                          {u.isAdmin && (
+                            <span className="rounded-full bg-[#056B38] text-white text-[11px] font-extrabold px-2.5 py-0.5">
+                              أدمن النظام
+                            </span>
+                          )}
+                          {u.status === "suspended" && (
+                            <span className="rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold px-2.5 py-0.5 flex items-center gap-1 border border-amber-300">
+                              <Clock className="h-3 w-3" /> موقوف مؤقتاً
+                            </span>
+                          )}
+                          {u.status === "banned" && (
+                            <span className="rounded-full bg-red-100 text-red-700 text-[11px] font-extrabold px-2.5 py-0.5 flex items-center gap-1 border border-red-200">
+                              <Ban className="h-3 w-3" /> محظور نهائياً
+                            </span>
+                          )}
                         </div>
-                      )}
+
+                        <div className="text-xs text-[#526B5E] flex flex-wrap gap-x-3 gap-y-1">
+                          <span>{u.email}</span>
+                          {u.phone && <span>· {u.phone}</span>}
+                          <span>· تاريخ الانضمام: {u.joinDate}</span>
+                        </div>
+
+                        {u.status === "suspended" && u.suspendedUntil && (
+                          <div className="text-xs font-extrabold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 inline-flex items-center gap-1 mt-1">
+                            <Clock className="h-3.5 w-3.5 text-amber-700" />
+                            <span>ينتهي الإيقاف تلقائياً بتاريخ: {u.suspendedUntil}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Trust & Skill Points Badge */}
+                      <div className="text-xs font-bold text-[#526B5E] bg-[#F7FAF8] border border-[#D1E3D6] px-4 py-2 rounded-2xl flex items-center gap-3">
+                        <div>Trust: <span className="text-[#056B38] font-extrabold">{u.trustScore}</span></div>
+                        <div className="h-3 w-px bg-neutral-300" />
+                        <div>SP: <span className="text-[#05291A] font-extrabold">{u.skillPoints}</span></div>
+                      </div>
                     </div>
 
-                    {/* Scora Custom Styled Controls */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* Scora Custom Role Select */}
-                      <ScoraSelectControl
-                        disabled={savingUserId === u.id}
-                        value={u.role}
-                        options={[
-                          { value: "developer", label: "مطور برمجيات" },
-                          { value: "client", label: "عميل / صاحب عمل" }
-                        ]}
-                        onChange={(newRole) => updateStatusOrRole(u.id, { role: newRole as AppRole })}
-                      />
+                    {/* Bottom Control Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      {/* Left: Role and Admin Selects */}
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs font-bold text-[#526B5E]">نوع الحساب:</span>
+                        <ScoraSelectControl
+                          disabled={savingUserId === u.id}
+                          value={u.role}
+                          options={[
+                            { value: "developer", label: "مطور برمجيات" },
+                            { value: "client", label: "عميل / صاحب عمل" }
+                          ]}
+                          onChange={(newRole) => updateStatusOrRole(u.id, { role: newRole as AppRole })}
+                        />
 
-                      {/* Admin Toggle */}
-                      <button
-                        type="button"
-                        disabled={savingUserId === u.id}
-                        onClick={() => updateStatusOrRole(u.id, { isAdmin: !u.isAdmin })}
-                        className={`h-10 rounded-2xl px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 ${
-                          u.isAdmin
-                            ? "bg-[#056B38] text-white hover:bg-[#005B27] shadow-sm"
-                            : "border border-[#D1E3D6] bg-[#F7FAF8] text-[#05291A] hover:bg-[#E8FAF0] hover:border-[#056B38]"
-                        }`}
-                      >
-                        <ShieldCheck className="h-4 w-4" />
-                        <span>{u.isAdmin ? "صلاحية أدمن" : "منح أدمن"}</span>
-                      </button>
-
-                      {/* Scora Custom Status Select with Suspension Duration Modal Trigger */}
-                      <ScoraSelectControl
-                        disabled={savingUserId === u.id}
-                        value={u.status}
-                        options={[
-                          { value: "active", label: "نشط" },
-                          { value: "suspended", label: "إيقاف مؤقت..." },
-                          { value: "banned", label: "حظر نهائي" }
-                        ]}
-                        onChange={(newStatus) => {
-                          if (newStatus === "suspended") {
-                            setSuspensionModalUser(u);
-                          } else {
-                            updateStatusOrRole(u.id, { status: newStatus as AccountStatus });
-                          }
-                        }}
-                      />
-
-                      {/* Reset Developer Assessment Button */}
-                      {u.role === "developer" && (
+                        {/* Admin Toggle */}
                         <button
                           type="button"
                           disabled={savingUserId === u.id}
-                          onClick={() => setResetTestUser(u)}
-                          title="إعادة تفعيل اختبار تقييم المطور"
-                          className="h-10 rounded-2xl border border-sky-300 bg-sky-50 hover:bg-sky-100 text-sky-800 px-3.5 text-xs font-extrabold transition-all flex items-center gap-1.5"
+                          onClick={() => updateStatusOrRole(u.id, { isAdmin: !u.isAdmin })}
+                          className={`h-10 rounded-2xl px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                            u.isAdmin
+                              ? "bg-[#056B38] text-white hover:bg-[#005B27] shadow-xs"
+                              : "border border-[#D1E3D6] bg-[#F7FAF8] text-[#05291A] hover:bg-[#E8FAF0] hover:border-[#056B38]"
+                          }`}
                         >
-                          <RotateCcw className="h-3.5 w-3.5 text-sky-700" />
-                          <span>إعادة اختبار المطور</span>
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>{u.isAdmin ? "صلاحية أدمن" : "منح أدمن"}</span>
                         </button>
-                      )}
+                      </div>
 
-                      {/* Delete Account Button */}
-                      <button
-                        type="button"
-                        disabled={savingUserId === u.id}
-                        onClick={() => setDeleteModalUser(u)}
-                        title="حذف الحساب نهائياً"
-                        className="h-10 w-10 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-all"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                      {/* Right: Status and Admin Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs font-bold text-[#526B5E]">حالة الحساب:</span>
+                        <ScoraSelectControl
+                          disabled={savingUserId === u.id}
+                          value={u.status}
+                          options={[
+                            { value: "active", label: "نشط" },
+                            { value: "suspended", label: "إيقاف مؤقت..." },
+                            { value: "banned", label: "حظر نهائي" }
+                          ]}
+                          onChange={(newStatus) => {
+                            if (newStatus === "suspended") {
+                              setSuspensionModalUser(u);
+                            } else {
+                              updateStatusOrRole(u.id, { status: newStatus as AccountStatus });
+                            }
+                          }}
+                        />
 
-                    {/* Trust & Skill Points Badge */}
-                    <div className="text-xs font-bold text-[#526B5E] bg-[#F7FAF8] border border-[#D1E3D6] px-3.5 py-2 rounded-2xl text-center">
-                      <div>Trust: <span className="text-[#056B38] font-extrabold">{u.trustScore}</span></div>
-                      <div>SP: <span className="text-[#05291A] font-extrabold">{u.skillPoints}</span></div>
+                        {/* Reset Developer Assessment Button */}
+                        {u.role === "developer" && (
+                          <button
+                            type="button"
+                            disabled={savingUserId === u.id}
+                            onClick={() => setResetTestUser(u)}
+                            title="إعادة تفعيل اختبار تقييم المطور"
+                            className="h-10 rounded-2xl border border-[#056B38]/40 bg-[#E8FAF0] hover:bg-[#056B38] hover:text-white text-[#056B38] px-4 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>إعادة اختبار المطور</span>
+                          </button>
+                        )}
+
+                        {/* Delete Account Button */}
+                        <button
+                          type="button"
+                          disabled={savingUserId === u.id}
+                          onClick={() => setDeleteModalUser(u)}
+                          title="حذف الحساب نهائياً"
+                          className="h-10 px-3.5 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-extrabold text-xs flex items-center gap-1 transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>حذف</span>
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))
@@ -720,14 +729,14 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={handleConfirmSuspension}
-                className="flex-1 h-11 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-sm transition-all shadow-sm"
+                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2"
               >
-                تأكيد الإيقاف المؤقت
+                <span>تأكيد الإيقاف المؤقت</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSuspensionModalUser(null)}
-                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
               >
                 إلغاء
               </button>
@@ -771,14 +780,14 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="flex-1 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm transition-all shadow-sm"
+                className="flex-1 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2"
               >
-                تأكيد الحذف النهائي
+                <span>تأكيد الحذف النهائي</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDeleteModalUser(null)}
-                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
               >
                 إلغاء
               </button>
@@ -792,10 +801,10 @@ export default function AdminPage() {
       {/* ───────────────────────────────────────────────────────────── */}
       {resetTestUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-[28px] border border-sky-200 bg-white p-6 shadow-2xl space-y-5">
+          <div className="w-full max-w-md rounded-[28px] border border-[#D1E3D6] bg-white p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h3 className="text-lg font-extrabold text-sky-900 flex items-center gap-2">
-                <RotateCcw className="h-5 w-5 text-sky-700" />
+              <h3 className="text-lg font-extrabold text-[#05291A] flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-[#056B38]" />
                 إعادة تفعيل اختبار تقييم المطور
               </h3>
               <button type="button" onClick={() => setResetTestUser(null)} className="text-gray-400 hover:text-black">
@@ -809,8 +818,8 @@ export default function AdminPage() {
                 <strong className="text-[#05291A] font-extrabold">{resetTestUser.name}</strong>؟
               </p>
 
-              <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3.5 text-xs text-sky-900 font-bold leading-relaxed">
-                ستتم إعادة حالة اعتماد المطور إلى (معلق / Pending)، وإرسال تنبيه حاد للحساب بتوفر إجراء التقييم مجدداً.
+              <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] p-3.5 text-xs text-[#056B38] font-bold leading-relaxed">
+                ستتم إعادة حالة الاعتماد للمطور وإعادة إنتاج اختبار جديد بالذكاء الاصطناعي، وإرسال تنبيه حاد للحساب بتوفر إجراء التقييم مجدداً.
               </div>
             </div>
 
@@ -818,14 +827,14 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={handleConfirmResetAssessment}
-                className="flex-1 h-11 rounded-full bg-sky-700 hover:bg-sky-800 text-white font-extrabold text-sm transition-all shadow-sm"
+                className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2"
               >
-                تأكيد إعادة الاختبار
+                <span>تأكيد إعادة الاختبار</span>
               </button>
               <button
                 type="button"
                 onClick={() => setResetTestUser(null)}
-                className="px-5 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
+                className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8]"
               >
                 إلغاء
               </button>

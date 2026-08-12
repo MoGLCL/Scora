@@ -141,7 +141,7 @@ export async function resetDeveloperAssessmentForAdmin(targetUserId: number) {
       [dev.id]
     );
     await conn.execute(
-      `UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ? AND status IN ('pending', 'admin_review', 'completed')`,
+      `UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ?`,
       [dev.id]
     );
     await conn.execute(
@@ -151,5 +151,8 @@ export async function resetDeveloperAssessmentForAdmin(targetUserId: number) {
   });
 
   revalidatePath("/admin");
+  revalidatePath("/developer-assessment/pending");
+  revalidatePath("/complete-profile");
+  revalidatePath("/dashboard");
   return { ok: true as const };
 }
