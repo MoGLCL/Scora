@@ -30,30 +30,30 @@ git --version
 cp .env.example .env.local
 ```
 
-تأكد من ضبط المتغيرات التالية داخل ملف `.env.local`:
+تأكد من ضبط المتغيرات الحقيقية الخاصة ببيئتك داخل ملف `.env.local`:
 
 ```ini
 # ───────────────────────────────────────────────────────────────
 # 1. إعدادات قاعدة البيانات (MySQL Connection)
 # ───────────────────────────────────────────────────────────────
-DB_HOST=mysql-scorasql.alwaysdata.net
+DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_NAME=scorasql_1
-DB_USER=scorasql
-DB_PASSWORD=S123S123s123
+DB_NAME=scora_db
+DB_USER=root
+DB_PASSWORD=your_secure_mysql_password
 DB_CONNECTION_LIMIT=10
 
 # ───────────────────────────────────────────────────────────────
 # 2. إعدادات الجلسات والمصادقة (JWT Auth & Security)
 # ───────────────────────────────────────────────────────────────
-# مفتاح تشفير التوكين (يجب ألا يقل عن 32 حرفاً)
-SESSION_SECRET=zefpsqz5cimg1-XCf1tr_uQqmAtEyfKgsTQ3PDp_DdFvac5M-S-ezMuMDD9Q6Zec
+# مفتاح تشفير التوكين (يتم توليده بأمر node الموضح بالأسفل - 32 حرف على الأقل)
+SESSION_SECRET=your_32_character_random_secret_key_here
 SESSION_MAX_AGE_DAYS=7
 
 # ───────────────────────────────────────────────────────────────
 # 3. إعدادات محرك الذكاء الاصطناعي (OpenRouter AI Integration)
 # ───────────────────────────────────────────────────────────────
-OPENROUTER_API_KEY=sk-or-v1-example-key-replace-with-yours
+OPENROUTER_API_KEY=sk-or-v1-your-openrouter-api-key
 OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 
 # ───────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 MAX_UPLOAD_BYTES=5242880
 ```
 
-> **ملاحظة أمنية:** لا تقم بإضافة ملف `.env.local` إلى المستودع (مدرج تلقائياً في `.gitignore`).
+> **ملاحظة أمنية مشددة:** ملف `.env.local` يحتوي على معلومات حساسة وسرية وهو محمي ومستبعد تلقائياً في `.gitignore` ولا يتم رفعه إطلاقاً للمستودع.
 
 ---
 
@@ -111,5 +111,5 @@ npm run build
 ## 5. التشغيل عبر GitHub Actions (CI/CD Pipeline)
 
 عند رفع التعديلات على برانش `main` أو `Scora-V0.1`:
-- يقوم خط أتمتة الـ CI (`.github/workflows/ci.yml`) بتشغيل الفحص الفني، فحص الأنواع، والتحقق من بناء كافة المسارات الـ 37 تلقائياً.
-- يمكن تشغيل الفحص يدويًا بضغطة زر عبر تبويب **Actions** واختيار **Run workflow**.
+- يقوم خط أتمتة الـ CI (`.github/workflows/ci.yml`) بتشغيل الفحص الفني، فحص الأنواع، والتحقق من بناء كافة المسارات تلقائياً.
+- تُستخدم متغيرات `secrets.SESSION_SECRET` و `secrets.DB_PASSWORD` المشفرة في إعدادات المستودع (GitHub Secrets) لتجنب كتابة أي بيانات سرية في الملفات المرفوعة.

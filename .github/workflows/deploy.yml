@@ -34,12 +34,12 @@ jobs:
       - name: Build Final Deployment Release
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
-          SESSION_SECRET: "zefpsqz5cimg1-XCf1tr_uQqmAtEyfKgsTQ3PDp_DdFvac5M-S-ezMuMDD9Q6Zec"
-          DB_HOST: "mysql-scorasql.alwaysdata.net"
-          DB_PORT: "3306"
-          DB_NAME: "scorasql_1"
-          DB_USER: "scorasql"
-          DB_PASSWORD: "S123S123s123"
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'build_verification_dummy_secret_key_32bytes_long' }}
+          DB_HOST: ${{ secrets.DB_HOST || '127.0.0.1' }}
+          DB_PORT: ${{ secrets.DB_PORT || '3306' }}
+          DB_NAME: ${{ secrets.DB_NAME || 'scora_db' }}
+          DB_USER: ${{ secrets.DB_USER || 'scora_user' }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD || 'dummy_password' }}
         run: npm run build
 
       - name: Post Deployment Gate Status
