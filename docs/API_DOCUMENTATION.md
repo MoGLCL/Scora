@@ -1,6 +1,8 @@
 # Scora V0.1 — التوثيق الفني الشامل لـ APIs و Server Actions (API Reference)
 
-> **Navigation:** [🏠 الرئيسية (Main README)](../README.md) \| [📂 هيكل المشروع](PROJECT_STRUCTURE.md) \| [⚙️ إعداد البيئة](ENVIRONMENT_SETUP.md) \| [🗄️ قاعدة البيانات](DATABASE_SCHEMA.md) \| [📄 تحميل PDF](API_ENDPOINTS.pdf)
+> **Navigation:** [🏠 الرئيسية (Main README)](../README.md) \| [🌐 التوثيق التفاعلي HTML](API_DOCUMENTATION.html) \| [📂 هيكل المشروع](PROJECT_STRUCTURE.md) \| [⚙️ إعداد البيئة](ENVIRONMENT_SETUP.md) \| [🗄️ قاعدة البيانات](DATABASE_SCHEMA.md) \| [📄 تحميل PDF](API_ENDPOINTS.pdf)
+
+> **💡 ملاحظة:** يتوفر التوثيق الفني التفاعلي بالكامل بتقنيات وتصاميم Scora البصرية في [API_DOCUMENTATION.html](API_DOCUMENTATION.html).
 
 دليل مرجعي تفصيلي لجميع مسارات الـ **REST API Endpoints** وخوادم العمليات **Server Actions** لمنصة **Scora V0.1**.
 

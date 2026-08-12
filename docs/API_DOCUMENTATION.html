@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scora V0.1 — التوثيق الفني الشامل لـ API و Server Actions</title>
+  <!-- Google Fonts: Cairo, Tajawal, JetBrains Mono, Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --color-green-50: #f0faf3;
+      --color-green-100: #d4f5de;
+      --color-green-200: #a9e9bf;
+      --color-green-400: #48c779;
+      --color-green-500: #16a34a;
+      --color-green-600: #0e6d3b;
+      --color-green-700: #006b2c;
+      --color-green-800: #004021;
+      --color-green-900: #0e160f;
+
+      --color-neutral-0: #ffffff;
+      --color-neutral-50: #f7faf8;
+      --color-neutral-100: #eff5f0;
+      --color-neutral-200: #d6e3d9;
+      --color-neutral-500: #576b5c;
+      --color-neutral-700: #2a352d;
+
+      --color-primary: var(--color-green-700);
+      --color-background: var(--color-neutral-0);
+      --color-panel: #f5fbf7;
+      --color-line: var(--color-neutral-200);
+
+      --font-heading: 'Cairo', system-ui, sans-serif;
+      --font-body: 'Tajawal', system-ui, sans-serif;
+      --font-technical: 'Outfit', ui-sans-serif, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #f8faf9;
+      color: var(--color-green-900);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      direction: rtl;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Scora Banner Navigation */
+    .scora-navbar {
+      background: linear-gradient(135deg, #0e160f 0%, #004021 60%, #006b2c 100%);
+      color: #ffffff;
+      padding: 32px 48px;
+      border-bottom: 4px solid var(--color-green-400);
+      box-shadow: 0 10px 30px rgba(0, 107, 44, 0.15);
+    }
+
+    .scora-navbar-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .scora-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .scora-logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #48c779, #006b2c);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 22px;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(72, 199, 121, 0.4);
+    }
+
+    .scora-title-wrap h1 {
+      font-family: var(--font-heading);
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+
+    .scora-title-wrap p {
+      font-size: 14px;
+      color: #a9e9bf;
+    }
+
+    .scora-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .scora-badge {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-family: var(--font-technical);
+      color: #d4f5de;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
+    }
+
+    /* Page Layout Container */
+    .layout-container {
+      max-width: 1200px;
+      margin: 36px auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 32px;
+    }
+
+    /* Sidebar Navigation Menu */
+    .sidebar {
+      position: sticky;
+      top: 24px;
+      height: fit-content;
+      background: #ffffff;
+      border: 1px solid var(--color-line);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+    }
+
+    .sidebar-title {
+      font-family: var(--font-heading);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--color-green-100);
+    }
+
+    .sidebar-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sidebar-menu a {
+      color: var(--color-neutral-700);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      display: block;
+    }
+
+    .sidebar-menu a:hover {
+      background-color: var(--color-green-50);
+      color: var(--color-primary);
+      transform: translateX(-3px);
+    }
+
+    /* Main Content Area */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .card-panel {
+      background: #ffffff;
+      border: 1px solid var(--color-line);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--color-green-100);
+    }
+
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 22px;
+      background: var(--color-primary);
+      border-radius: 3px;
+    }
+
+    p {
+      font-size: 14px;
+      color: var(--color-neutral-700);
+      margin-bottom: 14px;
+    }
+
+    /* Endpoint Method Badges */
+    .method-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-family: var(--font-technical);
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .method-get { background: #d0e3ff; color: #186eca; }
+    .method-post { background: #d4f5de; color: #0e6d3b; }
+    .method-patch { background: #fff3cd; color: #9a6500; }
+    .method-delete { background: #fde8e8; color: #ad2929; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 16px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--color-line);
+      font-size: 13px;
+    }
+
+    th {
+      background-color: var(--color-green-900);
+      color: #ffffff;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      padding: 12px 16px;
+      text-align: right;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-line);
+      background-color: #ffffff;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) td {
+      background-color: var(--color-green-50);
+    }
+
+    /* Code Snippets */
+    code, pre {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      direction: ltr;
+      text-align: left;
+    }
+
+    code.inline-code {
+      background: var(--color-green-50);
+      color: var(--color-green-700);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--color-green-200);
+      font-size: 12px;
+    }
+
+    pre {
+      background: #0e160f;
+      color: #a9e9bf;
+      padding: 18px;
+      border-radius: 12px;
+      overflow-x: auto;
+      border: 1px solid #004021;
+      margin: 14px 0;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .action-card {
+      background: var(--color-panel);
+      border: 1px solid var(--color-line);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .action-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .action-name {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--color-primary);
+    }
+
+    .action-file {
+      font-family: var(--font-technical);
+      font-size: 11px;
+      color: var(--color-neutral-500);
+      background: #ffffff;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--color-line);
+    }
+
+    /* Footer */
+    .scora-footer {
+      background: var(--color-green-900);
+      color: #a9e9bf;
+      text-align: center;
+      padding: 28px;
+      margin-top: 60px;
+      font-size: 13px;
+      border-top: 4px solid var(--color-green-400);
+    }
+
+    @media (max-width: 900px) {
+      .layout-container {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Banner Navigation -->
+  <header class="scora-navbar">
+    <div class="scora-navbar-container">
+      <div class="scora-brand">
+        <div class="scora-logo">S</div>
+        <div class="scora-title-wrap">
+          <h1>🛡️ SCORA V0.1 — التوثيق الفني الشامل لـ API و Server Actions</h1>
+          <p>الدليل المرجعي التفاعلي لمسارات REST APIs وخوادم العمليات وفق معايير أمان المنصة</p>
+        </div>
+      </div>
+      <div class="scora-badges">
+        <span class="scora-badge">Auth: JOSE Stateless JWT</span>
+        <span class="scora-badge">Validation: Zod Schema</span>
+        <span class="scora-badge">Runtime: Next.js 16 App Router</span>
+        <span class="scora-badge">Engine: OpenRouter AI API</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Body Grid Layout -->
+  <div class="layout-container">
+
+    <!-- Sidebar Quick Jump Menu -->
+    <aside class="sidebar">
+      <div class="sidebar-title">📌 التصفح السريع</div>
+      <ul class="sidebar-menu">
+        <li><a href="#overview">1. نموذج المصادقة والأمان</a></li>
+        <li><a href="#server-actions">2. خوادم العمليات (Server Actions)</a></li>
+        <li><a href="#auth-actions">— مصادقة الحسابات</a></li>
+        <li><a href="#profile-actions">— الملفات والمشاريع</a></li>
+        <li><a href="#ai-actions">— تقييم الـ AI</a></li>
+        <li><a href="#admin-actions">— خدمات الأدمن</a></li>
+        <li><a href="#rest-api">3. مسارات REST API Endpoints</a></li>
+        <li><a href="#code-examples">4. أمثلة الاستدعاء برمجياً</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Documentation Panels -->
+    <main class="main-content">
+
+      <!-- 1. Auth & Security -->
+      <section id="overview" class="card-panel">
+        <h2 class="section-title">🔒 1. نموذج المصادقة والأمان (Security & Authentication Model)</h2>
+        <p>تعتمد منصة <strong>Scora V0.1</strong> على معمارية هجينة موثوقة لحماية البيانات والجلسات دون الحاجة لتخزين جلسات ثقيلة في الـ Memory:</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>المعيار (Mechanism)</th>
+              <th>التقنية المستعملة</th>
+              <th>الوصف وآلية الحماية</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Stateless Sessions</b></td>
+              <td><code>JOSE (HS256 JWT)</code></td>
+              <td>تخزين توكين الجلسة المشفر في <code>HTTP-Only Cookies</code> يمنع الوصول إليها عبر JavaScript.</td>
+            </tr>
+            <tr>
+              <td><b>Server Actions Security</b></td>
+              <td><code>lib/dal.ts verifySession()</code></td>
+              <td>فحص صلاحية المستخدم ورتبته (<code>developer</code> / <code>client</code> / <code>admin</code>) قبل تنفيذ أي استعلام في السيرفر.</td>
+            </tr>
+            <tr>
+              <td><b>Data Validation</b></td>
+              <td><code>Zod Schemas</code></td>
+              <td>فحص هيكل ونوع البيانات المدخلة قبل معالجتها لمنع ثغرات الحقن (SQL & Injection).</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 2. Server Actions -->
+      <section id="server-actions" class="card-panel">
+        <h2 class="section-title">⚙️ 2. خوادم العمليات المباشرة (Server Actions Reference)</h2>
+        <p>خوادم العمليات تُنفذ مباشرة في سيرفر Next.js 16 وتضمن منع تسريب مفاتيح وقواعد البيانات.</p>
+
+        <!-- Auth Actions -->
+        <div id="auth-actions">
+          <h3>أ. خوادم المصادقة والحسابات (Auth Actions)</h3>
+          
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">registerAction(formData: FormData)</span>
+              <span class="action-file">lib/actions/auth.ts</span>
+            </div>
+            <p>إنشاء حساب جديد كمطور أو عميل، تشفير كلمة المرور بـ <code>BcryptJS</code>، وإنشاء جلسة JWT مشفرة.</p>
+            <p><strong>المدخلات:</strong> <code class="inline-code">email</code>, <code class="inline-code">password</code>, <code class="inline-code">full_name</code>, <code class="inline-code">role</code> ('developer' | 'client')</p>
+          </div>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">loginAction(formData: FormData)</span>
+              <span class="action-file">lib/actions/auth.ts</span>
+            </div>
+            <p>التحقق من صحة بيانات الدخول وتعيين كوكيز الجلسة والتوجيه التلقائي للوحة التحكم.</p>
+          </div>
+        </div>
+
+        <!-- Profile & Project Actions -->
+        <div id="profile-actions" style="margin-top: 24px;">
+          <h3>ب. إكمال الملف الشخصي والمشاريع (Profile & Projects)</h3>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">completeDeveloperOnboarding(data: DeveloperProfileInput)</span>
+              <span class="action-file">lib/actions/profile.ts</span>
+            </div>
+            <p>حفظ المسمى الوظيفي والمهارات والروابط المرجعية للمطور وتحويل حسابه لمرحلة اختبار الذكاء الاصطناعي.</p>
+          </div>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">createProjectAction(data: ProjectInput)</span>
+              <span class="action-file">lib/actions/profile.ts</span>
+            </div>
+            <p>نشر مشروع برمجي جديد في سوق المشاريع وتحديد الميزانية وسقف التنفيذ عبر العملاء.</p>
+          </div>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">submitProposalAction(data: ProposalInput)</span>
+              <span class="action-file">lib/actions/proposals.ts</span>
+            </div>
+            <p>تقديم عرض برمجي من مطور معتمد على أحد المشاريع المعلنة.</p>
+          </div>
+        </div>
+
+        <!-- AI Assessment Actions -->
+        <div id="ai-actions" style="margin-top: 24px;">
+          <h3>ج. محرك التقييم بالذكاء الاصطناعي (AI Assessment Engine)</h3>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">startAssessmentSession()</span>
+              <span class="action-file">lib/actions/developer-assessment.ts</span>
+            </div>
+            <p>توليد أسئلة اختبار تفاعلية مخصصة عبر <strong>OpenRouter API Engine (Claude 3.5 Sonnet / GPT-4.1)</strong> وتجهيز الجلسة.</p>
+          </div>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">submitAnswerAction(sessionPublicId, questionPublicId, answerText)</span>
+              <span class="action-file">lib/actions/developer-assessment.ts</span>
+            </div>
+            <p>تحليل وتقييم إجابة المطور لحظياً بواسطة الـ AI وتحديث نقاط الـ SP ودرجة الموثوقية (Trust Score).</p>
+          </div>
+        </div>
+
+        <!-- Admin Actions -->
+        <div id="admin-actions" style="margin-top: 24px;">
+          <h3>د. خدمات لوحة الإدارة والأدمن (Admin Actions)</h3>
+
+          <div class="action-card">
+            <div class="action-header">
+              <span class="action-name">reviewDeveloperAction(developerId, decision, reason)</span>
+              <span class="action-file">lib/actions/admin.ts</span>
+            </div>
+            <p>اعتماد أو رفض طلب انضمام مطور من لوحة الإدارة بعد الاطلاع على نتائج تقييم الذكاء الاصطناعي.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. REST API Endpoints -->
+      <section id="rest-api" class="card-panel">
+        <h2 class="section-title">🌐 3. مسارات الـ REST API Endpoints (`app/api/*`)</h2>
+        <p>جدول تفصيلي بمسارات الـ APIs المتاحة للتكامل الخارجي والتطبيقات التفاعلية.</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>المسار (Endpoint Route)</th>
+              <th>النوع (Method)</th>
+              <th>الصلاحية (Access Level)</th>
+              <th>الوصف والتفاصيل</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/api/admin/stats</code></td>
+              <td><span class="method-badge method-get">GET</span></td>
+              <td>Admin Only</td>
+              <td>استرجاع إحصائيات المنصة (عدد المستخدمين، المشاريع، متوسط درجات السكورا).</td>
+            </tr>
+            <tr>
+              <td><code>/api/admin/developers</code></td>
+              <td><span class="method-badge method-get">GET</span></td>
+              <td>Admin Only</td>
+              <td>جلب قائمة المطورين مع فلترة حالة الاعتماد ودرجة الموثوقية.</td>
+            </tr>
+            <tr>
+              <td><code>/api/admin/settings</code></td>
+              <td><span class="method-badge method-get">GET</span> / <span class="method-badge method-post">POST</span></td>
+              <td>Admin Only</td>
+              <td>قراءة وتحديث إعدادات نموذج OpenRouter AI الافتراضي.</td>
+            </tr>
+            <tr>
+              <td><code>/api/developer-assessment/session</code></td>
+              <td><span class="method-badge method-post">POST</span></td>
+              <td>Developer</td>
+              <td>بدء جلسة تقييم تفاعلية بالذكاء الاصطناعي.</td>
+            </tr>
+            <tr>
+              <td><code>/api/developer-assessment/submit</code></td>
+              <td><span class="method-badge method-post">POST</span></td>
+              <td>Developer</td>
+              <td>تقديم الإجابات الفنية وتقييمها.</td>
+            </tr>
+            <tr>
+              <td><code>/api/notifications</code></td>
+              <td><span class="method-badge method-get">GET</span> / <span class="method-badge method-patch">PATCH</span></td>
+              <td>Auth User</td>
+              <td>استرجاع الإشعارات وتحديدها كـ Read.</td>
+            </tr>
+            <tr>
+              <td><code>/api/analytics</code></td>
+              <td><span class="method-badge method-get">GET</span></td>
+              <td>Admin Only</td>
+              <td>سجل تحليلات الزيارات وأداء المنصة.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 4. Code Examples -->
+      <section id="code-examples" class="card-panel">
+        <h2 class="section-title">💻 4. أمثلة الاستدعاء البرمجي (Call Examples)</h2>
+
+        <h3>أ. استدعاء REST API عبر JavaScript (fetch)</h3>
+        <pre><code>// جلب إحصائيات الأدمن مع إرسال الكوكيز المشفرة تلقائياً
+const response = await fetch('/api/admin/stats', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+const data = await response.json();
+console.log('Admin Stats:', data);</code></pre>
+
+        <h3>ب. استدعاء Server Action مباشرة في React Server Component</h3>
+        <pre><code>import { startAssessmentSession } from '@/lib/actions/developer-assessment';
+
+export default async function AssessmentStarter() {
+  const result = await startAssessmentSession();
+  if (result.success) {
+    console.log('Session Public ID:', result.sessionPublicId);
+  }
+}</code></pre>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="scora-footer">
+    🛡️ Scora V0.1 — Developer Evaluation & Trust Verification Platform Architecture Documentation
+  </footer>
+
+</body>
+</html>

@@ -9,7 +9,7 @@
 | :--- | :---: | :--- |
 | **[هيكل المشروع والمعمارية](docs/PROJECT_STRUCTURE.md)** | `MD` / `PDF` | [مشاهدة MD](docs/PROJECT_STRUCTURE.md) • [تحميل PDF](docs/PROJECT_STRUCTURE.pdf) |
 | **[دليل إعداد بيئة التشغيل](docs/ENVIRONMENT_SETUP.md)** | `MD` | [مشاهدة MD](docs/ENVIRONMENT_SETUP.md) • نموذج [.env.example](.env.example) |
-| **[التوثيق الفني لـ API و Server Actions](docs/API_DOCUMENTATION.md)** | `MD` / `PDF` | [مشاهدة MD](docs/API_DOCUMENTATION.md) • [تحميل API Endpoints PDF](docs/API_ENDPOINTS.pdf) |
+| **[التوثيق الفني لـ API و Server Actions](docs/API_DOCUMENTATION.html)** | `HTML` / `MD` / `PDF` | [مشاهدة HTML التفاعلي](docs/API_DOCUMENTATION.html) • [مشاهدة MD](docs/API_DOCUMENTATION.md) • [تحميل PDF](docs/API_ENDPOINTS.pdf) |
 | **[مخطط وقواعد البيانات MySQL](docs/DATABASE_SCHEMA.md)** | `MD` / `DBML` / `PDF` | [مشاهدة MD](docs/DATABASE_SCHEMA.md) • [كود DBML لـ dbdiagram](docs/schema.dbml) • [تحميل PDF](docs/DATABASE_SCHEMA.pdf) |
 | **[الشرح المعماري الشامل](docs/ARCHITECTURE_EXPLANATION.pdf)** | `PDF` | [تحميل Architecture PDF](docs/ARCHITECTURE_EXPLANATION.pdf) |
 
@@ -54,6 +54,7 @@ Scora-V0.1/
 │   └── dashboard/             # لوحة تفاعل المطور والعميل
 ├── components/                # مكونات واجهة المستخدم (UI Components)
 ├── docs/                      # مجلد التوثيق الفني الشامل
+│   ├── API_DOCUMENTATION.html # التوثيق التفاعلي الكامل لـ API بهوية سكورا
 │   ├── schema.dbml            # مخطط DBML لـ dbdiagram.io
 │   ├── PROJECT_STRUCTURE.md   # شرح معمارية المجلدات والحزم
 │   ├── ENVIRONMENT_SETUP.md   # دليل التشغيل والـ Environment Setup
@@ -101,6 +102,6 @@ node scripts/migrate-v8.js
 # 4. تشغيل خادم التطوير المحلي
 npm run dev
 
-# 5. بناء وااختبار نسخة الإنتاج
+# 5. بناء واختبار نسخة الإنتاج
 npm run build
 ```
