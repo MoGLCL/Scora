@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { SessionId, TenantId } from '@scora/trust-core';
-import { PrincipalKind, Role, type Principal, type RouteDefinition } from './contract.ts';
+import { Role, type Principal, type RouteDefinition } from './contract.ts';
 import { buildRouter, resolveRoles } from './router.ts';
 import { defaultPolicy } from './policy.ts';
 import {

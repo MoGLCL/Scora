@@ -20,24 +20,6 @@ export interface AuthState {
   fieldErrors?: Record<string, string[]>;
 }
 
-/**
- * Egyptian mobile numbers: 01X XXXX XXXX, optionally with a +20 / 0020 prefix.
- * Normalised to 01XXXXXXXXX on the way in so lookups and display stay consistent.
- */
-const PhoneSchema = z
-  .string()
-  .trim()
-  .transform((v) =>
-    v
-      .replace(/[\s\-()]/g, "")
-      .replace(/^(?:\+?20|0020)/, "")
-      .replace(/^0+/, "")
-  )
-  .refine((v) => /^1[0-25]\d{8}$/.test(v), {
-    message: "رقم موبايل مصري غير صالح (مثال: 01012345678)",
-  })
-  .transform((v) => `0${v}`);
-
 const RegisterSchema = z.object({
   fullName: z.string().trim().min(2, "الاسم قصير جدًا").max(255),
   email: z.string().trim().toLowerCase().email("بريد إلكتروني غير صالح"),

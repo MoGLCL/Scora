@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useProfile } from "@/components/profile-provider";
 import {
   Send,
@@ -75,9 +75,12 @@ export function AiAssistantSsd() {
   // Cycle prompts & robot eye expressions automatically
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentPromptIndex((prev) => (prev + 1) % activePrompts.length);
       const expressions: Array<"normal" | "happy" | "wink" | "excited"> = ["normal", "happy", "wink", "excited"];
-      setEyeState(expressions[(currentPromptIndex + 1) % expressions.length]);
+      setCurrentPromptIndex((current) => {
+        const next = (current + 1) % activePrompts.length;
+        setEyeState(expressions[next % expressions.length]);
+        return next;
+      });
     }, 5000);
     return () => clearInterval(timer);
   }, [activePrompts.length]);

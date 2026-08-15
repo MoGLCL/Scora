@@ -1,4 +1,4 @@
-import { AiAssistanceEventType, CodeEvolutionEventType, RuntimeEventType, SkillEventType, TrustLayer, } from '@scora/trust-core';
+import { AiAssistanceEventType, CodeEvolutionEventType, RuntimeEventType, TrustLayer, } from '@scora/trust-core';
 import { SkillVerdict } from '@scora/trust-skills';
 import { Difficulty, QuestionTopic, difficultyOrdinal, } from "./contract.js";
 /**

@@ -28,6 +28,88 @@ export async function submitAndFinalizeAssessment(publicId: string) {
   return { ok: true as const };
 }
 
+export async function updateDeveloperAssessmentSkills(input: {
+  skills: string[];
+  jobTitle?: string;
+}) {
+  const s = await verifySession();
+  if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
+
+  const parsedSkills = z
+    .array(z.string().trim().min(1).max(50))
+    .min(1, "اختر مهارة واحدة على الأقل للاختبار")
+    .max(12, "الحد الأقصى للمهارات هو 12 مهارة")
+    .safeParse(input.skills);
+
+  if (!parsedSkills.success) {
+    return { ok: false as const, error: parsedSkills.error.issues[0]?.message || "بيانات المهارات غير صحيحة" };
+  }
+
+  const dev = await queryOne<{
+    id: number;
+    approval_status: string;
+    skills_change_count: number;
+    job_title: string | null;
+  }>("SELECT id, approval_status, skills_change_count, job_title FROM developers WHERE user_id=?", [s.userId]);
+
+  if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
+
+  if (dev.approval_status === "approved") {
+    return { ok: false as const, error: "حسابك معتمد بالفعل ولا يتطلب إعادة تعديل مهارات الاختبار" };
+  }
+
+  const currentCount = dev.skills_change_count || 0;
+  if (currentCount >= 2) {
+    return { ok: false as const, error: "لقد استنفدت الحد الأقصى لتغيير مهارات الاختبار (مرتان فقط)" };
+  }
+
+  const skillsList = Array.from(new Set(parsedSkills.data));
+  const newCount = currentCount + 1;
+  const newJobTitle = input.jobTitle?.trim() || dev.job_title || "Full-Stack Web Developer";
+
+  await transaction(async (c) => {
+    // 1. Update developer job_title and increment skills_change_count
+    await c.execute("UPDATE developers SET job_title=?, skills_change_count=? WHERE id=?", [
+      newJobTitle,
+      newCount,
+      dev.id,
+    ]);
+
+    // 2. Clear old developer_skills and insert new skills
+    await c.execute("DELETE FROM developer_skills WHERE developer_id=?", [dev.id]);
+    for (const name of skillsList) {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "skill";
+      const [rows] = await c.execute("SELECT id FROM skills WHERE slug=? OR name=? LIMIT 1", [slug, name]);
+      let skillId: number;
+      if ((rows as { id: number }[]).length > 0) {
+        skillId = (rows as { id: number }[])[0].id;
+      } else {
+        const [insertRes] = await c.execute("INSERT INTO skills (name, slug, category) VALUES (?, ?, 'general')", [name, slug]);
+        skillId = Number((insertRes as { insertId: number }).insertId);
+      }
+      await c.execute("INSERT INTO developer_skills (developer_id, skill_id) VALUES (?, ?)", [dev.id, skillId]);
+    }
+
+    // 3. Mark any previous failed or stale generating session as expired
+    await c.execute(
+      "UPDATE developer_assessment_sessions SET status='expired' WHERE developer_id=? AND status IN ('generating', 'generation_failed')",
+      [dev.id]
+    );
+  });
+
+  revalidatePath("/developer-assessment/pending");
+  revalidatePath("/complete-profile");
+  revalidatePath("/profile");
+
+  return {
+    ok: true as const,
+    skills: skillsList,
+    jobTitle: newJobTitle,
+    skillsChangeCount: newCount,
+    remainingChanges: Math.max(0, 2 - newCount),
+  };
+}
+
 export async function requestReassessmentByDeveloper(note?: string) {
   const s = await verifySession();
   if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
@@ -74,8 +156,8 @@ export async function requestReassessmentByDeveloper(note?: string) {
 export async function startDeveloperAssessment() {
   const s = await verifySession();
   if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
-  const dev = await queryOne<{ id: number; approval_status: string }>(
-    "SELECT id, approval_status FROM developers WHERE user_id=?",
+  const dev = await queryOne<{ id: number; approval_status: string; job_title: string | null }>(
+    "SELECT id, approval_status, job_title FROM developers WHERE user_id=?",
     [s.userId]
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
@@ -135,7 +217,7 @@ export async function startDeveloperAssessment() {
 
   let generated;
   try {
-    generated = await generateAssessment(skills, publicId, previousQuestions);
+    generated = await generateAssessment(skills, publicId, previousQuestions, dev.job_title || "Full-Stack Web Developer");
   } catch (error) {
     console.error("[developer-assessment:generation]", error);
     await transaction(async (c) => {

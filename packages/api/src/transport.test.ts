@@ -15,7 +15,6 @@ import {
   issueCredential,
   issueSandboxCredential,
   nodeRequestListener,
-  type StoredCredential,
 } from './node.ts';
 import { SESSION, T0, TENANT, heartbeat, silentLogger, steppingClock } from './testing.ts';
 

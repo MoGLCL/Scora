@@ -7,7 +7,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { createProject } from "@/lib/actions/profile";
 import {
-  Briefcase,
   DollarSign,
   Calendar,
   Code,
@@ -17,8 +16,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  ShieldCheck,
-  Building,
   AlertCircle,
   Scale,
   Lock,

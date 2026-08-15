@@ -26,10 +26,7 @@ import {
   CheckCircle2,
   Send,
   ArrowRight,
-  Code,
-  FileText,
   User,
-  Calendar,
   Sparkles,
   MessageSquare,
   Lock,
@@ -88,12 +85,10 @@ export function ProjectDetailClient({
   project,
   initialProposals,
   currentUserId,
-  currentUserRole,
 }: {
   project: ProjectDetail;
   initialProposals: ProposalComment[];
   currentUserId?: number | null;
-  currentUserRole?: string | null;
 }) {
   const router = useRouter();
   const { userRole, addToast } = useProfile();

@@ -1,10 +1,9 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { ShieldCheck, Target, Users, Award, Sparkles, ArrowLeft } from "lucide-react";
+import { Target, Users, Award, Sparkles, ArrowLeft } from "lucide-react";
 
 export default function AboutPage() {
   return (

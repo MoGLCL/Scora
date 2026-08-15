@@ -1,9 +1,8 @@
 "use client";
 
-import React from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { ShieldCheck, Lock, Eye, Server } from "lucide-react";
+import { Lock, Eye, Server } from "lucide-react";
 
 export default function PrivacyPage() {
   return (

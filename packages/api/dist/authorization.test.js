@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { SessionId, TenantId } from '@scora/trust-core';
-import { PrincipalKind, Role } from "./contract.js";
+import { Role } from "./contract.js";
 import { buildRouter, resolveRoles } from "./router.js";
 import { defaultPolicy } from "./policy.js";
 import { DEV, OTHER_DEV, OTHER_TENANT, SESSION, TENANT, adminPrincipal, developerPrincipal, harness, heartbeat, reviewerPrincipal, sandboxPrincipal, } from "./testing.js";

@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -13,7 +12,6 @@ import {
   CheckCircle2,
   ArrowLeft,
   Search,
-  FileCode,
   Cpu,
   Lock,
   Zap,

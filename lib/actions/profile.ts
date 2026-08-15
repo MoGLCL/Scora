@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { execute, query, queryOne, transaction } from "@/lib/db";
+import { execute, queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import { createSession } from "@/lib/session";
 
@@ -97,33 +97,30 @@ export async function setDeveloperSkills(slugs: string[]): Promise<ActionState> 
   );
   if (!dev) return { error: "الملف الشخصي غير موجود" };
 
-  if (slugs.length === 0) {
-    await execute("DELETE FROM developer_skills WHERE developer_id = ?", [dev.id]);
-    revalidatePath("/profile");
-    return { ok: true };
-  }
-
-  const placeholders = slugs.map(() => "?").join(",");
-  const skills = await query<{ id: number }>(
-    `SELECT id FROM skills WHERE slug IN (${placeholders}) OR name IN (${placeholders})`,
-    [...slugs, ...slugs]
-  );
-  if (skills.length !== new Set(slugs.map((slug) => slug.trim().toLowerCase())).size) {
-    return { error: "واحدة أو أكثر من المهارات غير موجودة في قائمة مهارات المنصة" };
-  }
-
   await transaction(async (conn) => {
     await conn.execute("DELETE FROM developer_skills WHERE developer_id = ?", [dev.id]);
-    for (const s of skills) {
+    for (const rawName of slugs) {
+      const name = rawName.trim();
+      if (!name) continue;
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "skill";
+      const [skillRows] = await conn.execute("SELECT id FROM skills WHERE slug = ? OR name = ? LIMIT 1", [slug, name]);
+      let skillId: number;
+      if ((skillRows as { id: number }[]).length > 0) {
+        skillId = (skillRows as { id: number }[])[0].id;
+      } else {
+        const [insertRes] = await conn.execute("INSERT INTO skills (name, slug, category) VALUES (?, ?, 'general')", [name, slug]);
+        skillId = Number((insertRes as { insertId: number }).insertId);
+      }
       await conn.execute(
         "INSERT INTO developer_skills (developer_id, skill_id) VALUES (?, ?)",
-        [dev.id, s.id]
+        [dev.id, skillId]
       );
     }
   });
 
   revalidatePath("/profile");
   revalidatePath("/developers");
+  revalidatePath("/developer-assessment/pending");
   return { ok: true };
 }
 

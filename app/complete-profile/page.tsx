@@ -1,173 +1,30 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { updateDeveloperProfile, setDeveloperSkills } from "@/lib/actions/profile";
 import { uploadAvatar } from "@/lib/actions/upload";
 import { startDeveloperAssessment } from "@/lib/actions/developer-assessment";
+import { EGYPT_GOVERNORATES_AND_CITIES } from "@/lib/egyptian-locations";
+import { EgyptFlag } from "@/components/egypt-flag";
+import { useRouter } from "next/navigation";
 import {
   User,
-  GraduationCap,
-  Briefcase,
-  Code,
-  Globe,
   MapPin,
   CheckCircle2,
   ArrowLeft,
   ArrowRight,
   ShieldCheck,
-  Award,
   Sparkles,
   Check,
-  Camera,
-  Phone,
   Search,
   ChevronDown,
   X,
   Plus,
-  AlertCircle,
-  ExternalLink
+  AlertCircle
 } from "lucide-react";
-
-// HIGH-FIDELITY VECTOR SVG EGYPTIAN FLAG (WITH SALADIN EAGLE)
-function EgyptFlagSVG({ className = "w-5 h-3.5" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 900 600"
-      className={`${className} rounded-[3px] shadow-xs border border-neutral-200 shrink-0 inline-block`}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Red Stripe (Top) */}
-      <rect width="900" height="200" fill="#C8102E" />
-      {/* White Stripe (Middle) */}
-      <rect y="200" width="900" height="200" fill="#FFFFFF" />
-      {/* Black Stripe (Bottom) */}
-      <rect y="400" width="900" height="200" fill="#000000" />
-      
-      {/* Golden Eagle of Saladin (Coat of Arms) */}
-      <g transform="translate(450, 300) scale(0.6)">
-        {/* Eagle Body & Wings */}
-        <path
-          d="M-30,-75 C-15,-90 15,-90 30,-75 C45,-60 65,-40 75,10 C80,35 60,65 40,85 C25,95 -25,95 -40,85 C-60,65 -80,35 -75,10 C-65,-40 -45,-60 -30,-75 Z"
-          fill="#C59B27"
-        />
-        {/* Head */}
-        <path
-          d="M-10,-85 C-5,-105 15,-105 20,-85 C15,-70 -5,-70 -10,-85 Z"
-          fill="#C59B27"
-        />
-        {/* Shield */}
-        <path
-          d="M-20,-20 L20,-20 L20,30 C20,45 0,60 0,60 C0,60 -20,45 -20,30 Z"
-          fill="#FFFFFF"
-          stroke="#C59B27"
-          strokeWidth="3"
-        />
-        <rect x="-6" y="-20" width="12" height="60" fill="#C59B27" />
-        {/* Base Scroll */}
-        <path
-          d="M-35,85 L35,85 L25,105 L-25,105 Z"
-          fill="#C59B27"
-        />
-      </g>
-    </svg>
-  );
-}
-
-// ALL EGYPTIAN GOVERNORATES & THEIR CITIES
-const EGYPT_GOVERNORATES_AND_CITIES: Record<string, string[]> = {
-  "القاهرة": [
-    "مدينة نصر", "مصر الجديدة", "المعادي", "التجمع الخامس (القاهرة الجديدة)", "الزمالك", 
-    "وسط البلد", "شبرا", "المقطم", "عين شمس", "حلوان", "الرحاب", "مدينتي", "الشروق", 
-    "بدر", "العاصمة الإدارية الجديدة", "المرج", "الزيتون", "حدائق القبة", "روض الفرج", "العباسية"
-  ],
-  "الجيزة": [
-    "الدقي", "المهندسين", "العجوزة", "الهرم", "فيصل", "مدينة 6 أكتوبر", "الشيخ زايد", 
-    "حدائق الأهرام", "العمرانية", "بولاق الدكرور", "إمبابة", "البدرشين", "العياط", "أوسيم", "كرداسة", "الحوامدية"
-  ],
-  "الإسكندرية": [
-    "سموحة", "ستانلي", "سيدي جابر", "سيدي بشر", "ميامي", "لوران", "جليم", "محطة الرمل", 
-    "الإبراهيمية", "العجمي", "الهانوفيل", "المعمورة", "المنتزه", "برج العرب", "العامارية", "كرموز"
-  ],
-  "الغربية": [
-    "طنطا", "المحلة الكبرى", "كفر الزيات", "زفتى", "السنطة", "سمنود", "بسيون", "قطور"
-  ],
-  "الدقهلية": [
-    "المنصورة", "طلخا", "ميت غمر", "السنبلاوين", "دكرنس", "بلقاس", "منية النصر", "شربين", 
-    "أجا", "الجمالية", "المطرية", "بني عبيد", "نبروه", "تمى الأمديد"
-  ],
-  "الشرقية": [
-    "الزقازيق", "العاشر من رمضان", "بلبيس", "منيا القمح", "فاقوس", "أبو حماد", "أبو كبير", 
-    "ههيا", "ديرب نجم", "كفر صقر", "أولاد صقر", "الحسينية", "الصالحية الجديدة", "مشتول السوق"
-  ],
-  "القليوبية": [
-    "بنها", "شبرا الخيمة", "قليوب", "القناطر الخيرية", "الخانكة", "كفر شكر", "طوخ", "شبين القناطر", "العبور", "قها"
-  ],
-  "المنوفية": [
-    "شبين الكوم", "مدينة السادات", "منوف", "أشمون", "الباجور", "قويسنا", "بركة السبع", "تلا", "الشهداء", "سرس الليان"
-  ],
-  "البحيرة": [
-    "دمنهور", "كفر الدوار", "إيتاي البارود", "أبو حمص", "حوش عيسى", "رشيد", "إدكو", "الدلنجات", 
-    "أبو المطامير", "كوم حمادة", "بدر", "وادي النطرون", "شبراخيت", "المحمودية"
-  ],
-  "كفر الشيخ": [
-    "كفر الشيخ", "دسوق", "فوه", "مطوبس", "سيدي سالم", "الرياض", "بيلا", "الحامول", "بلطيم", "سيدي غازي", "قلين"
-  ],
-  "دمياط": [
-    "دمياط", "دمياط الجديدة", "رأس البر", "فارسكور", "الزرقا", "كفر سعد", "كفر البطيخ", "ميت أبو غالب", "الروضة"
-  ],
-  "بورسعيد": [
-    "حي الشرق", "حي العرب", "حي المناخ", "حي الضواحي", "حي الزهور", "حي الجنوب", "بورفؤاد"
-  ],
-  "الإسماعيلية": [
-    "الإسماعيلية", "فايد", "القنطرة شرق", "القنطرة غرب", "التل الكبير", "القصاصين", "أبو صوير"
-  ],
-  "السويس": [
-    "حي السويس", "حي الأربعين", "حي عتاقة", "حي فيصل", "حي الجناين", "العين السخنة"
-  ],
-  "الفيوم": [
-    "الفيوم", "طامية", "سنورس", "إطسا", "إبشواي", "يوسف الصديق", "الفيوم الجديدة"
-  ],
-  "بني سويف": [
-    "بني سويف", "بني سويف الجديدة", "الواسطى", "ناصر", "إهناسيا", "ببا", "سمسطا", "الفشن"
-  ],
-  "المنيا": [
-    "المنيا", "المنيا الجديدة", "مغاغة", "بني مزار", "مطاي", "سمالوط", "أبو قرقاص", "ملوي", "دير مواس", "العدوة"
-  ],
-  "أسيوط": [
-    "أسيوط", "أسيوط الجديدة", "ديروط", "القوصية", "أبنوب", "منفلوط", "الفتح", "أبو تيج", "الغنايم", "ساحل سليم", "البداري", "صدفا"
-  ],
-  "سوهاج": [
-    "سوهاج", "سوهاج الجديدة", "أخميم", "أخميم الجديدة", "جرجا", "طهطا", "المراغة", "طما", "البلينا", "المنشأة", "دار السلام", "ساقلتة", "جهينة"
-  ],
-  "قنا": [
-    "قنا", "قنا الجديدة", "نجع حمادي", "دشنا", "فرشوط", "أبو تشت", "فاو", "قوص", "نقادة", "الوقف"
-  ],
-  "الأقصر": [
-    "الأقصر", "طيبة الجديدة", "إسنا", "أرمنت", "القرنة", "البياضية", "الزينية", "الطود"
-  ],
-  "أسوان": [
-    "أسوان", "أسوان الجديدة", "كوم أمبو", "إدفو", "نصر النوبة", "دراو", "أبو سمبل"
-  ],
-  "البحر الأحمر": [
-    "الغردقة", "الجونة", "سفاجا", "القصير", "مرسى علم", "رأس غارب", "الشلاتين", "حلايب"
-  ],
-  "شمال سيناء": [
-    "العريش", "الشيخ زويد", "رفح", "بئر العبد", "نخل", "الحسنة"
-  ],
-  "جنوب سيناء": [
-    "شرم الشيخ", "دهب", "نويبع", "طابا", "طور سيناء", "رأس سدر", "سانت كاترين", "أبو زنيمة", "أبو رديس"
-  ],
-  "مطروح": [
-    "مرسى مطروح", "العلمين", "العلمين الجديدة", "سيدي عبد الرحمن", "الحمام", "الضبعة", "سيوة", "النجيلة", "السلوم", "براني"
-  ],
-  "الوادي الجديد": [
-    "الخارجة", "الداخلة", "الفرافرة", "باريس", "بلاط"
-  ]
-};
 
 // ALL EGYPTIAN UNIVERSITIES
 const ALL_EGYPTIAN_UNIVERSITIES = [
@@ -446,6 +303,7 @@ const MASTER_TECH_POOL = [
 ];
 
 export default function DeveloperOnboardingPage() {
+  const router = useRouter();
   const { developer, updateDeveloper, updateUsername, setUserRole, addToast } = useProfile();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -461,7 +319,7 @@ export default function DeveloperOnboardingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isStartingAssessment, setIsStartingAssessment] = useState(false);
-  const [assessmentError, setAssessmentError] = useState("");
+  const [, setAssessmentError] = useState("");
 
   // Error highlighting state
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -725,12 +583,12 @@ export default function DeveloperOnboardingPage() {
     try {
       const assessmentResult = await startDeveloperAssessment();
       if (assessmentResult && assessmentResult.ok && assessmentResult.assessmentUrl) {
-        window.location.href = assessmentResult.assessmentUrl;
+        router.replace(assessmentResult.assessmentUrl);
       } else {
-        window.location.href = "/developer-assessment/pending";
+        router.replace("/developer-assessment/pending");
       }
     } catch {
-      window.location.href = "/developer-assessment/pending";
+      router.replace("/developer-assessment/pending");
     }
   };
 
@@ -945,7 +803,7 @@ export default function DeveloperOnboardingPage() {
                     </label>
                     <div className="relative flex items-center">
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none z-10 pl-2.5 border-l border-neutral-200">
-                        <EgyptFlagSVG className="w-5 h-3.5" />
+                        <EgyptFlag className="w-5 h-3.5" />
                         <span className="text-[12px] font-bold text-[#05291A] font-mono dir-ltr">+20</span>
                       </div>
                       <input

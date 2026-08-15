@@ -8,11 +8,8 @@ import { query, queryOne } from "@/lib/db";
 import {
   ArrowRight,
   MessageSquare,
-  Sparkles,
   ShieldCheck,
   Clock,
-  DollarSign,
-  User,
   Inbox
 } from "lucide-react";
 

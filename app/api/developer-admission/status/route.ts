@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifySession } from "@/lib/dal";
 import { createSession } from "@/lib/session";
-import { execute, queryOne } from "@/lib/db";
+import { execute, query, queryOne } from "@/lib/db";
 
 export async function GET() {
   const s = await verifySession();
@@ -9,15 +9,27 @@ export async function GET() {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  let developer = await queryOne<{ id: number; approval_status: string; rejection_reason: string | null }>(
-    "SELECT id, approval_status, rejection_reason FROM developers WHERE user_id=?",
+  let developer = await queryOne<{
+    id: number;
+    approval_status: string;
+    rejection_reason: string | null;
+    job_title: string | null;
+    skills_change_count: number;
+  }>(
+    "SELECT id, approval_status, rejection_reason, job_title, skills_change_count FROM developers WHERE user_id=?",
     [s.userId]
   );
 
   if (!developer) {
-    await execute("INSERT INTO developers (user_id, approval_status) VALUES (?, 'pending')", [s.userId]);
-    developer = await queryOne<{ id: number; approval_status: string; rejection_reason: string | null }>(
-      "SELECT id, approval_status, rejection_reason FROM developers WHERE user_id=?",
+    await execute("INSERT INTO developers (user_id, approval_status, skills_change_count) VALUES (?, 'pending', 0)", [s.userId]);
+    developer = await queryOne<{
+      id: number;
+      approval_status: string;
+      rejection_reason: string | null;
+      job_title: string | null;
+      skills_change_count: number;
+    }>(
+      "SELECT id, approval_status, rejection_reason, job_title, skills_change_count FROM developers WHERE user_id=?",
       [s.userId]
     );
   }
@@ -41,9 +53,13 @@ export async function GET() {
     [developer.id]
   );
 
-  // A pending request is a view state, not a replacement for the developer's
-  // last approved/rejected result. Keep the existing result in the database
-  // until an admin explicitly approves a new attempt.
+  const skills = (
+    await query<{ name: string }>(
+      "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
+      [developer.id]
+    )
+  ).map((x) => x.name);
+
   if (reassessment?.status === "pending") status = "reset_requested";
 
   const isPendingOrInProgress = status === "pending" || status === "assessment_in_progress" || status === "reset_approved";
@@ -53,6 +69,10 @@ export async function GET() {
 
   return NextResponse.json({
     status,
+    jobTitle: developer.job_title || "Full-Stack Web Developer",
+    skills,
+    skillsChangeCount: developer.skills_change_count || 0,
+    remainingSkillsChanges: Math.max(0, 2 - (developer.skills_change_count || 0)),
     sessionStatus: latest?.status ?? null,
     assessmentUrl: latest?.status === "in_progress" ? `/developer-assessment/${latest.public_id}` : null,
     needsGeneration,

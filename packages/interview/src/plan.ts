@@ -2,7 +2,6 @@ import {
   AiAssistanceEventType,
   CodeEvolutionEventType,
   RuntimeEventType,
-  SkillEventType,
   TrustLayer,
   type EventId,
   type TrustEvent,
@@ -247,7 +246,7 @@ function unresolvedSkillClaims(assessment: SkillAssessment | undefined): readonl
     }));
 }
 
-interface Draft extends Omit<InterviewQuestion, 'questionId'> {}
+type Draft = Omit<InterviewQuestion, 'questionId'>;
 
 /**
  * The next difficulty, given how the last answer went.

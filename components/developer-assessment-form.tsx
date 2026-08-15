@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import type { OnMount } from "@monaco-editor/react";
 import {
   Code2,
   Mic,
   MicOff,
   Send,
-  Lock,
   ArrowRight,
   ArrowLeft,
   SkipForward,
@@ -19,7 +19,6 @@ import {
   Clock,
   Sparkles,
   Layers,
-  HelpCircle
 } from "lucide-react";
 import {
   submitAndFinalizeAssessment,
@@ -121,7 +120,7 @@ function VsCodeEditorContainer({
 }) {
   const activeLanguage = useMemo(() => detectLanguage(value, claimedSkill), [value, claimedSkill]);
 
-  const handleEditorMount = (_editor: unknown, monaco: any) => {
+  const handleEditorMount: OnMount = (_editor, monaco) => {
     try {
       if (monaco?.languages?.typescript?.javascriptDefaults) {
         monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
@@ -275,7 +274,7 @@ export function DeveloperAssessmentForm({
         console.warn("[developer-assessment:save]", err);
       }
     },
-    [answers, current?.publicId, index, ordered, phase, publicId]
+    [answers, current, index, ordered, phase, publicId]
   );
 
   useEffect(() => {

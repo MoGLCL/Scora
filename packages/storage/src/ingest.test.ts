@@ -208,7 +208,7 @@ describe('ingestion — retries must not look like tampering', () => {
 
 describe('ingestion — malformed telemetry becomes evidence, not silence', () => {
   it('keeps the good events when one is malformed', async () => {
-    const { store, ingestion } = harness();
+    const { ingestion } = harness();
 
     const result = await ingestion.ingest([
       submission(1),

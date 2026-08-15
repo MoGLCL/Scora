@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { EGYPTIAN_GOVERNORATES } from "@/lib/egyptian-locations";
 import { MapPin, ChevronDown, Check } from "lucide-react";
 

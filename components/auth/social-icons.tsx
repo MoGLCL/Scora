@@ -1,5 +1,3 @@
-import React from "react";
-
 export function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24">

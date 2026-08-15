@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { HumanReviewEventType, TrustEventType } from '@scora/trust-core';
+import { HumanReviewEventType } from '@scora/trust-core';
 import { TEST_DEVELOPER, TEST_SESSION, TEST_TENANT, buildSession, } from '@scora/trust-features/testing';
 import { POLICY_VERSION, RECOMMENDATION } from '@scora/trust-scoring';
 import { ReviewDecision } from '@scora/trust-review';

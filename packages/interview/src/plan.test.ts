@@ -15,7 +15,6 @@ import {
   Difficulty,
   InterviewVerdict,
   QuestionTopic,
-  type AnswerGrade,
   type Examiner,
   type InterviewQuestion,
 } from './contract.ts';

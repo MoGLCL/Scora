@@ -1,11 +1,8 @@
 import {
-  type AppendResult,
   type ChainHead,
   type DeveloperId,
   type EpochMs,
   type EventId,
-  type EventPage,
-  type EventQuery,
   type EventStore,
   type SessionId,
   type SessionSummary,

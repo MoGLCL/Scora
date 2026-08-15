@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -16,13 +16,8 @@ import {
   VolumeX,
   Play,
   AlertTriangle,
-  Gamepad2,
   Award,
-  Zap,
-  Shield,
   Bomb,
-  Server,
-  Crosshair,
   Cpu
 } from "lucide-react";
 
@@ -164,7 +159,15 @@ export default function NotFound() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    try {
+      const saved = Number(localStorage.getItem("scora_chicken_highscore"));
+      return Number.isFinite(saved) ? saved : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [weaponLevel, setWeaponLevel] = useState(1);
   const [superBombs, setSuperBombs] = useState(3);
   const [lives, setLives] = useState(3);
@@ -176,23 +179,16 @@ export default function NotFound() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const triggerRocketRef = useRef<(() => void) | null>(null);
+  const highScoreRef = useRef(highScore);
 
   const toggleSound = () => {
     sounds.enabled = !soundOn;
     setSoundOn(!soundOn);
   };
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("scora_chicken_highscore");
-      if (saved) setHighScore(Number(saved));
-    } catch {
-      // Ignore
-    }
-  }, []);
-
-  const saveHighScore = (finalScore: number) => {
-    if (finalScore > highScore) {
+  const saveHighScore = useCallback((finalScore: number) => {
+    if (finalScore > highScoreRef.current) {
+      highScoreRef.current = finalScore;
       setHighScore(finalScore);
       try {
         localStorage.setItem("scora_chicken_highscore", String(finalScore));
@@ -200,7 +196,7 @@ export default function NotFound() {
         // Ignore
       }
     }
-  };
+  }, []);
 
   const handleStartGame = () => {
     setScore(0);
@@ -325,7 +321,7 @@ export default function NotFound() {
     let enemies: Enemy[] = [];
     let gifts: Gift[] = [];
     let particles: Particle[] = [];
-    let stars: { x: number; y: number; s: number; alpha: number }[] = [];
+    const stars: { x: number; y: number; s: number; alpha: number }[] = [];
 
     // Background Stars
     for (let i = 0; i < 55; i++) {
@@ -1435,7 +1431,7 @@ export default function NotFound() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isPlaying]);
+  }, [isPlaying, saveHighScore]);
 
   const getRank = (s: number) => {
     if (s >= 1000) return { title: "10x Principal Cloud Architect", desc: "كودك عالي الاعتمادية وخالٍ تماماً من أي Fatal Exceptions في بيئة الإنتاج!" };

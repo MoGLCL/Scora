@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { query, queryOne, transaction } from "@/lib/db";
+import { queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import { appendTrustEvent } from "@/lib/trust-events";
 import { HumanReviewEventType } from "@scora/trust-core";
@@ -43,6 +43,85 @@ export interface AiReviewReport {
   contradictions: string[];
   missingEvidence: string[];
   layerScores: Record<string, { score: number; confidence: number; summary: string }>;
+}
+
+interface SnapshotQuestion {
+  questionId: string;
+  kind: string;
+  skill: string;
+  answer: string | null;
+}
+
+interface SnapshotInterviewRound {
+  roundId: string;
+  transcript: string | null;
+}
+
+interface SnapshotEvent {
+  eventId: string;
+}
+
+interface EvidenceSnapshot {
+  questions: SnapshotQuestion[];
+  interview: SnapshotInterviewRound[];
+  eventHashChain: SnapshotEvent[];
+}
+
+const UNANSWERED_ANSWER = "لم تتم الإجابة";
+const SUBSTANTIAL_CODE_MIN_CHARS = 80;
+const LOW_COMPLETION_RATIO = 0.3;
+const INCOMPLETE_SUBMISSION_RATIO = 0.4;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isSnapshotQuestion(value: unknown): value is SnapshotQuestion {
+  return (
+    isRecord(value) &&
+    typeof value.questionId === "string" &&
+    typeof value.kind === "string" &&
+    typeof value.skill === "string" &&
+    (typeof value.answer === "string" || value.answer === null)
+  );
+}
+
+function isSnapshotInterviewRound(value: unknown): value is SnapshotInterviewRound {
+  return (
+    isRecord(value) &&
+    typeof value.roundId === "string" &&
+    (typeof value.transcript === "string" || value.transcript === null)
+  );
+}
+
+function isSnapshotEvent(value: unknown): value is SnapshotEvent {
+  return isRecord(value) && typeof value.eventId === "string";
+}
+
+function parseEvidenceSnapshot(serialized: string): EvidenceSnapshot | null {
+  try {
+    const value: unknown = JSON.parse(serialized);
+    if (!isRecord(value)) return null;
+
+    const questions = value.questions ?? [];
+    const interview = value.interview ?? [];
+    const eventHashChain = value.eventHashChain ?? [];
+
+    if (
+      !Array.isArray(questions) ||
+      !questions.every(isSnapshotQuestion) ||
+      !Array.isArray(interview) ||
+      !interview.every(isSnapshotInterviewRound) ||
+      !Array.isArray(eventHashChain) ||
+      !eventHashChain.every(isSnapshotEvent)
+    ) {
+      return null;
+    }
+
+    return { questions, interview, eventHashChain };
+  } catch {
+    return null;
+  }
 }
 
 async function requireAdmin() {
@@ -89,36 +168,33 @@ export async function startAiTrustReview(assessmentPublicId: string): Promise<{ 
     return { ok: false, error: "فشل التحقق من صحة حزمة الأدلة: تم الكشف عن عدم تطابق في التجزئة المشفرة (Hash Mismatch)" };
   }
 
-  let snapshot: any;
-  try {
-    snapshot = JSON.parse(session.evidence_snapshot_json);
-  } catch (err) {
+  const snapshot = parseEvidenceSnapshot(session.evidence_snapshot_json);
+  if (!snapshot) {
     return { ok: false, error: "تعذر قراءة حزمة الأدلة المقفلة" };
   }
 
   const { questions = [], interview = [], eventHashChain = [] } = snapshot;
 
   // 2. Perform Evidence-Grounded Feature Extraction
-  const codeQuestions = questions.filter((q: any) => q.kind === "code");
-  const codeComprehensionQuestions = questions.filter((q: any) =>
-    (q.skill && q.skill.includes("Code Comprehension")) ||
-    (q.skill && q.skill.includes("فهم الكود"))
-  );
-  const generalMcqs = questions.filter((q: any) =>
-    q.kind === "mcq" &&
-    (!q.skill || (!q.skill.includes("Code Comprehension") && !q.skill.includes("فهم الكود")))
+  const codeQuestions = questions.filter((question) => question.kind === "code");
+  const codeComprehensionQuestions = questions.filter((question) =>
+    question.skill.includes("Code Comprehension") || question.skill.includes("فهم الكود")
   );
 
   const totalQuestions = questions.length;
-  const answeredQuestions = questions.filter((q: any) => q.answer && q.answer !== "لم تتم الإجابة").length;
+  const answeredQuestions = questions.filter(
+    (question) => question.answer && question.answer !== UNANSWERED_ANSWER
+  ).length;
   const answerRatio = totalQuestions > 0 ? answeredQuestions / totalQuestions : 0;
 
   // Code inspection
-  const totalCodeLength = codeQuestions.reduce((acc: number, q: any) => acc + (q.answer?.length || 0), 0);
-  const hasSubstantialCode = totalCodeLength > 80;
+  const totalCodeLength = codeQuestions.reduce((total, question) => total + (question.answer?.length || 0), 0);
+  const hasSubstantialCode = totalCodeLength > SUBSTANTIAL_CODE_MIN_CHARS;
 
   // Spoken interview explanation check
-  const validInterviewRounds = interview.filter((r: any) => r.transcript && r.transcript.trim().length > 10);
+  const validInterviewRounds = interview.filter(
+    (round) => round.transcript && round.transcript.trim().length > 10
+  );
   const hasVoiceExplanation = validInterviewRounds.length > 0;
 
   // 3. Multi-Signal Code Attribution & Understanding Verification
@@ -126,7 +202,7 @@ export async function startAiTrustReview(assessmentPublicId: string): Promise<{ 
   let attributionConfidence = 0.9;
   const attributionSignals: string[] = [];
 
-  if (!hasSubstantialCode && answerRatio < 0.3) {
+  if (!hasSubstantialCode && answerRatio < LOW_COMPLETION_RATIO) {
     attributionAssessment = "insufficient_evidence";
     attributionConfidence = 0.5;
     attributionSignals.push("حجم الكود والإجابات المكتوبة ضئيل جداً لتحديد المصدر");
@@ -152,43 +228,43 @@ export async function startAiTrustReview(assessmentPublicId: string): Promise<{ 
       claim: "اجتياز أسئلة فحص استيعاب الكود المكتوب (Code Comprehension)",
       layer: "08_SKILL_UNDERSTANDING",
       confidence: 0.96,
-      evidenceIds: codeComprehensionQuestions.map((q: any) => q.questionId),
+      evidenceIds: codeComprehensionQuestions.map((question) => question.questionId),
       reason: `تم توليد (${codeComprehensionQuestions.length}) أسئلة ذكاء اصطناعي خصيصاً على الكود الذي كتبه المطور للتحقق من إدراكه لحله وتفاصيل التعقيد الزمني والأخطاء`,
     });
   }
 
   // Question Claims
-  questions.forEach((q: any, i: number) => {
-    const isAnswered = q.answer && q.answer !== "لم تتم الإجابة";
-    if (q.kind === "code") {
+  questions.forEach((question, index) => {
+    const isAnswered = Boolean(question.answer && question.answer !== UNANSWERED_ANSWER);
+    if (question.kind === "code") {
       groundedClaims.push({
-        claim: isAnswered ? `تمت كتابة وتطبيق الحل البرمجي لمهارة ${q.skill}` : `لم يتم تسليم كود للسؤال ${i + 1}`,
+        claim: isAnswered ? `تمت كتابة وتطبيق الحل البرمجي لمهارة ${question.skill}` : `لم يتم تسليم كود للسؤال ${index + 1}`,
         layer: "04_CODE_EVOLUTION",
         confidence: isAnswered ? 0.95 : 1.0,
-        evidenceIds: [q.questionId],
-        reason: isAnswered ? `تم فحص الحل المكتوب بطول (${q.answer.length} حرف) في لغة ${q.skill}` : "لا يوجد نص برمجي في حزمة الأدلة",
+        evidenceIds: [question.questionId],
+        reason: isAnswered ? `تم فحص الحل المكتوب بطول (${question.answer?.length ?? 0} حرف) في لغة ${question.skill}` : "لا يوجد نص برمجي في حزمة الأدلة",
       });
-    } else if (q.kind === "mcq") {
+    } else if (question.kind === "mcq") {
       groundedClaims.push({
-        claim: q.skill?.includes("Code Comprehension") ? `سؤال فحص الكود ${i + 1}` : `إجابة السؤال النظري ${i + 1} (${q.skill})`,
+        claim: question.skill.includes("Code Comprehension") ? `سؤال فحص الكود ${index + 1}` : `إجابة السؤال النظري ${index + 1} (${question.skill})`,
         layer: "08_SKILL_UNDERSTANDING",
         confidence: 0.9,
-        evidenceIds: [q.questionId],
-        reason: `تم اختيار الإجابة: "${q.answer}"`,
+        evidenceIds: [question.questionId],
+        reason: `تم اختيار الإجابة: "${question.answer}"`,
       });
     }
   });
 
   // Interview Claims
   if (interview.length > 0) {
-    interview.forEach((r: any, idx: number) => {
-      if (r.transcript) {
+    interview.forEach((round, index) => {
+      if (round.transcript) {
         groundedClaims.push({
-          claim: `تسجيل ومطابقة الشرح الصوتي للجولة ${idx + 1}`,
+          claim: `تسجيل ومطابقة الشرح الصوتي للجولة ${index + 1}`,
           layer: "09_INTERVIEW_EXPLANATION",
           confidence: 0.89,
-          evidenceIds: [r.roundId],
-          reason: `قدم المطور إجابة صوتية بطول (${r.transcript.length} حرف): "${r.transcript.slice(0, 80)}..."`,
+          evidenceIds: [round.roundId],
+          reason: `قدم المطور إجابة صوتية بطول (${round.transcript.length} حرف): "${round.transcript.slice(0, 80)}..."`,
         });
       }
     });
@@ -200,17 +276,17 @@ export async function startAiTrustReview(assessmentPublicId: string): Promise<{ 
       claim: "سلسلة الأحداث المشفرة موثقة وسليمة بدون أي تلاعب",
       layer: "01_ENVIRONMENT_INTEGRITY",
       confidence: 0.99,
-      evidenceIds: eventHashChain.slice(0, 3).map((e: any) => e.eventId),
+      evidenceIds: eventHashChain.slice(0, 3).map((event) => event.eventId),
       reason: `تم التحقق من تطابق التجزئة المشفرة لـ (${eventHashChain.length}) حدث في الجلسة`,
     });
   }
 
   // 5. Calculate Skill Confidence Scores
   const skillConfidence: Record<string, number> = {};
-  questions.forEach((q: any) => {
-    const isAnswered = q.answer && q.answer !== "لم تتم الإجابة";
+  questions.forEach((question) => {
+    const isAnswered = question.answer && question.answer !== UNANSWERED_ANSWER;
     const base = isAnswered ? 0.85 : 0.2;
-    skillConfidence[q.skill] = Math.min(0.98, (skillConfidence[q.skill] || 0) + base);
+    skillConfidence[question.skill] = Math.min(0.98, (skillConfidence[question.skill] || 0) + base);
   });
 
   // Normalize skill confidence
@@ -230,17 +306,19 @@ export async function startAiTrustReview(assessmentPublicId: string): Promise<{ 
       ? "APPROVE_HIGH_CONFIDENCE"
       : trustScore >= 60
       ? "APPROVE_ASSISTED"
-      : answerRatio > 0.3
+      : answerRatio > LOW_COMPLETION_RATIO
       ? "REQUIRES_HUMAN_CLARIFICATION"
       : "REJECT_UNVERIFIED";
 
   // Risk Clusters
   const riskClusters: RiskCluster[] = [];
-  if (answerRatio < 0.4) {
+  if (answerRatio < INCOMPLETE_SUBMISSION_RATIO) {
     riskClusters.push({
       clusterName: "INCOMPLETE_SUBMISSION_PATTERN",
       severity: "medium",
-      evidenceCorroboration: questions.filter((q: any) => !q.answer || q.answer === "لم تتم الإجابة").map((q: any) => q.questionId),
+      evidenceCorroboration: questions
+        .filter((question) => !question.answer || question.answer === UNANSWERED_ANSWER)
+        .map((question) => question.questionId),
       interpretation: "نسبة الأسئلة المكتملة أقل من 40%، يُنصح بالتحقق البشري من سبب عدم استكمال الاختبار.",
     });
   }

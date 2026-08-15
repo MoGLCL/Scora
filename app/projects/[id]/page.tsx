@@ -13,7 +13,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       project={project}
       initialProposals={await getProposalFeed(projectId)}
       currentUserId={session?.userId ?? null}
-      currentUserRole={session?.role ?? null}
     />
   );
 }

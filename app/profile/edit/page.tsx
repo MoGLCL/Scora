@@ -13,14 +13,12 @@ import { GithubIcon, LinkedinIcon } from "@/components/auth/social-icons";
 import {
   User,
   Mail,
-  MapPin,
   Briefcase,
   Camera,
   Trash2,
   Globe,
   Plus,
   X,
-  ArrowLeft,
   CheckCircle2,
 } from "lucide-react";
 

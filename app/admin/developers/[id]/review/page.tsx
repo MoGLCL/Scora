@@ -4,22 +4,12 @@ import { query, queryOne } from "@/lib/db";
 import { AdmissionDecisionForm } from "@/components/admission-decision-form";
 import { AdminAiReviewCard } from "@/components/admin-ai-review-card";
 import { readJsonValue } from "@/lib/json-value";
+import type { AiReviewReport } from "@/lib/actions/trust-agent";
 import {
-  Code2,
   Lock,
-  ShieldCheck,
-  Cpu,
-  Fingerprint,
   Mic,
   FileCode,
   ArrowRight,
-  Sparkles,
-  Calendar,
-  User,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  ExternalLink
 } from "lucide-react";
 
 const eventLabels: Record<string, string> = {
@@ -110,7 +100,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     [session.id]
   );
 
-  const initialReport = readJsonValue<any>(session.ai_review_report_json);
+  const initialReport = readJsonValue<AiReviewReport>(session.ai_review_report_json);
 
   return (
     <main dir="rtl" className="mx-auto max-w-5xl space-y-6 px-6 py-10 font-body">
@@ -155,7 +145,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         initialReport={initialReport}
         snapshotHash={session.evidence_snapshot_hash}
         snapshotLockedAt={session.snapshot_locked_at}
-        candidateName={session.display_name}
       />
 
       {/* 2. Questions & Candidate Answers (Sandbox IDE & Text) */}

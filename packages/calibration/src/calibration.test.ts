@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { HumanReviewEventType, TrustEventType, type TrustEvent } from '@scora/trust-core';
+import { HumanReviewEventType, type TrustEvent } from '@scora/trust-core';
 import {
   TEST_DEVELOPER,
   TEST_SESSION,

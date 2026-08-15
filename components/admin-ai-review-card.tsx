@@ -7,15 +7,10 @@ import {
   Lock,
   ShieldCheck,
   AlertTriangle,
-  CheckCircle2,
   Cpu,
   Fingerprint,
   Layers,
-  FileCode,
-  Mic,
-  ArrowUpRight,
   Clock,
-  HelpCircle,
   BarChart3,
   Check
 } from "lucide-react";
@@ -26,13 +21,11 @@ export function AdminAiReviewCard({
   initialReport,
   snapshotHash,
   snapshotLockedAt,
-  candidateName,
 }: {
   assessmentPublicId: string;
   initialReport: AiReviewReport | null;
   snapshotHash: string | null;
   snapshotLockedAt: Date | string | null;
-  candidateName: string;
 }) {
   const [report, setReport] = useState<AiReviewReport | null>(initialReport);
   const [loading, setLoading] = useState(false);

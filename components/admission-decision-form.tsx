@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { decideDeveloperAdmission } from "@/lib/actions/admin";
-import { CheckCircle2, ShieldCheck, XCircle, Award, Sparkles } from "lucide-react";
+import { CheckCircle2, ShieldCheck, XCircle, Award } from "lucide-react";
 
 export function AdmissionDecisionForm({ assessmentPublicId }: { assessmentPublicId: string }) {
   const [reason, setReason] = useState("");

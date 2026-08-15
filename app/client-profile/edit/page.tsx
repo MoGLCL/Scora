@@ -12,12 +12,10 @@ import { AiPreferenceToggle } from "@/components/ai-preference-toggle";
 import {
   User,
   Mail,
-  MapPin,
   Building,
   Camera,
   Trash2,
   Globe,
-  ArrowLeft,
   CheckCircle2,
 } from "lucide-react";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -8,11 +8,7 @@ import {
   Search,
   Briefcase,
   Clock,
-  DollarSign,
   ChevronLeft,
-  ArrowUpRight,
-  ShieldCheck,
-  Code
 } from "lucide-react";
 
 export interface ProjectCardData {

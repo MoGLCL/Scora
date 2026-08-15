@@ -31,30 +31,58 @@ function getRandomFunnyRejectionMessage(title: string) {
   return FUNNY_REJECTION_MESSAGES[index](title);
 }
 
+interface OwnedProposal {
+  id: number;
+  project_id: number;
+  developer_user_id: number;
+  project_title: string;
+  developer_username: string | null;
+  developer_name: string;
+}
+
+async function findOwnedProposal(input: {
+  proposalId: number;
+  ownerUserId: number;
+  isAdmin: boolean;
+  statuses: Array<"pending" | "rejected">;
+  requireOpenProject?: boolean;
+}): Promise<OwnedProposal | null> {
+  const statusPlaceholders = input.statuses.map(() => "?").join(",");
+  const openProjectClause = input.requireOpenProject ? "AND p.status='open'" : "";
+
+  return queryOne<OwnedProposal>(
+    `SELECT pr.id, pr.project_id, d.user_id developer_user_id, p.title project_title,
+            u.username developer_username, d.display_name developer_name
+     FROM proposals pr
+     JOIN projects p ON p.id=pr.project_id
+     JOIN clients c ON c.id=p.client_id
+     JOIN developers d ON d.id=pr.developer_id
+     JOIN users u ON u.id=d.user_id
+     WHERE pr.id=? AND (c.user_id=? OR ?=1)
+       AND pr.status IN (${statusPlaceholders}) ${openProjectClause}`,
+    [input.proposalId, input.ownerUserId, input.isAdmin ? 1 : 0, ...input.statuses]
+  );
+}
+
+function revalidateProposalProject(projectId: number) {
+  revalidatePath(`/projects/${projectId}/proposals`);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/dashboard");
+}
+
 export async function acceptProposal(proposalId: number) {
   const s = await verifySession();
   if (!s || (s.role !== "client" && !s.isAdmin)) {
     return { ok: false as const, error: "غير مصرح" };
   }
 
-  const row = await queryOne<{
-    id: number;
-    project_id: number;
-    developer_user_id: number;
-    project_title: string;
-    developer_username: string | null;
-    developer_name: string;
-  }>(
-    `SELECT pr.id, pr.project_id, d.user_id developer_user_id, p.title project_title,
-            u.username developer_username, d.display_name developer_name
-     FROM proposals pr 
-     JOIN projects p ON p.id=pr.project_id 
-     JOIN clients c ON c.id=p.client_id 
-     JOIN developers d ON d.id=pr.developer_id 
-     JOIN users u ON u.id=d.user_id
-     WHERE pr.id=? AND (c.user_id=? OR ?=1) AND p.status='open' AND pr.status IN ('pending', 'rejected')`,
-    [proposalId, s.userId, s.isAdmin ? 1 : 0]
-  );
+  const row = await findOwnedProposal({
+    proposalId,
+    ownerUserId: s.userId,
+    isAdmin: s.isAdmin,
+    statuses: ["pending", "rejected"],
+    requireOpenProject: true,
+  });
 
   if (!row) {
     return { ok: false as const, error: "العرض غير موجود أو المشروع ليس مفتوحاً أو تم توظيف مطور بالفعل" };
@@ -77,9 +105,7 @@ export async function acceptProposal(proposalId: number) {
     );
   });
 
-  revalidatePath(`/projects/${row.project_id}/proposals`);
-  revalidatePath(`/projects/${row.project_id}`);
-  revalidatePath("/dashboard");
+  revalidateProposalProject(row.project_id);
   return {
     ok: true as const,
     developerUsername: row.developer_username ?? String(row.developer_user_id),
@@ -132,9 +158,7 @@ export async function unhireDeveloper(projectId: number) {
     }
   });
 
-  revalidatePath(`/projects/${projectId}/proposals`);
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/dashboard");
+  revalidateProposalProject(projectId);
   return { ok: true as const };
 }
 
@@ -144,20 +168,12 @@ export async function rejectProposal(proposalId: number) {
     return { ok: false as const, error: "غير مصرح" };
   }
 
-  const row = await queryOne<{
-    id: number;
-    project_id: number;
-    developer_user_id: number;
-    project_title: string;
-  }>(
-    `SELECT pr.id, pr.project_id, d.user_id developer_user_id, p.title project_title 
-     FROM proposals pr 
-     JOIN projects p ON p.id=pr.project_id 
-     JOIN clients c ON c.id=p.client_id 
-     JOIN developers d ON d.id=pr.developer_id 
-     WHERE pr.id=? AND (c.user_id=? OR ?=1) AND pr.status='pending'`,
-    [proposalId, s.userId, s.isAdmin ? 1 : 0]
-  );
+  const row = await findOwnedProposal({
+    proposalId,
+    ownerUserId: s.userId,
+    isAdmin: s.isAdmin,
+    statuses: ["pending"],
+  });
 
   if (!row) {
     return { ok: false as const, error: "العرض غير موجود أو ليس ملكك" };
@@ -173,9 +189,7 @@ export async function rejectProposal(proposalId: number) {
     );
   });
 
-  revalidatePath(`/projects/${row.project_id}/proposals`);
-  revalidatePath(`/projects/${row.project_id}`);
-  revalidatePath("/dashboard");
+  revalidateProposalProject(row.project_id);
   return { ok: true as const };
 }
 
@@ -185,20 +199,12 @@ export async function undoRejectProposal(proposalId: number) {
     return { ok: false as const, error: "غير مصرح" };
   }
 
-  const row = await queryOne<{
-    id: number;
-    project_id: number;
-    developer_user_id: number;
-    project_title: string;
-  }>(
-    `SELECT pr.id, pr.project_id, d.user_id developer_user_id, p.title project_title 
-     FROM proposals pr 
-     JOIN projects p ON p.id=pr.project_id 
-     JOIN clients c ON c.id=p.client_id 
-     JOIN developers d ON d.id=pr.developer_id 
-     WHERE pr.id=? AND (c.user_id=? OR ?=1) AND pr.status='rejected'`,
-    [proposalId, s.userId, s.isAdmin ? 1 : 0]
-  );
+  const row = await findOwnedProposal({
+    proposalId,
+    ownerUserId: s.userId,
+    isAdmin: s.isAdmin,
+    statuses: ["rejected"],
+  });
 
   if (!row) {
     return { ok: false as const, error: "العرض غير موجود أو لم يتم رفضه مسبقاً" };
@@ -216,8 +222,6 @@ export async function undoRejectProposal(proposalId: number) {
     );
   });
 
-  revalidatePath(`/projects/${row.project_id}/proposals`);
-  revalidatePath(`/projects/${row.project_id}`);
-  revalidatePath("/dashboard");
+  revalidateProposalProject(row.project_id);
   return { ok: true as const };
 }

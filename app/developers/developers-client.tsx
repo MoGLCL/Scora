@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { Search, SlidersHorizontal, ChevronDown, Check, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronDown, Check } from "lucide-react";
 
 export interface DeveloperCardData {
   id: string;

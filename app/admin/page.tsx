@@ -75,7 +75,7 @@ export default function AdminPage() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | AppRole | "admin" | "restricted">("all");
-  const [tab, setTab] = useState<"users" | "projects" | "stats" | "settings">("users");
+  const [tab, setTab] = useState<"users" | "projects" | "stats" | "ai" | "settings">("users");
   const [stats, setStats] = useState<{
     totals?: { users: number; active: number; visits: number; visitors: number };
     daily?: { day: string; visits: number }[];
@@ -275,14 +275,15 @@ export default function AdminPage() {
               ["users", "المستخدمون والتحكم"],
               ["projects", "المشاريع المنشورة"],
               ["stats", "الإحصائيات والزيارات"],
-              ["settings", "إعدادات النظام و AI"]
+              ["ai", "نماذج الذكاء الاصطناعي (AI Models)"],
+              ["settings", "إعدادات المنصة العامة"]
             ] as const
           ).map(([k, l]) => (
             <button
               type="button"
               key={k}
               onClick={() => setTab(k)}
-              className={`rounded-xl px-6 py-3 font-extrabold text-sm transition-all ${
+              className={`rounded-xl px-5 py-3 font-extrabold text-sm transition-all cursor-pointer ${
                 tab === k ? "bg-[#056B38] text-white shadow-xs" : "text-[#526B5E] hover:bg-[#F7FAF8]"
               }`}
             >
@@ -305,9 +306,14 @@ export default function AdminPage() {
           </div>
         </section>
 
+        {/* AI Models Tab */}
+        {tab === "ai" && (
+          <OpenRouterSettings notify={addToast} />
+        )}
+
         {/* Settings Tab */}
         {tab === "settings" && (
-          <>
+          <div className="space-y-4">
             <OpenRouterSettings notify={addToast} />
             <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-6 flex items-center justify-between shadow-xs">
               <div>
@@ -326,7 +332,7 @@ export default function AdminPage() {
                     addToast("تم حفظ حالة المساعد الذكي", "success");
                   } else addToast(r.error, "warn");
                 }}
-                className={`h-10 rounded-full px-6 text-sm font-bold text-white transition-all ${
+                className={`h-10 rounded-full px-6 text-sm font-bold text-white transition-all cursor-pointer ${
                   systemSettings.isAiAssistantEnabled ? "bg-[#056B38] hover:bg-[#005B27]" : "bg-gray-500"
                 }`}
               >
@@ -348,14 +354,14 @@ export default function AdminPage() {
                     addToast("تم حفظ إعداد التسجيل السريع", "success");
                   } else addToast(r.error, "warn");
                 }}
-                className={`h-10 rounded-full px-6 text-sm font-bold text-white transition-all ${
+                className={`h-10 rounded-full px-6 text-sm font-bold text-white transition-all cursor-pointer ${
                   quickRegistration ? "bg-[#056B38] hover:bg-[#005B27]" : "bg-gray-500"
                 }`}
               >
                 {quickRegistration ? "مفتوح" : "متوقف"}
               </button>
             </section>
-          </>
+          </div>
         )}
 
         {/* Stats Tab */}

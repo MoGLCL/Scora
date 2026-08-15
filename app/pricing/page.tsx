@@ -1,10 +1,8 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { Check, Minus } from "lucide-react";
 
 export default function PricingPage() {
   return (

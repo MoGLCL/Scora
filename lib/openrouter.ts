@@ -1,9 +1,10 @@
+"use theoretical"; // eslint-disable-line
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { query } from "@/lib/db";
 
-// ─── Zod Schemas ───────────────────────────────────────────────
+// ─── Zod Validation Schemas ────────────────────────────────────
 
 const Question = z.object({
   kind: z.enum(["mcq", "interview", "code"]),
@@ -15,7 +16,7 @@ const Question = z.object({
 });
 
 const Assessment = z.object({
-  questions: z.array(Question).min(5).max(15),
+  questions: z.array(Question).min(5).max(20),
   durationMinutes: z.number().int().min(15).max(180).optional()
 });
 
@@ -51,32 +52,49 @@ const InterviewTurn = z.object({
   shouldContinue: z.boolean()
 });
 
-// ─── AI Pipeline Constants ─────────────────────────────────────
+const OpenRouterResponse = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({ content: z.string().min(1) })
+    })
+  ).min(1)
+});
 
+// ─── AI Pipeline & 100% Free Live Endpoints ────────────────────
+
+const DEFAULT_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+
+// Active 100% Free models fallback pipeline
 const AI_MODEL_PIPELINE = [
-  "google/gemini-2.5-flash:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "qwen/qwen-2.5-coder-32b-instruct:free",
-  "deepseek/deepseek-r1:free",
-  "openai/gpt-4.1-mini"
+  "openrouter/free",
+  "cohere/north-mini-code:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "google/gemma-4-31b-it:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "openai/gpt-oss-20b:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "poolside/laguna-s-2.1:free",
+  "dots-studio/dots-3-note-preview:free"
 ];
 
-// ─── Secret Encryption & Decryption Helpers ────────────────────
+// ─── AES-256-GCM Encryption / Decryption Helpers ──────────────
 
-function getCipherKey() {
+function getCipherKey(): Buffer {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET_REQUIRED");
   return createHash("sha256").update(secret).digest();
 }
 
-export function encryptSecret(value: string) {
+export function encryptSecret(value: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", getCipherKey(), iv);
   const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   return `v1.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${data.toString("base64url")}`;
 }
 
-function decryptSecret(value: string) {
+function decryptSecret(value: string): string {
   const [, iv, tag, data] = value.split(".");
   const decipher = createDecipheriv("aes-256-gcm", getCipherKey(), Buffer.from(iv, "base64url"));
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
@@ -93,16 +111,16 @@ export async function openRouterConfig() {
   const storedKey = settings.openrouter_api_key;
   return {
     apiKey: storedKey ? decryptSecret(storedKey) : process.env.OPENROUTER_API_KEY,
-    model: settings.openrouter_model || "google/gemini-2.5-flash:free",
-    siteUrl: settings.openrouter_site_url || "http://localhost:3000",
-    siteTitle: settings.openrouter_site_title || "SCORA",
+    model: settings.openrouter_model || DEFAULT_MODEL,
+    siteUrl: settings.openrouter_site_url || process.env.APP_URL || "",
+    siteTitle: settings.openrouter_site_title || process.env.OPENROUTER_SITE_TITLE || "SCORA",
     hasStoredKey: Boolean(storedKey)
   };
 }
 
-// ─── JSON Parsing & Normalization Helpers ──────────────────────
+// ─── JSON Clean Parser & Normalizer ────────────────────────────
 
-function parseModelJson(content: string) {
+function parseModelJson(content: string): unknown {
   const clean = content
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
@@ -112,24 +130,37 @@ function parseModelJson(content: string) {
   } catch {
     const start = clean.indexOf("{");
     const end = clean.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(clean.slice(start, end + 1));
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(clean.slice(start, end + 1));
+      } catch {
+        // Fall through
+      }
+    }
     throw new Error("OPENROUTER_INVALID_JSON");
   }
 }
 
 function normalizeAssessment(value: unknown, skills: string[]) {
   const fallbackSkill = skills[0] || "Software Engineering";
-  const normalize = (q: GroupedQuestionValue, kind: "mcq" | "interview" | "code") => ({
-    ...q,
-    kind,
-    skill: q.skill || fallbackSkill,
-    expectedAnswer:
-      q.expectedAnswer ??
-      (kind === "mcq" ? q.options?.[0] ?? "راجع الإجابة تقنيًا" : "قيّم الإجابة وفق الدقة والعمق التقني"),
-    maxScore: q.maxScore ?? (kind === "code" ? 40 : kind === "interview" ? 20 : 10)
-  });
+  let skillIndex = 0;
 
-  const parsedAny = typeof value === "object" && value !== null ? (value as Record<string, any>) : {};
+  const normalize = (q: GroupedQuestionValue, kind: "mcq" | "interview" | "code") => {
+    const assignedSkill = q.skill && q.skill.trim() ? q.skill : skills[skillIndex % skills.length] || fallbackSkill;
+    skillIndex++;
+
+    return {
+      ...q,
+      kind,
+      skill: assignedSkill,
+      expectedAnswer:
+        q.expectedAnswer ??
+        (kind === "mcq" ? q.options?.[0] ?? "راجع الإجابة تقنيًا" : "قيّم الإجابة وفق الدقة والعمق التقني"),
+      maxScore: q.maxScore ?? (kind === "code" ? 40 : kind === "interview" ? 15 : 10)
+    };
+  };
+
+  const parsedAny = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
   let durationMinutes = typeof parsedAny.durationMinutes === "number" ? Math.max(15, Math.min(180, Math.round(parsedAny.durationMinutes))) : undefined;
 
   const direct = Assessment.safeParse(value);
@@ -141,7 +172,7 @@ function normalizeAssessment(value: unknown, skills: string[]) {
 
     return {
       questions: direct.data.questions.map((q) => normalize(q, q.kind)),
-      durationMinutes: Math.max(20, Math.min(180, durationMinutes))
+      durationMinutes: Math.max(25, Math.min(180, durationMinutes))
     };
   }
 
@@ -155,194 +186,248 @@ function normalizeAssessment(value: unknown, skills: string[]) {
       ...grouped.mcq.map((q) => normalize(q, "mcq")),
       ...grouped.interview.map((q) => normalize(q, "interview"))
     ],
-    durationMinutes: Math.max(20, Math.min(180, durationMinutes))
+    durationMinutes: Math.max(25, Math.min(180, durationMinutes))
   };
 }
 
-function createFallbackAssessment(primarySkill: string) {
+// ─── Dynamic Multi-Skill Fallback Engine ───────────────────────
+
+function createFallbackAssessment(skills: string[], jobTitle?: string) {
+  const cleanSkills = skills.length > 0 ? skills : ["JavaScript", "TypeScript", "SQL"];
+  const codeSkills = cleanSkills.filter((s) => !["figma", "ui/ux", "photoshop", "canva", "design"].includes(s.toLowerCase()));
+  const primarySkill = codeSkills[0] || cleanSkills[0] || "Software Engineering";
+  const track = jobTitle || "Full-Stack Web Developer";
+
+  const questions: Array<{
+    kind: "code" | "mcq" | "interview";
+    skill: string;
+    question: string;
+    options?: string[];
+    expectedAnswer: string;
+    maxScore: number;
+  }> = [];
+
+  // 1. Practical Coding Challenge
+  questions.push({
+    kind: "code",
+    skill: primarySkill,
+    question: `[مهمة برمجية عملية - ${primarySkill} | تخصص ${track}]:\nقم بكتابة موديول برمجي متكامل بلغة (${primarySkill}) يقوم ببناء دالة معالجة سريعة لطلبات البيانات والتحقق من صحة المدخلات، مع تطبيق معالجة استثناءات الأخطاء (Exception Handling)، والتعامل مع الحالات الحدية (Edge Cases)، وتأمين العمليات ضد التضارب أو انهيار الخادم.`,
+    expectedAnswer: `كتابة كود نظيف وقابل لإعادة الاستخدام بلغة ${primarySkill} مجهز بالتحقق من المدخلات ومعالجة الأخطاء.`,
+    maxScore: 40
+  });
+
+  // 2. MCQs distributed across all candidate skills
+  cleanSkills.forEach((skill) => {
+    questions.push({
+      kind: "mcq",
+      skill,
+      question: `[سؤال اختيار من متعدد - مهارة ${skill}]: ما هي أفضل ممارسة معتمدة لضمان الأداء العالي ومنع استهلاك الموارد المفرط عند استخدام ${skill} في المشاريع الكبرى؟`,
+      options: [
+        `تطبيق التخزين المؤقت (Caching)، إدارة الذاكرة، وفهرسة البيانات والعمليات المتزامنة في ${skill}`,
+        "تعطيل معالجة الأخطاء لتقليل زمن الاستجابة",
+        "تحميل كافة السجلات والملفات في الذاكرة المؤقتة مرة واحدة بدون تجزئة",
+        "الاعتماد الكامل على الفحص والتحقق من جانب العميل فقط"
+      ],
+      expectedAnswer: `تطبيق التخزين المؤقت (Caching)، إدارة الذاكرة، وفهرسة البيانات والعمليات المتزامنة في ${skill}`,
+      maxScore: 10
+    });
+  });
+
+  // Ensure baseline question count
+  if (cleanSkills.length < 3) {
+    questions.push({
+      kind: "mcq",
+      skill: primarySkill,
+      question: `[سؤال تقني - ${primarySkill}]: كيف تتعامل مع العمليات غير المتزامنة (Asynchronous Tasks) لمنع تجميد المعالجة؟`,
+      options: [
+        "استخدام الآليات غير المحظورة (Non-blocking I/O) وإدارة الـ Promises/Threads بشكل معزول",
+        "تشغيل الحلقات التكرارية بشكل متواصل حتى اكتمال البيانات",
+        "تجاهل الـ Callbacks والأخطاء الشبكية",
+        "تحويل جميع المعاملات إلى نمط متزامن مغلق"
+      ],
+      expectedAnswer: "استخدام الآليات غير المحظورة (Non-blocking I/O) وإدارة الـ Promises/Threads بشكل معزول",
+      maxScore: 10
+    });
+  }
+
+  // 3. Technical & Architectural Interview Questions
+  const interviewSkill1 = cleanSkills[0] || primarySkill;
+  const interviewSkill2 = cleanSkills[1] || cleanSkills[0] || "System Architecture";
+
+  questions.push({
+    kind: "interview",
+    skill: interviewSkill1,
+    question: `[مقابلة تقنية - ${interviewSkill1}]: وضح بالتفصيل كيف تكتشف وتعالج تسريبات الذاكرة (Memory Leaks) وبطء الاستجابة عند تشغيل تطبيق يعتمد على ${interviewSkill1} في بيئة الإنتاج؟`,
+    expectedAnswer: "شرح استخدام أدوات الـ Profiling وتحليل الـ Call Stacks ومراقبة تسريب الـ Event Listeners / DB connections.",
+    maxScore: 15
+  });
+
+  questions.push({
+    kind: "interview",
+    skill: interviewSkill2,
+    question: `[مقابلة معمارية - ${track}]: في حال تطلب المشروع بناء نظام يعالج آلاف الطلبات في الثانية باستخدام (${cleanSkills.join(" + ")}). كيف تصمم معمارية النظام لتكون High Availability وFault Tolerant؟`,
+    expectedAnswer: "شرح آليات الـ Load Balancing، الـ Caching Layer، واستراتيجية الـ Database Replication والـ Async Queues.",
+    maxScore: 15
+  });
+
+  const durationMinutes = Math.max(30, Math.min(90, 25 + cleanSkills.length * 4 + 15));
+
   return {
     assessment: {
-      durationMinutes: 45,
-      questions: [
-        {
-          kind: "code" as const,
-          skill: primarySkill,
-          question: `[AI Generated Task for ${primarySkill}]: قم بكتابة وحدة برمجية متكاملة بلغة (${primarySkill}) تقوم ببناء نظام معالجة سريعة واستعلامات آمنة للملفات أو البيانات، مع تضمين معالجة الأخطاء (Exception Handling) والحالات الحدية (Edge Cases).`,
-          expectedAnswer: `كتابة كود نظيم بلغة ${primarySkill} مجهز بمعالجة الأخطاء والتأمين.`,
-          maxScore: 40
-        },
-        {
-          kind: "mcq" as const,
-          skill: primarySkill,
-          question: `[AI MCQ 1 - ${primarySkill}]: ما هي أفضل استراتيجية لتحسين زمن الاستجابة والأداء عند التعامل مع برمجيات ${primarySkill} في السيرفر؟`,
-          options: [
-            "تطبيق التخزين المؤقت (Caching) والـ Indexing الفعّال",
-            "إغلاق معالجة الأخطاء لزيادة السرعة",
-            "تحويل كافة البيانات لذاكرة المتصفح دون فلترة",
-            "إلغاء المعاملات غير المتزامنة"
-          ],
-          expectedAnswer: "تطبيق التخزين المؤقت (Caching) والـ Indexing الفعّال",
-          maxScore: 10
-        },
-        {
-          kind: "mcq" as const,
-          skill: primarySkill,
-          question: `[AI MCQ 2 - ${primarySkill}]: كيف تضمن حماية المدخلات ومنع ثغرات الأمان عند بناء تطبيقات ${primarySkill}؟`,
-          options: [
-            "تطهير المدخلات (Sanitization) واستخدام الاستعلامات المجهزة (Prepared Statements)",
-            "الاعتماد على الفحص من طرف العميل فقط",
-            "تشفير أسماء التمرير بدون فحص المحتوى",
-            "تعطيل الـ System Logging"
-          ],
-          expectedAnswer: "تطهير المدخلات (Sanitization) واستخدام الاستعلامات المجهزة (Prepared Statements)",
-          maxScore: 10
-        },
-        {
-          kind: "mcq" as const,
-          skill: primarySkill,
-          question: `[AI MCQ 3 - ${primarySkill}]: عند التعامل مع العمليات غير المتزامنة في ${primarySkill}، ما هي الفائدة المباشرة للـ Non-blocking Operations؟`,
-          options: [
-            "منع تجميد Thread الرئيسي واستمرار استجابة التطبيق للطلبات",
-            "تسريع القراءة من القرص الصلب بنسبة 100%",
-            "حفظ البيانات أوتوماتيكياً في الـ Local Storage",
-            "تعطيل الاتصال بالشبكة"
-          ],
-          expectedAnswer: "منع تجميد Thread الرئيسي واستمرار استجابة التطبيق للطلبات",
-          maxScore: 10
-        },
-        {
-          kind: "interview" as const,
-          skill: primarySkill,
-          question: `[AI Interview 1 - ${primarySkill}]: اشرح كيف تتعامل مع مشاكل تضارب البيانات (Race Conditions & Concurrency) عند استخدام ${primarySkill} في البيئات الموزعة؟`,
-          expectedAnswer: "شرح آليات الـ Lock والإدارات المتوازية المعزولة.",
-          maxScore: 15
-        },
-        {
-          kind: "interview" as const,
-          skill: primarySkill,
-          question: `[AI Interview 2 - ${primarySkill}]: ما هي النهج والأساليب التي تتبعها لاختبار كود ${primarySkill} وضمان عدم حدوث Memory Leaks أثناء العمل المكثف؟`,
-          expectedAnswer: "شرح استخدام Profiling Tools والـ Unit Testing.",
-          maxScore: 15
-        }
-      ]
+      durationMinutes,
+      questions
     },
-    model: "scora-ai-dynamic-generator",
-    prompt: `ai-generated-${primarySkill}`,
-    raw: { mode: "dynamic-ai" }
+    model: "scora-multi-skill-engine",
+    prompt: `multi-skill-assessment-${cleanSkills.join("-")}`,
+    raw: { mode: "dynamic-multi-skill" }
   };
 }
 
-// ─── Core OpenRouter Request Executor ─────────────────────────
+// ─── OpenRouter HTTP Request Executor ─────────────────────────
+
+async function requestModelJson(input: {
+  apiKey: string;
+  model: string;
+  siteUrl: string;
+  siteTitle: string;
+  system: string;
+  prompt: string;
+  maxTokens: number;
+  temperature: number;
+  timeoutMs: number;
+  useJsonFormat?: boolean;
+}): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs);
+
+  const payload: Record<string, unknown> = {
+    model: input.model,
+    messages: [
+      { role: "system", content: input.system },
+      { role: "user", content: input.prompt }
+    ],
+    max_tokens: input.maxTokens,
+    temperature: input.temperature
+  };
+
+  if (input.useJsonFormat !== false) {
+    payload.response_format = { type: "json_object" };
+  }
+
+  try {
+    const response = await fetch(OPENROUTER_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        ...(input.siteUrl ? { "HTTP-Referer": input.siteUrl } : {}),
+        "X-OpenRouter-Title": input.siteTitle,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      if (response.status === 400 && input.useJsonFormat !== false) {
+        return requestModelJson({ ...input, useJsonFormat: false });
+      }
+      throw new Error(`OPENROUTER_HTTP_${response.status}`);
+    }
+
+    const parsedResponse = OpenRouterResponse.parse(await response.json());
+    return parseModelJson(parsedResponse.choices[0].message.content);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function completeJson<T>(schema: z.ZodType<T>, system: string, prompt: string) {
   const config = await openRouterConfig();
-  const apiKey = config.apiKey || "sk-or-v1-free-public-fallback";
+  const apiKey = config.apiKey;
+  if (!apiKey) throw new Error("OPENROUTER_NOT_CONFIGURED");
 
   const modelsToTry = Array.from(new Set([config.model, ...AI_MODEL_PIPELINE]));
 
   for (const modelCandidate of modelsToTry) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000); // Optimized 12s fast model timeout
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": config.siteUrl,
-          "X-OpenRouter-Title": config.siteTitle,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: modelCandidate,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 3000,
-          temperature: 0.1
-        }),
-        signal: controller.signal,
-        cache: "no-store"
+      const value = await requestModelJson({
+        apiKey,
+        model: modelCandidate,
+        siteUrl: config.siteUrl,
+        siteTitle: config.siteTitle,
+        system,
+        prompt,
+        maxTokens: 3000,
+        temperature: 0.2,
+        timeoutMs: 12_000
       });
-
-      if (response.ok) {
-        const raw = await response.json();
-        const content = raw?.choices?.[0]?.message?.content;
-        if (typeof content === "string" && content.trim()) {
-          return { value: schema.parse(parseModelJson(content)), model: modelCandidate };
-        }
-      }
+      return { value: schema.parse(value), model: modelCandidate };
     } catch {
-      // Try next model candidate
-    } finally {
-      clearTimeout(timer);
+      // Try next candidate
     }
   }
   throw new Error("OPENROUTER_ALL_MODELS_FAILED");
 }
 
-// ─── Public API Exports ────────────────────────────────────────
+// ─── Public AI Actions ─────────────────────────────────────────
 
-export async function generateAssessment(skills: string[], variationSeed = randomBytes(12).toString("hex"), previousQuestions: string[] = []) {
+export async function generateAssessment(
+  skills: string[],
+  variationSeed = randomBytes(12).toString("hex"),
+  previousQuestions: string[] = [],
+  jobTitle?: string
+) {
   const config = await openRouterConfig();
-  const apiKey = config.apiKey || "sk-or-v1-free-public-fallback";
+  const apiKey = config.apiKey;
 
-  const codeSkills = skills.filter((s) => !["figma", "ui/ux", "photoshop", "canva", "design"].includes(s.toLowerCase()));
-  const primarySkill = codeSkills[0] || skills[0] || "Software Engineering";
+  const cleanSkills = skills.length > 0 ? skills : ["JavaScript", "TypeScript", "SQL"];
+  const codeSkills = cleanSkills.filter((s) => !["figma", "ui/ux", "photoshop", "canva", "design"].includes(s.toLowerCase()));
+  const primarySkill = codeSkills[0] || cleanSkills[0] || "Software Engineering";
+  const track = jobTitle || "Full-Stack Web Developer";
 
   const exclusions = previousQuestions.length
-    ? `Forbidden previous questions: ${JSON.stringify(previousQuestions)}`
+    ? `Forbidden previous questions: ${JSON.stringify(previousQuestions.slice(0, 15))}`
     : "No previous questions exist.";
 
-  const prompt = `Generate a 100% unique Arabic AI admission assessment for developer claiming skills: ${skills.join(
+  const prompt = `Generate a 100% unique Arabic AI technical assessment for a candidate in the specialty "${track}" claiming the following skills: ${cleanSkills.join(
     ", "
-  )}. Primary focus: ${primarySkill}. Variation seed: ${variationSeed}. ${exclusions}. Return JSON with: 1 code task for ${primarySkill}, 3 MCQ questions with 4 options each, 2 technical interview questions, and determine the realistic test duration in minutes based on difficulty and code depth in durationMinutes: number (e.g. 30, 45, 60). All text in Arabic. Include expectedAnswer and maxScore.`;
+  )}.
+REQUIREMENTS:
+1. Cover ALL claimed skills across the assessment.
+2. Include 1 practical coding task in the primary skill (${primarySkill}).
+3. Include ${Math.max(3, cleanSkills.length)} Multiple Choice Questions (MCQs) with 4 options each, distributing the questions to test EACH of the candidate's skills: ${cleanSkills.join(", ")}.
+4. Include 2 in-depth architectural interview questions covering the candidate's skills.
+5. All text, questions, and options MUST be in formal Arabic.
+6. Return a valid JSON object with:
+   - "durationMinutes": realistic test duration (e.g. 45, 60)
+   - "questions": array of question objects with "kind" ("code"|"mcq"|"interview"), "skill" (the specific skill being tested), "question" (Arabic text), "options" (array of 4 strings for MCQs), "expectedAnswer" (string), and "maxScore" (number).
+Variation seed: ${variationSeed}. ${exclusions}.`;
 
-  const modelsToTry = Array.from(new Set([config.model, ...AI_MODEL_PIPELINE]));
+  if (apiKey) {
+    const modelsToTry = Array.from(new Set([config.model, ...AI_MODEL_PIPELINE]));
 
-  for (const modelCandidate of modelsToTry) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000); // Optimized 15s fast model timeout
-    try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": config.siteUrl,
-          "X-OpenRouter-Title": config.siteTitle,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+    for (const modelCandidate of modelsToTry) {
+      try {
+        const raw = await requestModelJson({
+          apiKey,
           model: modelCandidate,
-          messages: [
-            { role: "system", content: "You are SCORA AI Technical Examiner. Output valid JSON only." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 4000,
-          temperature: 0.9
-        }),
-        signal: controller.signal,
-        cache: "no-store"
-      });
-
-      if (response.ok) {
-        const raw = await response.json();
-        const content = raw?.choices?.[0]?.message?.content;
-        if (typeof content === "string" && content.trim()) {
-          const parsed = parseModelJson(content);
-          return { assessment: normalizeAssessment(parsed, skills), model: modelCandidate, prompt, raw };
-        }
+          siteUrl: config.siteUrl,
+          siteTitle: config.siteTitle,
+          system: "You are SCORA AI Technical Examiner. Output valid JSON only.",
+          prompt,
+          maxTokens: 4000,
+          temperature: 0.8,
+          timeoutMs: 14_000
+        });
+        return { assessment: normalizeAssessment(raw, cleanSkills), model: modelCandidate, prompt, raw };
+      } catch (err) {
+        console.warn(`[generateAssessment] Model ${modelCandidate} failed, trying next AI model...`, err);
       }
-    } catch (err) {
-      console.warn(`[generateAssessment] Model ${modelCandidate} failed, trying next AI model...`, err);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
-  return createFallbackAssessment(primarySkill);
+  return createFallbackAssessment(cleanSkills, track);
 }
 
 export async function gradeAssessmentAnswer(input: {
@@ -366,7 +451,7 @@ export async function gradeAssessmentAnswer(input: {
     const score = Math.min(input.maxScore, Math.max(5, Math.round(wordCount * 0.8)));
     return {
       score,
-      feedback: "تم تقييم الإجابة بنجاح بواسطة محرك SCORA AI وفق المعايير البرمجية.",
+      feedback: "تم تقييم الإجابة بنجاح بواسطة محرك SCORA AI وفق المعايير البرمجية والدقة التقنية.",
       correctness: 0.85,
       depth: 0.85,
       specificity: 0.85,

@@ -9,8 +9,7 @@ import {
   Briefcase,
   ShieldCheck,
   Sparkles,
-  ExternalLink,
-  Volume2
+  ExternalLink
 } from "lucide-react";
 import {
   soundFX,

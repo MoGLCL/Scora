@@ -6,8 +6,10 @@ import { SiteHeader } from "@/components/site-header";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from "lucide-react";
 import { login } from "@/lib/actions/auth";
 import { useProfile } from "@/components/profile-provider";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const { setUserRole, addToast, userRole, isAdmin, developer, client } = useProfile();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -18,14 +20,14 @@ export default function LoginPage() {
   useEffect(() => {
     if (userRole !== "guest") {
       if (isAdmin) {
-        window.location.href = "/admin";
+        router.replace("/admin");
       } else if (userRole === "developer") {
-        window.location.href = (!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard";
+        router.replace((!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard");
       } else if (userRole === "client") {
-        window.location.href = !client.fullName ? "/complete-client-profile" : "/dashboard";
+        router.replace(!client.fullName ? "/complete-client-profile" : "/dashboard");
       }
     }
-  }, [userRole, isAdmin, developer, client]);
+  }, [userRole, isAdmin, developer, client, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +63,7 @@ export default function LoginPage() {
       } else if (res?.ok && res.role) {
         setUserRole(res.role);
         addToast("تم تسجيل الدخول بنجاح!", "success");
-        window.location.href = res.redirectTo || (res.role === "client" && isAdmin ? "/admin" : "/dashboard");
+        router.replace(res.redirectTo || (res.role === "client" && isAdmin ? "/admin" : "/dashboard"));
       }
     } catch {
       const err = "حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.";

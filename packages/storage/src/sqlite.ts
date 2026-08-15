@@ -8,7 +8,6 @@ import {
   type AppendResult,
   type ChainHead,
   type EventPage,
-  type EventQuery,
   type EventStore,
   type SessionSummary,
   type TrustEvent,
