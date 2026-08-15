@@ -11,7 +11,8 @@ import {
   Settings,
   ShieldCheck,
   LogOut,
-  MessageSquare
+  MessageSquare,
+  Crown
 } from "lucide-react";
 
 export function SiteHeader() {
@@ -21,16 +22,47 @@ export function SiteHeader() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Navigation Links: Exact 7 links from Figma export
-  const navLinks = [
-    { label: "الرئيسية", href: "/" },
-    { label: "مشاريع", href: "/projects" },
-    { label: "القوانين", href: "/laws" },
-    { label: "الخصوصية", href: "/privacy" },
-    { label: "عن المنصة", href: "/about" },
-    { label: "خطط", href: "/pricing" },
-    { label: "الدعم", href: "/support" },
-  ];
+  // Role-Customized Navigation Links
+  const navLinks = React.useMemo(() => {
+    if (isAdmin) {
+      return [
+        { label: "لوحة الإدارة", href: "/admin" },
+        { label: "المطورين", href: "/developers" },
+        { label: "المشاريع", href: "/projects" },
+        { label: "الدعم", href: "/support" },
+      ];
+    }
+    if (userRole === "developer") {
+      return [
+        { label: "لوحة التحكم", href: "/dashboard" },
+        { label: "تصفح المشاريع", href: "/projects" },
+        { label: "المطورين", href: "/developers" },
+        { label: "ملفي الشخصي", href: "/profile" },
+        { label: "القوانين", href: "/laws" },
+        { label: "الدعم", href: "/support" },
+      ];
+    }
+    if (userRole === "client") {
+      return [
+        { label: "لوحة التحكم", href: "/dashboard" },
+        { label: "تصفح المطورين", href: "/developers" },
+        { label: "مشاريعي", href: "/projects" },
+        { label: "نشر مشروع", href: "/projects/new" },
+        { label: "القوانين", href: "/laws" },
+        { label: "الدعم", href: "/support" },
+      ];
+    }
+    // Guest Links
+    return [
+      { label: "الرئيسية", href: "/" },
+      { label: "المطورين", href: "/developers" },
+      { label: "المشاريع", href: "/projects" },
+      { label: "عن المنصة", href: "/about" },
+      { label: "خطط", href: "/pricing" },
+      { label: "القوانين", href: "/laws" },
+      { label: "الدعم", href: "/support" },
+    ];
+  }, [isAdmin, userRole]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -147,13 +179,26 @@ export function SiteHeader() {
                 <div className="absolute left-0 top-full mt-2 w-72 rounded-[20px] border border-[#D1E3D6] bg-white p-3 shadow-xl space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   
                   {/* Dropdown Header */}
-                  <div className="p-2 bg-[#E8FAF0] rounded-[14px] border border-[#D1E3D6]/60 mb-2 space-y-1 text-right">
+                  <div className="p-2.5 bg-[#E8FAF0] rounded-[14px] border border-[#D1E3D6]/60 mb-2 space-y-1 text-right">
                     <div className="text-[14px] font-bold text-[#05291A]">{currentUserName}</div>
                     <div className="text-[11px] text-[#526B5E] truncate">{currentUserEmail}</div>
                     <div className="inline-block text-[10px] font-bold bg-[#056B38] text-white px-2 py-0.5 rounded-full">
                       {currentUserRoleLabel}
                     </div>
                   </div>
+
+                  {/* Upgrade to Pro Button */}
+                  <Link
+                    href="/pricing"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-[12px] text-[13px] font-extrabold bg-gradient-to-l from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 transition-all shadow-2xs mb-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-4 h-4 text-amber-100" />
+                      <span>ترقية الحساب (Upgrade)</span>
+                    </div>
+                    <span className="text-[10px] bg-white/25 px-2 py-0.5 rounded-full font-bold">PRO</span>
+                  </Link>
 
                   {/* Main Links — Show Admin Panel Link ONLY when signed in as system admin */}
                   {isAdmin && (

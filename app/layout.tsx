@@ -4,7 +4,6 @@ import { ProfileProvider } from "@/components/profile-provider";
 import { AiAssistantSsd } from "@/components/ai-assistant-ssd";
 import { MobileBottomTabs } from "@/components/mobile-bottom-tabs";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
-import { DemoNoticeModal } from "@/components/demo-notice-modal";
 import { getCurrentClient, getCurrentDeveloper, getCurrentUser, verifySession } from "@/lib/dal";
 import { query, queryOne } from "@/lib/db";
 import "./globals.css";
@@ -81,7 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     client: client && user ? {
       accountType: client.account_type,
       fullName: client.display_name, email: user.email, phone: client.phone ?? user.phone ?? "",
-      companyName: client.company_name ?? "", location: client.location ?? "", website: client.website ?? "",
+      companyName: client.company_name ?? "", industry: client.industry ?? "", location: client.location ?? "", website: client.website ?? "",
       avatarUrl: client.avatar_url,
     } : undefined,
   };
@@ -97,7 +96,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
           <AiAssistantSsd />
           <MobileBottomTabs />
-          <DemoNoticeModal />
           <AnalyticsTracker />
         </ProfileProvider>
       </body>

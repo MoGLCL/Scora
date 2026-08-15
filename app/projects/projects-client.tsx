@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -26,18 +26,43 @@ export interface ProjectCardData {
   applicants: number;
 }
 
-export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
+export function ProjectsClient({ projects: initialProjects }: { projects: ProjectCardData[] }) {
+  const [projectsList, setProjectsList] = useState<ProjectCardData[]>(initialProjects);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Realtime Polling: auto-sync active projects list without refreshing
+  useEffect(() => {
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/projects");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok && Array.isArray(data.projects) && isMounted) {
+            setProjectsList(data.projects);
+          }
+        }
+      } catch {
+        // Silently handle any network glitches
+      }
+    }, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const visibleProjects = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return projects;
-    return projects.filter((project) =>
+    if (!query) return projectsList;
+    return projectsList.filter((project) =>
       project.title.toLowerCase().includes(query) ||
       project.clientName.toLowerCase().includes(query) ||
       project.description.toLowerCase().includes(query) ||
       project.tags.some((tag) => tag.toLowerCase().includes(query))
     );
-  }, [projects, searchQuery]);
+  }, [projectsList, searchQuery]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
@@ -100,30 +125,38 @@ export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
                       <span className="text-[12px] font-bold text-[#056B38] bg-[#E8FAF0] px-3 py-1 rounded-full">
                         {proj.clientName}
                       </span>
-                      <span className="text-[11px] font-bold text-white bg-[#056B38] px-2.5 py-0.5 rounded-full">
-                        حالة العرض: مفتوح لتلقي العروض
+                      <span className="text-[12px] text-[#526B5E] flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{proj.postedTime}</span>
                       </span>
                     </div>
-                    <h3 className="text-[20px] font-bold text-[#05291A] font-heading mt-2">
+
+                    <h3 className="text-[20px] font-extrabold text-[#05291A] mt-2 font-heading">
                       {proj.title}
                     </h3>
                   </div>
-                  <div className="text-right md:text-left">
-                    <span className="text-[16px] font-extrabold text-[#056B38] font-heading block">
+
+                  <div className="text-left md:text-right">
+                    <div className="text-[18px] font-black text-[#056B38] font-heading">
                       {proj.budget}
-                    </span>
-                    <span className="text-[12px] text-[#526B5E]">{proj.postedTime}</span>
+                    </div>
+                    <div className="text-[12px] text-[#526B5E] mt-0.5">
+                      {proj.applicants} عروض متقدمة
+                    </div>
                   </div>
                 </div>
 
-                <p className="text-[14px] text-[#526B5E] leading-relaxed">
+                <p className="text-[14px] text-[#526B5E] line-clamp-2 leading-relaxed">
                   {proj.description}
                 </p>
 
-                <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[#D1E3D6]/60">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-neutral-100">
                   <div className="flex flex-wrap gap-2">
                     {proj.tags.map((tag) => (
-                      <span key={tag} className="px-3 py-1 rounded-full bg-neutral-100 text-[12px] font-bold text-[#05291A]">
+                      <span
+                        key={tag}
+                        className="px-3 py-1 rounded-full bg-[#F7FAF8] text-[#526B5E] text-[12px] font-bold border border-[#D1E3D6]"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -131,14 +164,22 @@ export function ProjectsClient({ projects }: { projects: ProjectCardData[] }) {
 
                   <Link
                     href={`/projects/${proj.id}`}
-                    className="h-[40px] px-6 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white text-[13px] font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#056B38] hover:text-[#08592E] transition-colors"
                   >
-                    <span>تقديم عرض على المشروع</span>
-                    <ArrowUpRight className="w-4 h-4" />
+                    <span>عرض التفاصيل والتقديم</span>
+                    <ChevronLeft className="w-4 h-4" />
                   </Link>
                 </div>
               </div>
-            )) : <div className="rounded-[24px] border border-[#D1E3D6] bg-white p-10 text-center text-[#526B5E]">لا توجد مشاريع مطابقة للبحث الحالي.</div>}
+            )) : (
+              <div className="text-center py-16 rounded-[24px] border border-[#D1E3D6] bg-neutral-50/50 space-y-3">
+                <Briefcase className="w-12 h-12 text-[#526B5E] mx-auto opacity-50" />
+                <h3 className="text-[18px] font-bold text-[#05291A]">لا توجد مشاريع مطابقة</h3>
+                <p className="text-[13px] text-[#526B5E]">
+                  جرب تغيير كلمات البحث أو استكشف المهارات المتاحة.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

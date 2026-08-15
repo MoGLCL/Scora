@@ -7,6 +7,7 @@ import { requestReassessmentByDeveloper, startDeveloperAssessment } from "@/lib/
 type ReassessmentStatus = "pending" | "approved" | "rejected" | null;
 
 export function ReassessmentControl({ approvalStatus, initialRequestStatus }: { approvalStatus: string; initialRequestStatus: ReassessmentStatus }) {
+  const [currentApprovalStatus, setCurrentApprovalStatus] = useState(approvalStatus);
   const [requestStatus, setRequestStatus] = useState<ReassessmentStatus>(initialRequestStatus);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
@@ -20,8 +21,8 @@ export function ReassessmentControl({ approvalStatus, initialRequestStatus }: { 
         const response = await fetch("/api/developer-admission/status", { cache: "no-store" });
         if (response.ok && active) {
           const data = await response.json();
+          setCurrentApprovalStatus(data.status ?? approvalStatus);
           setRequestStatus(data.reassessmentStatus ?? null);
-          if (data.status === "reset_approved") window.location.reload();
         }
       } finally {
         if (active) timer = setTimeout(poll, 5000);
@@ -29,7 +30,7 @@ export function ReassessmentControl({ approvalStatus, initialRequestStatus }: { 
     };
     timer = setTimeout(poll, 5000);
     return () => { active = false; if (timer) clearTimeout(timer); };
-  }, []);
+  }, [approvalStatus]);
 
   const requestRetest = async () => {
     setBusy(true); setMessage("");
@@ -46,8 +47,8 @@ export function ReassessmentControl({ approvalStatus, initialRequestStatus }: { 
     else { setMessage(result.ok ? "تعذر فتح الاختبار" : result.error); setBusy(false); }
   };
 
-  const canRequest = ["approved", "rejected"].includes(approvalStatus) && requestStatus !== "pending";
-  const canStart = approvalStatus === "reset_approved";
+  const canRequest = ["approved", "rejected"].includes(currentApprovalStatus) && requestStatus !== "pending";
+  const canStart = currentApprovalStatus === "reset_approved";
 
   return <section className="mt-6 rounded-[24px] border border-[#D1E3D6] bg-white p-6 shadow-xs">
     <div className="flex flex-wrap items-start justify-between gap-4">

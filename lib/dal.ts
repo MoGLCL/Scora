@@ -165,7 +165,7 @@ export async function listProjects(): Promise<ProjectCard[]> {
       clientName: r.client_name ?? "",
       budget: formatBudget(r.budget_from, r.budget_to),
       postedTime: timeAgo(r.posted_at),
-      tags: Array.isArray(r.skills_json) ? r.skills_json : [],
+      tags: parseJsonList(r.skills_json),
       description: r.description ?? "",
       applicants: Number(r.applicants),
     }));
@@ -185,10 +185,28 @@ export async function getProjectById(id: number) {
 }
 
 export async function listProposalsForProject(projectId: number) {
-  return query<ProposalRow & { dev_name: string; job_title: string | null; trust_score: number; developer_user_id: number }>(
-    `SELECT pr.*, d.display_name AS dev_name, d.job_title, d.trust_score, d.user_id AS developer_user_id
+  return query<
+    ProposalRow & {
+      developer_id: number;
+      dev_name: string;
+      job_title: string | null;
+      trust_score: number;
+      developer_user_id: number;
+      dev_username: string | null;
+      avatar_url: string | null;
+    }
+  >(
+    `SELECT pr.*, 
+            d.id AS developer_id, 
+            d.display_name AS dev_name, 
+            d.job_title, 
+            d.trust_score, 
+            d.avatar_url,
+            d.user_id AS developer_user_id,
+            u.username AS dev_username
      FROM proposals pr
      JOIN developers d ON d.id = pr.developer_id
+     JOIN users u ON u.id = d.user_id
      WHERE pr.project_id = ?
      ORDER BY pr.created_at DESC`,
     [projectId]
@@ -199,42 +217,29 @@ export async function listProposalsForProject(projectId: number) {
 export async function getProjectDetail(projectId: number) {
   const row = await queryOne<
     ProjectRow & {
+      client_user_id: number;
       client_name: string | null;
       client_location: string | null;
       completed_count: number;
+      hired_dev_name: string | null;
+      hired_dev_username: string | null;
+      hired_dev_user_id: number | null;
     }
   >(
     `SELECT p.*,
+            c.user_id AS client_user_id,
             COALESCE(c.company_name, c.display_name) AS client_name,
             c.location AS client_location,
-            (SELECT COUNT(*) FROM projects p2
-               WHERE p2.client_id = c.id AND p2.status = 'completed') AS completed_count
+            (SELECT COUNT(*) FROM projects p2 WHERE p2.client_id = c.id) AS completed_count,
+            (SELECT d.display_name FROM proposals pr JOIN developers d ON d.id=pr.developer_id WHERE pr.project_id=p.id AND pr.status='accepted' LIMIT 1) AS hired_dev_name,
+            (SELECT u.username FROM proposals pr JOIN developers d ON d.id=pr.developer_id JOIN users u ON u.id=d.user_id WHERE pr.project_id=p.id AND pr.status='accepted' LIMIT 1) AS hired_dev_username,
+            (SELECT d.user_id FROM proposals pr JOIN developers d ON d.id=pr.developer_id WHERE pr.project_id=p.id AND pr.status='accepted' LIMIT 1) AS hired_dev_user_id
      FROM projects p
      JOIN clients c ON c.id = p.client_id
      WHERE p.id = ?`,
     [projectId]
   );
   if (!row) return null;
-  /* Removed legacy fabricated project fallback. A missing record is a 404.
-    return {
-      id: String(projectId),
-      title: "تطوير لوحة تحكم وتصاميم منصة SaaS تعليمية",
-      clientName: "شركة التقنية الذكية",
-      clientLocation: "القاهرة، مصر",
-      clientRating: "4.9",
-      clientProjectsCount: 8,
-      budgetRange: "15,000 - 25,000 ج.م",
-      postedDate: "منذ ساعتين",
-      deadline: "خلال 14 يوماً",
-      tags: ["React", "TypeScript", "Tailwind CSS", "Node.js"],
-      description: "نبحث عن مطور ذو خبرة لبناء لوحة تحكم سريعة وعصرية لمنصة تعليمية متكاملة تتيح إدارة المستخدمين والاشتراكات بكفاءة.",
-      deliverables: [
-        "بناء المكونات التفاعلية باستخدام React و TypeScript",
-        "ربط الـ Dashboard بالـ REST API وقواعد البيانات",
-        "تحسين الأداء والتأكد من تجاوب الواجهات مع جميع الشاشات",
-      ],
-    };
-  */
 
   const tags = parseJsonList(row.skills_json);
   const deliverables = parseJsonList(row.deliverables_json);
@@ -242,6 +247,15 @@ export async function getProjectDetail(projectId: number) {
   return {
     id: String(row.id),
     title: row.title,
+    clientUserId: Number(row.client_user_id),
+    status: row.status,
+    hiredDeveloper: row.hired_dev_name
+      ? {
+          name: row.hired_dev_name,
+          username: row.hired_dev_username ?? String(row.hired_dev_user_id),
+          userId: Number(row.hired_dev_user_id),
+        }
+      : null,
     clientName: row.client_name ?? "",
     clientLocation: row.client_location ?? "",
     // Ratings are not modelled yet; show a neutral placeholder rather than a
@@ -249,6 +263,8 @@ export async function getProjectDetail(projectId: number) {
     clientRating: "—",
     clientProjectsCount: Number(row.completed_count),
     budgetRange: formatBudget(row.budget_from, row.budget_to),
+    budgetFrom: Number(row.budget_from || 0),
+    budgetTo: Number(row.budget_to || 0),
     postedDate: timeAgo(row.posted_at),
     deadline: row.deadline_days ? `خلال ${row.deadline_days} يوماً` : "غير محدد",
     tags,
@@ -262,11 +278,17 @@ export async function getProposalFeed(projectId: number) {
   const rows = await listProposalsForProject(projectId);
   return rows.map((r) => ({
     id: String(r.id),
+    numericId: r.id,
+    developerId: r.developer_id,
     developerUserId: r.developer_user_id,
     devName: r.dev_name,
-    role: r.job_title ?? "",
+    devUsername: r.dev_username ?? String(r.developer_id),
+    avatarUrl: r.avatar_url,
+    role: r.job_title ?? "Software Engineer",
     trustScore: r.trust_score,
+    status: r.status,
     proposedPrice: `${Number(r.price).toLocaleString("ar-EG")} ج.م`,
+    rawPrice: Number(r.price),
     deliveryDays: `${r.delivery_days} يوماً`,
     deliverablesText: r.cover_text ?? "",
     timeAgo: timeAgo(r.created_at),

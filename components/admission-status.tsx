@@ -42,7 +42,6 @@ export function AdmissionStatus() {
       if (data.reassessmentReason) {
         setReassessmentReason(data.reassessmentReason);
       }
-      setError(""); // Clear any stale error state on successful response
 
       if (data.assessmentUrl) {
         window.location.href = data.assessmentUrl;
@@ -50,22 +49,8 @@ export function AdmissionStatus() {
       }
 
       if (currentStatus === "approved") {
-        window.location.href = "/dashboard";
+        window.location.href = "/profile";
         return;
-      }
-
-      // Auto-start ONLY IF admin explicitly approved reset (status === "reset_approved")
-      if (currentStatus === "reset_approved" && !recovering.current) {
-        recovering.current = true;
-        setLoadingTest(true);
-        const result = await startDeveloperAssessment();
-        if (result && result.ok && result.assessmentUrl) {
-          window.location.href = result.assessmentUrl;
-        } else if (result && !result.ok) {
-          setError(result.error);
-          setLoadingTest(false);
-          recovering.current = false;
-        }
       }
     } catch {
       // Ignore background loop network glitches silently
@@ -79,7 +64,7 @@ export function AdmissionStatus() {
     const checkLoop = async () => {
       if (!active) return;
       await fetchStatus();
-      if (active) timer = setTimeout(checkLoop, 1500); // Fast 1.5s live polling
+      if (active) timer = setTimeout(checkLoop, 3000); // 3s polling
     };
 
     void checkLoop();
@@ -95,7 +80,7 @@ export function AdmissionStatus() {
       clearTimeout(fallbackTimer);
       if (timer) clearTimeout(timer);
     };
-  }, [router]);
+  }, []);
 
   const handleManualStart = async () => {
     setLoadingTest(true);

@@ -9,7 +9,7 @@ const footerLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-neutral-200/80 bg-white">
+    <footer className="mt-auto border-t border-neutral-200/80 bg-white">
       <div className="mx-auto flex max-w-[1296px] flex-col gap-6 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           {/* Logo */}

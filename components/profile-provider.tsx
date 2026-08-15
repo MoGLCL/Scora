@@ -92,6 +92,7 @@ export interface ClientProfileData {
   accountType: "personal" | "company";
   fullName: string;
   companyName: string;
+  industry: string;
   email: string;
   phone: string;
   location: string;
@@ -134,6 +135,7 @@ interface ProfileContextType {
   userRole: UserRole;
   isAdmin: boolean;
   username: string;
+  updateUsername: (username: string) => void;
   setUserRole: (role: UserRole) => void;
   developer: DeveloperProfileData;
   client: ClientProfileData;
@@ -174,6 +176,7 @@ const defaultClient: ClientProfileData = {
   accountType: "personal",
   fullName: "",
   companyName: "",
+  industry: "",
   email: "",
   phone: "",
   location: "",
@@ -241,7 +244,7 @@ export interface InitialProfileState {
 export function ProfileProvider({ children, initialProfile }: { children: React.ReactNode; initialProfile: InitialProfileState }) {
   const [userRoleState, setUserRoleState] = useState<UserRole>(initialProfile.role);
   const [isAdmin] = useState(initialProfile.isAdmin);
-  const [username] = useState(initialProfile.username);
+  const [username, setUsername] = useState(initialProfile.username);
   const [developer, setDeveloper] = useState<DeveloperProfileData>({ ...defaultDeveloper, ...initialProfile.developer });
   const [client, setClient] = useState<ClientProfileData>({ ...defaultClient, ...initialProfile.client });
   const [systemSettings, setSystemSettings] = useState<AdminSystemSettings>({ ...defaultSystemSettings, isAiAssistantEnabled: initialProfile.isAiAssistantEnabled });
@@ -316,6 +319,7 @@ export function ProfileProvider({ children, initialProfile }: { children: React.
         userRole: userRoleState,
         isAdmin,
         username,
+        updateUsername: setUsername,
         setUserRole,
         developer,
         client,

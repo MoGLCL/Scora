@@ -8,7 +8,7 @@ import { register } from "@/lib/actions/auth";
 import { useProfile } from "@/components/profile-provider";
 
 export default function RegisterPage() {
-  const { setUserRole, addToast, userRole, developer, client } = useProfile();
+  const { setUserRole, addToast, userRole, isAdmin, developer, client } = useProfile();
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,13 +20,15 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (userRole !== "guest") {
-      if (userRole === "developer") {
+      if (isAdmin) {
+        window.location.href = "/admin";
+      } else if (userRole === "developer") {
         window.location.href = (!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard";
       } else if (userRole === "client") {
         window.location.href = !client.fullName ? "/complete-client-profile" : "/dashboard";
       }
     }
-  }, [userRole, developer, client]);
+  }, [userRole, isAdmin, developer, client]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,16 +60,6 @@ export default function RegisterPage() {
       return;
     }
 
-    /* Phone is collected and verified as part of mandatory onboarding.
-    const cleanPhone = phone.replace(/[\s\-()]/g, "");
-    if (!cleanPhone || cleanPhone.length < 10) {
-      const err = "يرجى إدخال رقم موبايل مصري صحيح (مثال: 01012345678)";
-      setErrorMsg(err);
-      addToast(err, "warn");
-      setLoading(false);
-      return;
-    } */
-
     if (!acceptedTerms) {
       const err = "يجب التحديد بالموافقة على الشروط والأحكام وسياسة جمع وتوثيق نتائج التقييمات والمقابلات للمتابعة";
       setErrorMsg(err);
@@ -96,7 +88,7 @@ export default function RegisterPage() {
       } else if (res?.ok && res.role) {
         setUserRole(res.role);
         addToast("تم إنشاء الحساب بنجاح!", "success");
-        window.location.href = res.redirectTo || "/dashboard";
+        window.location.href = res.redirectTo || (res.role === "client" && isAdmin ? "/admin" : "/dashboard");
       }
     } catch {
       const err = "حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.";
@@ -149,7 +141,6 @@ export default function RegisterPage() {
                   <Code className="w-4 h-4" />
                   <span>مطور برمجيات</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setRole("client")}
@@ -160,87 +151,68 @@ export default function RegisterPage() {
                   }`}
                 >
                   <Briefcase className="w-4 h-4" />
-                  <span>عميل / صاحب عمل</span>
+                  <span>عميل / شركة</span>
                 </button>
               </div>
             </div>
 
-            {/* Username Field */}
+            {/* Full Name */}
             <div>
               <label className="block text-[14px] font-bold text-ink mb-2">
                 الاسم الكامل
               </label>
-              <div className="relative flex items-center">
+              <div className="relative">
                 <input
                   type="text"
-                  required
-                  placeholder="أدخل اسمك الكامل"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-ink placeholder:text-neutral-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
+                  placeholder="محمد أحمد علي"
+                  required
+                  className="w-full h-12 rounded-2xl border border-neutral-200 bg-neutral-50/50 pr-11 pl-4 text-[14px] font-body text-ink placeholder:text-neutral-400 focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
                 />
-                <User className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
+                <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               </div>
             </div>
 
-            {/* Phone belongs to onboarding, not account registration.
-            <div>
-              <label className="block text-[14px] font-bold text-ink mb-2">
-                رقم الموبايل
-              </label>
-              <div className="relative flex items-center">
-                <input
-                  type="tel"
-                  required
-                  placeholder="01012345678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-ink placeholder:text-neutral-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
-                  dir="ltr"
-                />
-                <Phone className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
-              </div>
-            </div> */}
-
-            {/* Email Field */}
+            {/* Email */}
             <div>
               <label className="block text-[14px] font-bold text-ink mb-2">
                 البريد الإلكتروني
               </label>
-              <div className="relative flex items-center">
+              <div className="relative">
                 <input
                   type="email"
-                  required
-                  placeholder="name@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-5 text-[14px] text-ink placeholder:text-neutral-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
+                  placeholder="name@example.com"
+                  required
+                  className="w-full h-12 rounded-2xl border border-neutral-200 bg-neutral-50/50 pr-11 pl-4 text-[14px] font-body text-ink placeholder:text-neutral-400 focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
                   dir="ltr"
                 />
-                <Mail className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
+                <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Password */}
             <div>
               <label className="block text-[14px] font-bold text-ink mb-2">
                 كلمة المرور
               </label>
-              <div className="relative flex items-center">
+              <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  required
-                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-[52px] rounded-full border border-neutral-200 pl-11 pr-11 text-[14px] text-ink placeholder:text-neutral-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all bg-white"
+                  placeholder="••••••••"
+                  required
+                  className="w-full h-12 rounded-2xl border border-neutral-200 bg-neutral-50/50 pr-11 pl-11 text-[14px] font-body text-ink placeholder:text-neutral-400 focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
                   dir="ltr"
                 />
-                <Lock className="absolute right-4 w-5 h-5 text-neutral-400 pointer-events-none" />
+                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-4 text-neutral-400 hover:text-ink transition-colors focus:outline-none"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-ink transition-colors cursor-pointer"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -251,25 +223,25 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Terms & Conditions Agreement Checkbox */}
-            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6]">
+            {/* Terms Checkbox */}
+            <div className="flex items-start gap-2.5 pt-1">
               <input
                 type="checkbox"
                 id="terms"
-                required
                 checked={acceptedTerms}
-                onChange={(e) => {
-                  setAcceptedTerms(e.target.checked);
-                  if (errorMsg) setErrorMsg("");
-                }}
-                className="mt-0.5 w-5 h-5 rounded border-neutral-300 text-primary focus:ring-primary cursor-pointer accent-[#056B38] shrink-0"
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-neutral-300 text-[#056B38] focus:ring-[#056B38]"
               />
-              <label htmlFor="terms" className="text-[12.5px] text-[#05291A] leading-relaxed font-body cursor-pointer select-none">
+              <label htmlFor="terms" className="text-[12px] text-muted font-body leading-relaxed cursor-pointer">
                 أوافق على{" "}
-                <Link href="/laws" target="_blank" className="font-bold text-[#056B38] underline hover:text-[#08592E]">
-                  الشروط والأحكام
+                <Link href="/privacy" className="text-[#056B38] font-bold hover:underline">
+                  شروط الاستخدام
                 </Link>{" "}
-                وسياسة جمع وتوثيق نتائج التقييمات والمقابلات البرمجية لضمان مصداقية التوظيف للشركات.
+                و{" "}
+                <Link href="/laws" className="text-[#056B38] font-bold hover:underline">
+                  سياسة الخصوصية
+                </Link>{" "}
+                وتوثيق نتائج التقييمات البرمجية.
               </label>
             </div>
 
@@ -277,22 +249,30 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-[54px] rounded-full bg-primary hover:bg-[#005B27] text-white font-bold text-[16px] flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer mt-2 disabled:opacity-50"
+              className="w-full h-12 rounded-2xl bg-[#056B38] hover:bg-[#08592E] text-white text-[15px] font-bold font-body transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] disabled:opacity-50 mt-2"
             >
-              <span>{loading ? "جاري إنشاء الحساب..." : "إنشاء حساب"}</span>
-              <ArrowLeft className="w-5 h-5" />
+              {loading ? (
+                <span>جاري إنشاء الحساب...</span>
+              ) : (
+                <>
+                  <span>إنشاء حساب</span>
+                  <ArrowLeft className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
-          {/* Footer Link */}
-          <div className="text-center text-[14px] text-muted">
-            <span>لديك حساب بالفعل؟ </span>
-            <Link
-              href="/login"
-              className="font-bold text-primary hover:underline transition-colors"
-            >
-              تسجيل الدخول
-            </Link>
+          {/* Footer Divider & Login Link */}
+          <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
+            <p className="text-[14px] text-muted font-body">
+              لديك حساب بالفعل؟{" "}
+              <Link
+                href="/login"
+                className="font-bold text-[#056B38] hover:underline"
+              >
+                تسجيل الدخول
+              </Link>
+            </p>
           </div>
         </div>
       </main>

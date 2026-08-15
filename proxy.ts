@@ -63,6 +63,10 @@ export async function proxy(request: NextRequest) {
     return redirectTo(url);
   }
 
+  // Logout must always be reachable, including while onboarding is incomplete.
+  // Otherwise the onboarding redirect traps the user with an orphaned session.
+  if (pathname.startsWith("/api/auth/logout")) return NextResponse.next();
+
   if (session && !session.onboardingCompleted && !onboardingAllowed) {
     return NextResponse.redirect(new URL(onboardingRoute, request.url));
   }

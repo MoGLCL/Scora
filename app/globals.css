@@ -65,6 +65,31 @@
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
+/* ─── Global Scora Custom Scrollbar ───────────────────────────── */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F7FAF8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #BFE3CD;
+  border-radius: 9999px;
+  border: 1.5px solid #F7FAF8;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #056B38;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #BFE3CD #F7FAF8;
+}
+
 @layer base {
   body {
     background-color: var(--color-background);
@@ -215,7 +240,3 @@
   animation: ssdWindowToCloudMorph 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
   transform-origin: bottom right;
 }
-
-
-
-

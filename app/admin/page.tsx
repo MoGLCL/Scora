@@ -220,7 +220,7 @@ export default function AdminPage() {
     } else {
       await loadUsers();
       setSavingUserId(null);
-      setServerMessage({ text: "تمت إتاحة إعادة التقييم للمطور بنجاح وسيتم نقله للاختبار فوراً", kind: "success" });
+      setServerMessage({ text: "تمت إتاحة إعادة التقييم للمطور بنجاح ويمكنه بدء اختبار جديد", kind: "success" });
       addToast("تمت إتاحة إعادة التقييم للمطور", "success");
     }
     setResetTestUser(null);
@@ -898,7 +898,7 @@ export default function AdminPage() {
               </p>
 
               <div className="rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6] p-3.5 text-xs text-[#056B38] font-bold leading-relaxed">
-                ستتم إعادة حالة الاعتماد للمطور وإعادة إنتاج اختبار جديد بالذكاء الاصطناعي، وإرسال تنبيه حاد للحساب بتوفر إجراء التقييم مجدداً.
+                ستتم إتاحة محاولة جديدة للمطور مع الحفاظ على سجل الاختبارات السابقة، وسيصله إشعار ليبدأ الاختبار الجديد بنفسه.
               </div>
             </div>
 

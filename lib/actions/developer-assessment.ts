@@ -7,7 +7,7 @@ import { InterviewEventType, SkillEventType } from "@scora/trust-core";
 import { query, queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import { appendTrustEvent } from "@/lib/trust-events";
-import { generateAssessment, gradeAssessmentAnswer } from "@/lib/openrouter";
+import { generateAssessment, gradeAssessmentAnswer, generateCodeSpecificMcqs } from "@/lib/openrouter";
 import { readJsonValue } from "@/lib/json-value";
 import { finalizeAssessmentSession } from "@/lib/assessment-finalize";
 
@@ -38,13 +38,25 @@ export async function requestReassessmentByDeveloper(note?: string) {
     [s.userId]
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
+  if (!["approved", "rejected"].includes(dev.approval_status)) {
+    return {
+      ok: false as const,
+      error:
+        dev.approval_status === "reset_approved"
+          ? "وافقت الإدارة بالفعل على إعادة الاختبار ويمكنك بدء المحاولة الجديدة الآن"
+          : dev.approval_status === "reset_requested"
+            ? "طلب إعادة الاختبار ما زال قيد مراجعة الإدارة"
+            : "لا يمكن طلب إعادة الاختبار أثناء وجود اختبار أو مراجعة جارية",
+    };
+  }
 
   const created = await transaction(async (c) => {
-    await c.execute("SELECT id FROM developers WHERE id=? FOR UPDATE", [dev.id]);
+    const [developerRows] = await c.execute("SELECT approval_status FROM developers WHERE id=? FOR UPDATE", [dev.id]);
+    const lockedDeveloper = (developerRows as { approval_status: string }[])[0];
+    if (!lockedDeveloper || !["approved", "rejected"].includes(lockedDeveloper.approval_status)) return false;
     const [pendingRows] = await c.execute("SELECT id FROM developer_reassessment_requests WHERE developer_id=? AND status='pending' LIMIT 1", [dev.id]);
     if ((pendingRows as { id: number }[]).length) return false;
     await c.execute("INSERT INTO developer_reassessment_requests(developer_id,requested_by,note) VALUES(?,?,?)", [dev.id, s.userId, parsedNote.data || null]);
-    await c.execute("UPDATE developers SET approval_status='reset_requested' WHERE id=?", [dev.id]);
     await c.execute(
       "INSERT INTO notifications (user_id, body) SELECT id, ? FROM users WHERE is_admin = 1 AND status = 'active'",
       [`قدم المطور #${dev.id} طلب إتاحة إعادة إجراء اختبار تقييم المهارات.`]
@@ -68,14 +80,14 @@ export async function startDeveloperAssessment() {
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
   if (!s.onboardingCompleted) return { ok: false as const, error: "أكمل بياناتك الشخصية أولًا" };
-  if (!["profile_incomplete", "assessment_in_progress", "reset_approved", "pending", "approved"].includes(dev.approval_status)) {
+  if (!["profile_incomplete", "assessment_in_progress", "reset_approved", "pending"].includes(dev.approval_status)) {
     return {
       ok: false as const,
       error: dev.approval_status === "reset_requested" ? "طلب إعادة الاختبار ما زال قيد مراجعة الإدارة" : "لا يمكنك بدء اختبار جديد قبل موافقة الإدارة",
     };
   }
 
-  let skills = (
+  const skills = (
     await query<{ name: string }>(
       "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
       [dev.id]
@@ -83,7 +95,7 @@ export async function startDeveloperAssessment() {
   ).map((x) => x.name);
 
   if (!skills.length) {
-    skills = ["JavaScript", "Problem Solving"];
+    return { ok: false as const, error: "أضف مهارة واحدة على الأقل قبل بدء الاختبار" };
   }
 
   const previousQuestions = (
@@ -98,11 +110,10 @@ export async function startDeveloperAssessment() {
   const sessionStart = await transaction(async (c) => {
     const [developerRows] = await c.execute("SELECT approval_status FROM developers WHERE id=? FOR UPDATE", [dev.id]);
     const lockedDeveloper = (developerRows as { approval_status: string }[])[0];
-    if (!lockedDeveloper || !["profile_incomplete", "assessment_in_progress", "reset_approved", "pending", "approved"].includes(lockedDeveloper.approval_status)) return { denied: true as const };
+    if (!lockedDeveloper || !["profile_incomplete", "assessment_in_progress", "reset_approved", "pending"].includes(lockedDeveloper.approval_status)) return { denied: true as const };
     const [activeRows] = await c.execute("SELECT public_id,status FROM developer_assessment_sessions WHERE developer_id=? AND status IN ('generating','in_progress') ORDER BY id DESC LIMIT 1", [dev.id]);
     const active = (activeRows as { public_id: string; status: string }[])[0];
     if (active) return { existing: active };
-    await c.execute("UPDATE developer_assessment_sessions SET status='expired' WHERE developer_id=? AND status NOT IN ('generating','in_progress')", [dev.id]);
     const [r] = await c.execute(
       "INSERT INTO developer_assessment_sessions(public_id,developer_id,status,duration_seconds) VALUES(?,?,'generating',?)",
       [publicId, dev.id, 3600]
@@ -150,6 +161,7 @@ export async function startDeveloperAssessment() {
   }
 
   await transaction(async (c) => {
+    const durationSeconds = (generated.assessment.durationMinutes || 45) * 60;
     for (const [i, q] of generated.assessment.questions.entries()) {
       await c.execute(
         "INSERT INTO developer_assessment_questions(session_id,public_id,kind,skill,question_text,options_json,expected_answer_json,max_score,position) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -167,8 +179,8 @@ export async function startDeveloperAssessment() {
       );
     }
     await c.execute(
-      "UPDATE developer_assessment_sessions SET status='in_progress',model=?,prompt_json=?,raw_generation_json=?,expires_at=DATE_ADD(CURRENT_TIMESTAMP,INTERVAL ? SECOND),last_saved_at=CURRENT_TIMESTAMP WHERE id=? AND status='generating'",
-      [generated.model, JSON.stringify({ prompt: generated.prompt, skills }), JSON.stringify(generated.raw), 3600, assessmentSessionId]
+      "UPDATE developer_assessment_sessions SET status='in_progress',duration_seconds=?,model=?,prompt_json=?,raw_generation_json=?,expires_at=DATE_ADD(CURRENT_TIMESTAMP,INTERVAL ? SECOND),last_saved_at=CURRENT_TIMESTAMP WHERE id=? AND status='generating'",
+      [durationSeconds, generated.model, JSON.stringify({ prompt: generated.prompt, skills }), JSON.stringify(generated.raw), durationSeconds, assessmentSessionId]
     );
     await appendTrustEvent(
       {
@@ -177,7 +189,7 @@ export async function startDeveloperAssessment() {
         assessmentPublicId: publicId,
         type: SkillEventType.ASSESSMENT_STARTED,
         source: "SERVER",
-        payload: { assessmentId: publicId, taskCount: generated.assessment.questions.length, timeLimitMs: 3600000 }
+        payload: { assessmentId: publicId, taskCount: generated.assessment.questions.length, timeLimitMs: durationSeconds * 1000 }
       },
       c
     );
@@ -185,6 +197,63 @@ export async function startDeveloperAssessment() {
 
   revalidatePath("/developer-assessment/pending");
   return { ok: true as const, assessmentUrl: `/developer-assessment/${publicId}` };
+}
+
+export async function cancelDeveloperAssessment(publicId: string) {
+  const s = await verifySession();
+  if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك" };
+
+  const dev = await queryOne<{ id: number; approval_status: string; assessment_cancellations: number }>(
+    "SELECT id, approval_status, assessment_cancellations FROM developers WHERE user_id=?",
+    [s.userId]
+  );
+  if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
+
+  if (dev.assessment_cancellations >= 1) {
+    return {
+      ok: false as const,
+      error: "لقد استنفدت فرصة إلغاء الاختبار المسموح بها (متاحة لمرة واحدة فقط طوال فترة حسابك)."
+    };
+  }
+
+  const session = await queryOne<{ id: number; status: string }>(
+    "SELECT id, status FROM developer_assessment_sessions WHERE public_id=? AND developer_id=?",
+    [publicId, dev.id]
+  );
+  if (!session || !["in_progress", "generating"].includes(session.status)) {
+    return { ok: false as const, error: "لا يمكن إلغاء هذه الجلسة لأنها مكتملة أو غير مفعلة" };
+  }
+
+  await transaction(async (c) => {
+    await c.execute(
+      "UPDATE developer_assessment_sessions SET status='expired', current_phase='completed', last_saved_at=CURRENT_TIMESTAMP WHERE id=?",
+      [session.id]
+    );
+    await c.execute(
+      "UPDATE developers SET approval_status='profile_incomplete', assessment_cancellations=assessment_cancellations+1 WHERE id=?",
+      [dev.id]
+    );
+    await c.execute(
+      "INSERT INTO notifications (user_id, body) VALUES (?, ?)",
+      [s.userId, "تم إلغاء جلسة الاختبار الحالية بنجاح (تم استهلاك فرصة الإلغاء لمرة واحدة). يمكنك الآن تعديل بياناتك أو إعادة بدء الاختبار عندما تكون مستعداً."]
+    );
+    await appendTrustEvent(
+      {
+        sessionPublicId: publicId,
+        developerId: dev.id,
+        assessmentPublicId: publicId,
+        type: SkillEventType.TASK_SUBMITTED,
+        source: "HUMAN",
+        payload: { action: "CANDIDATE_CANCELLED_ONCE", previousStatus: session.status }
+      },
+      c
+    );
+  });
+
+  revalidatePath("/developer-assessment/pending");
+  revalidatePath("/complete-profile");
+  revalidatePath("/dashboard");
+  return { ok: true as const };
 }
 
 const Submission = z.record(z.string(), z.string().trim().min(1).max(20000));
@@ -304,4 +373,178 @@ export async function submitDeveloperAssessment(publicId: string, answers: Recor
   });
   revalidatePath("/admin");
   redirect("/developer-assessment/pending");
+}
+
+export async function saveDeveloperAssessmentStateAction(input: {
+  publicId: string;
+  currentQuestionId?: string | null;
+  answers: Record<string, { value: string; type: "text" | "mcq" | "code"; clientState?: Record<string, unknown> }>;
+}) {
+  const auth = await verifySession();
+  if (!auth || auth.role !== "developer") return { ok: false, error: "غير مصرح" };
+  if (!input.publicId || !input.publicId.startsWith("assess_")) return { ok: false, error: "معرف غير صالح" };
+
+  const session = await queryOne<{
+    id: number;
+    developer_id: number;
+    status: string;
+    current_phase: string;
+    expires_at: Date | null;
+    interview_expires_at: Date | null;
+  }>(
+    "SELECT das.id, das.developer_id, das.status, das.current_phase, das.expires_at, das.interview_expires_at FROM developer_assessment_sessions das JOIN developers d ON d.id=das.developer_id WHERE das.public_id=? AND d.user_id=?",
+    [input.publicId, auth.userId]
+  );
+  if (!session || session.status !== "in_progress") return { ok: false, error: "الجلسة غير متاحة" };
+
+  const expires = session.current_phase === "interview" ? session.interview_expires_at : session.expires_at;
+  if (expires && new Date(expires).getTime() <= Date.now()) {
+    await finalizeAssessmentSession(session.id, session.developer_id);
+    return { ok: true, expired: true, remainingSeconds: 0 };
+  }
+
+  await transaction(async (c) => {
+    for (const [questionPublicId, answer] of Object.entries(input.answers ?? {})) {
+      const [rows] = await c.execute("SELECT id FROM developer_assessment_questions WHERE session_id=? AND public_id=?", [
+        session.id,
+        questionPublicId
+      ]);
+      const question = (rows as { id: number }[])[0];
+      if (question) {
+        await c.execute(
+          "INSERT INTO developer_assessment_answers(question_id,developer_id,draft_text,answer_type,client_state_json) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE draft_text=VALUES(draft_text),answer_type=VALUES(answer_type),client_state_json=VALUES(client_state_json),updated_at=CURRENT_TIMESTAMP",
+          [question.id, session.developer_id, answer.value, answer.type, JSON.stringify(answer.clientState ?? {})]
+        );
+      }
+    }
+    await c.execute(
+      "UPDATE developer_assessment_sessions SET current_question_public_id=COALESCE(?,current_question_public_id),last_saved_at=CURRENT_TIMESTAMP WHERE id=?",
+      [input.currentQuestionId ?? null, session.id]
+    );
+  });
+
+  const remainingSeconds = expires ? Math.max(0, Math.floor((new Date(expires).getTime() - Date.now()) / 1000)) : 0;
+  return { ok: true, remainingSeconds };
+}
+
+export async function submitCodeAndGenerateNextQuestionsAction(input: {
+  publicId: string;
+  code: string;
+}) {
+  const auth = await verifySession();
+  if (!auth || auth.role !== "developer") return { ok: false as const, error: "غير مصرح" };
+  if (!input.publicId || !input.publicId.startsWith("assess_")) return { ok: false as const, error: "معرف غير صالح" };
+
+  const session = await queryOne<{
+    id: number;
+    developer_id: number;
+    status: string;
+    expires_at: Date | null;
+  }>(
+    "SELECT das.id, das.developer_id, das.status, das.expires_at FROM developer_assessment_sessions das JOIN developers d ON d.id=das.developer_id WHERE das.public_id=? AND d.user_id=?",
+    [input.publicId, auth.userId]
+  );
+  if (!session || session.status !== "in_progress") return { ok: false as const, error: "الجلسة غير متاحة" };
+
+  // 1. Find the code question in this session
+  const codeQuestion = await queryOne<{
+    id: number;
+    public_id: string;
+    skill: string;
+    question_text: string;
+  }>(
+    "SELECT id, public_id, skill, question_text FROM developer_assessment_questions WHERE session_id=? AND kind='code' ORDER BY position LIMIT 1",
+    [session.id]
+  );
+
+  if (codeQuestion) {
+    // Save the submitted code
+    await transaction(async (c) => {
+      await c.execute(
+        "INSERT INTO developer_assessment_answers(question_id,developer_id,draft_text,answer_type,client_state_json) VALUES(?,?,?,'code',?) ON DUPLICATE KEY UPDATE draft_text=VALUES(draft_text),answer_type='code',updated_at=CURRENT_TIMESTAMP",
+        [codeQuestion.id, session.developer_id, input.code.trim() || "// No code submitted", JSON.stringify({ submittedStage: "code_challenge" })]
+      );
+    });
+  }
+
+  // 2. Check if Code Comprehension MCQs were already generated
+  const existingCodeMcqs = await query<{ id: number }>(
+    "SELECT id FROM developer_assessment_questions WHERE session_id=? AND skill LIKE '%Code Comprehension%'",
+    [session.id]
+  );
+
+  if (existingCodeMcqs.length === 0 && codeQuestion && input.code.trim().length > 20) {
+    // Dynamically generate MCQs targeting the candidate's exact written code!
+    try {
+      const generatedCodeMcqs = await generateCodeSpecificMcqs({
+        skill: codeQuestion.skill,
+        code: input.code,
+        originalTask: codeQuestion.question_text
+      });
+
+      const maxPosRow = await queryOne<{ max_pos: number }>(
+        "SELECT COALESCE(MAX(position), 0) max_pos FROM developer_assessment_questions WHERE session_id=?",
+        [session.id]
+      );
+      let currentPos = Number(maxPosRow?.max_pos ?? 1);
+
+      await transaction(async (c) => {
+        for (const q of generatedCodeMcqs) {
+          currentPos += 1;
+          await c.execute(
+            "INSERT INTO developer_assessment_questions(session_id,public_id,kind,skill,question_text,options_json,expected_answer_json,max_score,position) VALUES(?,?,?,?,?,?,?,?,?)",
+            [
+              session.id,
+              `q_${randomUUID()}`,
+              "mcq",
+              q.skill,
+              q.question,
+              JSON.stringify(q.options),
+              JSON.stringify(q.expectedAnswer),
+              q.maxScore || 15,
+              currentPos
+            ]
+          );
+        }
+      });
+    } catch (err) {
+      console.warn("[submitCodeAndGenerateNextQuestionsAction] Failed to generate code MCQs:", err);
+    }
+  }
+
+  // 3. Retrieve all updated questions and draft answers
+  const questions = await query<{
+    public_id: string;
+    kind: string;
+    skill: string;
+    question_text: string;
+    options_json: unknown;
+    draft_text: string | null;
+  }>(
+    "SELECT q.public_id, q.kind, q.skill, q.question_text, q.options_json, a.draft_text FROM developer_assessment_questions q LEFT JOIN developer_assessment_answers a ON a.question_id = q.id AND a.developer_id = ? WHERE q.session_id = ? ORDER BY q.position",
+    [session.developer_id, session.id]
+  );
+
+  const formattedQuestions = questions.map((q) => ({
+    publicId: q.public_id,
+    kind: q.kind,
+    skill: q.skill,
+    text: q.question_text,
+    options: q.options_json === null ? null : readJsonValue<string[]>(q.options_json)
+  }));
+
+  const answers = Object.fromEntries(
+    questions.filter((q) => q.draft_text !== null).map((q) => [q.public_id, q.draft_text || ""])
+  );
+
+  const remainingSeconds = session.expires_at
+    ? Math.max(0, Math.floor((new Date(session.expires_at).getTime() - Date.now()) / 1000))
+    : 0;
+
+  return {
+    ok: true as const,
+    questions: formattedQuestions,
+    answers,
+    remainingSeconds
+  };
 }

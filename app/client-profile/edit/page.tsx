@@ -28,6 +28,7 @@ export default function EditClientProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatarUrl);
   const [fullName, setFullName] = useState(client.fullName);
   const [companyName, setCompanyName] = useState(client.companyName);
+  const [industry, setIndustry] = useState(client.industry);
   const [accountType, setAccountType] = useState(client.accountType);
   const [phone, setPhone] = useState(client.phone);
   const email = client.email;
@@ -39,12 +40,13 @@ export default function EditClientProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    const data=new FormData();data.set("accountType",accountType);data.set("displayName",fullName);data.set("companyName",accountType==="company"?companyName:"");data.set("website",accountType==="company"?website:"");data.set("location",location);data.set("phone",phone);data.set("username",username);
+    const data=new FormData();data.set("accountType",accountType);data.set("displayName",fullName);data.set("companyName",accountType==="company"?companyName:"");data.set("industry",accountType==="company"?industry:"");data.set("website",accountType==="company"?website:"");data.set("location",location);data.set("phone",phone);data.set("username",username);
     const result=await updateClientProfile(undefined,data);if(!result.ok){setIsSaving(false);addToast(result.error??Object.values(result.fieldErrors??{}).flat()[0]??"تعذر حفظ البيانات","warn");return}
     updateClient({
       accountType,
       fullName,
       companyName,
+      industry,
       email,
       phone,
       location,
@@ -214,6 +216,17 @@ export default function EditClientProfilePage() {
                   />
                   <Building className="absolute left-4 w-5 h-5 text-neutral-400 pointer-events-none" />
                 </div>
+              </div>}
+
+              {accountType === "company" && <div>
+                <label className="block text-[14px] font-bold text-ink mb-2">مجال عمل الشركة</label>
+                <input
+                  type="text"
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  placeholder="مثال: تجارة إلكترونية، تعليم، تقنية مالية"
+                  className="w-full h-[52px] rounded-full border border-neutral-200 px-5 text-[14px] text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
               </div>}
 
               {/* Email */}

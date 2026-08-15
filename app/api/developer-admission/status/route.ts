@@ -41,9 +41,10 @@ export async function GET() {
     [developer.id]
   );
 
-  if (reassessment?.status === "rejected" && status === "reset_requested") {
-    status = "rejected";
-  }
+  // A pending request is a view state, not a replacement for the developer's
+  // last approved/rejected result. Keep the existing result in the database
+  // until an admin explicitly approves a new attempt.
+  if (reassessment?.status === "pending") status = "reset_requested";
 
   const isPendingOrInProgress = status === "pending" || status === "assessment_in_progress" || status === "reset_approved";
   const needsGeneration =

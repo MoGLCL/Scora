@@ -8,11 +8,8 @@ import { useProfile } from "@/components/profile-provider";
 import { updateDeveloperProfile, setDeveloperSkills } from "@/lib/actions/profile";
 import { uploadAvatar } from "@/lib/actions/upload";
 import { startDeveloperAssessment } from "@/lib/actions/developer-assessment";
-import { EgyptianLocationSelector } from "@/components/egyptian-location-selector";
-import { useRouter } from "next/navigation";
 import {
   User,
-  Phone,
   GraduationCap,
   Briefcase,
   Code,
@@ -25,13 +22,155 @@ import {
   Award,
   Sparkles,
   Check,
+  Camera,
+  Phone,
+  Search,
   ChevronDown,
-  Navigation,
+  X,
+  Plus,
+  AlertCircle,
   ExternalLink
 } from "lucide-react";
 
-// Data Lists
-const EGYPTIAN_UNIVERSITIES = [
+// HIGH-FIDELITY VECTOR SVG EGYPTIAN FLAG (WITH SALADIN EAGLE)
+function EgyptFlagSVG({ className = "w-5 h-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 900 600"
+      className={`${className} rounded-[3px] shadow-xs border border-neutral-200 shrink-0 inline-block`}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Red Stripe (Top) */}
+      <rect width="900" height="200" fill="#C8102E" />
+      {/* White Stripe (Middle) */}
+      <rect y="200" width="900" height="200" fill="#FFFFFF" />
+      {/* Black Stripe (Bottom) */}
+      <rect y="400" width="900" height="200" fill="#000000" />
+      
+      {/* Golden Eagle of Saladin (Coat of Arms) */}
+      <g transform="translate(450, 300) scale(0.6)">
+        {/* Eagle Body & Wings */}
+        <path
+          d="M-30,-75 C-15,-90 15,-90 30,-75 C45,-60 65,-40 75,10 C80,35 60,65 40,85 C25,95 -25,95 -40,85 C-60,65 -80,35 -75,10 C-65,-40 -45,-60 -30,-75 Z"
+          fill="#C59B27"
+        />
+        {/* Head */}
+        <path
+          d="M-10,-85 C-5,-105 15,-105 20,-85 C15,-70 -5,-70 -10,-85 Z"
+          fill="#C59B27"
+        />
+        {/* Shield */}
+        <path
+          d="M-20,-20 L20,-20 L20,30 C20,45 0,60 0,60 C0,60 -20,45 -20,30 Z"
+          fill="#FFFFFF"
+          stroke="#C59B27"
+          strokeWidth="3"
+        />
+        <rect x="-6" y="-20" width="12" height="60" fill="#C59B27" />
+        {/* Base Scroll */}
+        <path
+          d="M-35,85 L35,85 L25,105 L-25,105 Z"
+          fill="#C59B27"
+        />
+      </g>
+    </svg>
+  );
+}
+
+// ALL EGYPTIAN GOVERNORATES & THEIR CITIES
+const EGYPT_GOVERNORATES_AND_CITIES: Record<string, string[]> = {
+  "القاهرة": [
+    "مدينة نصر", "مصر الجديدة", "المعادي", "التجمع الخامس (القاهرة الجديدة)", "الزمالك", 
+    "وسط البلد", "شبرا", "المقطم", "عين شمس", "حلوان", "الرحاب", "مدينتي", "الشروق", 
+    "بدر", "العاصمة الإدارية الجديدة", "المرج", "الزيتون", "حدائق القبة", "روض الفرج", "العباسية"
+  ],
+  "الجيزة": [
+    "الدقي", "المهندسين", "العجوزة", "الهرم", "فيصل", "مدينة 6 أكتوبر", "الشيخ زايد", 
+    "حدائق الأهرام", "العمرانية", "بولاق الدكرور", "إمبابة", "البدرشين", "العياط", "أوسيم", "كرداسة", "الحوامدية"
+  ],
+  "الإسكندرية": [
+    "سموحة", "ستانلي", "سيدي جابر", "سيدي بشر", "ميامي", "لوران", "جليم", "محطة الرمل", 
+    "الإبراهيمية", "العجمي", "الهانوفيل", "المعمورة", "المنتزه", "برج العرب", "العامارية", "كرموز"
+  ],
+  "الغربية": [
+    "طنطا", "المحلة الكبرى", "كفر الزيات", "زفتى", "السنطة", "سمنود", "بسيون", "قطور"
+  ],
+  "الدقهلية": [
+    "المنصورة", "طلخا", "ميت غمر", "السنبلاوين", "دكرنس", "بلقاس", "منية النصر", "شربين", 
+    "أجا", "الجمالية", "المطرية", "بني عبيد", "نبروه", "تمى الأمديد"
+  ],
+  "الشرقية": [
+    "الزقازيق", "العاشر من رمضان", "بلبيس", "منيا القمح", "فاقوس", "أبو حماد", "أبو كبير", 
+    "ههيا", "ديرب نجم", "كفر صقر", "أولاد صقر", "الحسينية", "الصالحية الجديدة", "مشتول السوق"
+  ],
+  "القليوبية": [
+    "بنها", "شبرا الخيمة", "قليوب", "القناطر الخيرية", "الخانكة", "كفر شكر", "طوخ", "شبين القناطر", "العبور", "قها"
+  ],
+  "المنوفية": [
+    "شبين الكوم", "مدينة السادات", "منوف", "أشمون", "الباجور", "قويسنا", "بركة السبع", "تلا", "الشهداء", "سرس الليان"
+  ],
+  "البحيرة": [
+    "دمنهور", "كفر الدوار", "إيتاي البارود", "أبو حمص", "حوش عيسى", "رشيد", "إدكو", "الدلنجات", 
+    "أبو المطامير", "كوم حمادة", "بدر", "وادي النطرون", "شبراخيت", "المحمودية"
+  ],
+  "كفر الشيخ": [
+    "كفر الشيخ", "دسوق", "فوه", "مطوبس", "سيدي سالم", "الرياض", "بيلا", "الحامول", "بلطيم", "سيدي غازي", "قلين"
+  ],
+  "دمياط": [
+    "دمياط", "دمياط الجديدة", "رأس البر", "فارسكور", "الزرقا", "كفر سعد", "كفر البطيخ", "ميت أبو غالب", "الروضة"
+  ],
+  "بورسعيد": [
+    "حي الشرق", "حي العرب", "حي المناخ", "حي الضواحي", "حي الزهور", "حي الجنوب", "بورفؤاد"
+  ],
+  "الإسماعيلية": [
+    "الإسماعيلية", "فايد", "القنطرة شرق", "القنطرة غرب", "التل الكبير", "القصاصين", "أبو صوير"
+  ],
+  "السويس": [
+    "حي السويس", "حي الأربعين", "حي عتاقة", "حي فيصل", "حي الجناين", "العين السخنة"
+  ],
+  "الفيوم": [
+    "الفيوم", "طامية", "سنورس", "إطسا", "إبشواي", "يوسف الصديق", "الفيوم الجديدة"
+  ],
+  "بني سويف": [
+    "بني سويف", "بني سويف الجديدة", "الواسطى", "ناصر", "إهناسيا", "ببا", "سمسطا", "الفشن"
+  ],
+  "المنيا": [
+    "المنيا", "المنيا الجديدة", "مغاغة", "بني مزار", "مطاي", "سمالوط", "أبو قرقاص", "ملوي", "دير مواس", "العدوة"
+  ],
+  "أسيوط": [
+    "أسيوط", "أسيوط الجديدة", "ديروط", "القوصية", "أبنوب", "منفلوط", "الفتح", "أبو تيج", "الغنايم", "ساحل سليم", "البداري", "صدفا"
+  ],
+  "سوهاج": [
+    "سوهاج", "سوهاج الجديدة", "أخميم", "أخميم الجديدة", "جرجا", "طهطا", "المراغة", "طما", "البلينا", "المنشأة", "دار السلام", "ساقلتة", "جهينة"
+  ],
+  "قنا": [
+    "قنا", "قنا الجديدة", "نجع حمادي", "دشنا", "فرشوط", "أبو تشت", "فاو", "قوص", "نقادة", "الوقف"
+  ],
+  "الأقصر": [
+    "الأقصر", "طيبة الجديدة", "إسنا", "أرمنت", "القرنة", "البياضية", "الزينية", "الطود"
+  ],
+  "أسوان": [
+    "أسوان", "أسوان الجديدة", "كوم أمبو", "إدفو", "نصر النوبة", "دراو", "أبو سمبل"
+  ],
+  "البحر الأحمر": [
+    "الغردقة", "الجونة", "سفاجا", "القصير", "مرسى علم", "رأس غارب", "الشلاتين", "حلايب"
+  ],
+  "شمال سيناء": [
+    "العريش", "الشيخ زويد", "رفح", "بئر العبد", "نخل", "الحسنة"
+  ],
+  "جنوب سيناء": [
+    "شرم الشيخ", "دهب", "نويبع", "طابا", "طور سيناء", "رأس سدر", "سانت كاترين", "أبو زنيمة", "أبو رديس"
+  ],
+  "مطروح": [
+    "مرسى مطروح", "العلمين", "العلمين الجديدة", "سيدي عبد الرحمن", "الحمام", "الضبعة", "سيوة", "النجيلة", "السلوم", "براني"
+  ],
+  "الوادي الجديد": [
+    "الخارجة", "الداخلة", "الفرافرة", "باريس", "بلاط"
+  ]
+};
+
+// ALL EGYPTIAN UNIVERSITIES
+const ALL_EGYPTIAN_UNIVERSITIES = [
   "جامعة القاهرة",
   "جامعة عين شمس",
   "جامعة الإسكندرية",
@@ -43,106 +182,364 @@ const EGYPTIAN_UNIVERSITIES = [
   "جامعة بنها",
   "جامعة المنوفية",
   "جامعة قناة السويس",
-  "الجامعة الأمريكية بالقاهرة (AUC)",
-  "الجامعة الألمانيّة بالقاهرة (GUC)",
-  "الجامعة البريطانية في مصر (BUE)",
-  "جامعة مصر للعلوم والتكنولوجيا (MUST)",
-  "جامعة 6 أكتوبر",
+  "جامعة جنوب الوادي",
+  "جامعة المنيا",
+  "جامعة الفيوم",
+  "جامعة بني سويف",
+  "جامعة كفر الشيخ",
+  "جامعة سوهاج",
+  "جامعة بورسعيد",
+  "جامعة دمنهور",
+  "جامعة أسوان",
+  "جامعة دمياط",
+  "جامعة السويس",
+  "جامعة مدينة السادات",
+  "جامعة العريش",
+  "جامعة مطروح",
+  "جامعة الوادي الجديد",
+  "جامعة الأقصر",
+  "جامعة الأزهر",
+  "جامعة الجلالة الأهلية",
+  "جامعة العلمين الدولية",
+  "جامعة الملك سلمان الدولية",
+  "جامعة المنصورة الجديدة الأهلية",
+  "جامعة مصر للمعلوماتية (EUI)",
   "جامعة النيل الأهلية",
   "جامعة زويل للعلوم والتكنولوجيا",
-  "الأكاديمية البحرية (AASTMT)",
+  "الجامعة المصرية للتعلم الإلكتروني الأهلية (EELU)",
+  "جامعة القاهرة الأهلية",
+  "جامعة عين شمس الأهلية",
+  "جامعة الإسكندرية الأهلية",
+  "جامعة المنصورة الأهلية",
+  "جامعة الزقازيق الأهلية",
+  "جامعة طنطا الأهلية",
+  "جامعة حلوان الأهلية",
+  "جامعة بنها الأهلية",
+  "جامعة المنوفية الأهلية",
+  "جامعة أسيوط الأهلية",
+  "جامعة بني سويف الأهلية",
+  "جامعة القاهرة الجديدة التكنولوجية",
+  "جامعة الدلتا التكنولوجية",
+  "جامعة بني سويف التكنولوجية",
+  "جامعة 6 أكتوبر التكنولوجية",
+  "جامعة برج العرب التكنولوجية",
+  "جامعة مصر التكنولوجية الدولية",
+  "الجامعة الأمريكية بالقاهرة (AUC)",
+  "الجامعة الألمانية بالقاهرة (GUC)",
+  "الجامعة البريطانية في مصر (BUE)",
+  "الأكاديمية العربية للعلوم والتكنولوجيا والنقل البحري (AASTMT)",
+  "جامعة مصر للعلوم والتكنولوجيا (MUST)",
+  "جامعة 6 أكتوبر (O6U)",
+  "جامعة المستقبل (FUE)",
+  "الجامعة الروسية في مصر (ERU)",
+  "جامعة فاروس بالإسكندرية (PUA)",
+  "جامعة الدلتا للعلوم والتكنولوجيا",
+  "جامعة النهضة ببني سويف (NUB)",
+  "الجامعة الحديثة للتكنولوجيا والمعلومات (MTI)",
+  "جامعة سيناء",
+  "جامعة هليوبوليس",
+  "جامعة بدر بالقاهرة (BUC)",
+  "جامعة بدر بأسيوط",
+  "جامعة دراية بالمنيا",
+  "جامعة نيو جيزة (NGU)",
+  "الجامعة المصرية الصينية (ECU)",
+  "جامعة سفنكس بأسيوط",
+  "جامعة ميريت بسوهاج",
+  "جامعة السلام بالغربية",
+  "جامعة الصالحية الجديدة",
+  "الجامعة الفرنسية في مصر (UFE)",
+  "جامعة إسلسكا (ESLSCA)",
+  "جامعة المعرفة الدولية"
 ];
 
-const EGYPTIAN_COLLEGES = [
+// ALL EGYPTIAN HIGHER INSTITUTES
+const ALL_EGYPTIAN_INSTITUTES = [
+  "معهد تكنولوجيا المعلومات (ITI)",
+  "المعهد التكنولوجي العالي بالعاشر من رمضان (HTI)",
+  "المعهد الكندي العالي لتكنولوجيا الهندسة والإدارة (CIC)",
+  "أكاديمية الشروق (المعهد العالي للهندسة والحاسبات)",
+  "معهد القاهرة العالي للهندسة وعلوم الحاسب والإدارة",
+  "معهد طيبة العالي لتكنولوجيا الإدارة والمعلومات",
+  "المعهد العالي لعلوم الحاسب ونظم المعلومات بـ 6 أكتوبر",
+  "المعهد العالي للهندسة والتكنولوجيا بالتجمع الخامس",
+  "معهد العبور العالي للهندسة والتكنولوجيا",
+  "معهد العبور العالي للإدارة والحاسبات ونظم المعلومات",
+  "المعهد العالي لتكنولوجيا المعلومات بمدينة بدر",
+  "المعهد العالي للهندسة والتكنولوجيا بطنطا",
+  "المعهد العالي للهندسة والتكنولوجيا بالمنصورة",
+  "المعهد العالي للهندسة والتكنولوجيا بكفر الشيخ",
+  "المعهد العالي للهندسة والتكنولوجيا بالزقازيق",
+  "المعهد العالي للإدارة وتكنولوجيا المعلومات بالمنيا",
+  "معهد الإسكندرية العالي للهندسة والتكنولوجيا (AIET)",
+  "المعهد العالي للهندسة والتكنولوجيا بكنج مريوط",
+  "معهد أكتوبر العالي للهندسة والتكنولوجيا",
+  "معهد المستقبل العالي للدراسات التكنولوجية المتخصصة",
+  "معهد الفراعنة العالي للحاسب الآلي ونظم المعلومات بالهرم",
+  "معهد الجزيرة العالي للهندسة والتكنولوجيا بالمقطم",
+  "معهد الدلتا العالي للهندسة والتكنولوجيا بالمنصورة",
+  "معهد مصر العالي للهندسة والتكنولوجيا بالمنصورة",
+  "معهد الصفوة العالي للهندسة والتكنولوجيا بالقليوبية",
+  "الأكاديمية الدولية لعلوم الإعلام (IAEMS)"
+];
+
+// ALL EGYPTIAN COLLEGES ACROSS ALL DISCIPLINES
+const ALL_EGYPTIAN_COLLEGES = [
   "كلية الحاسبات والمعلومات والذكاء الاصطناعي",
+  "كلية علوم الحاسب وتكنولوجيا المعلومات",
+  "كلية الذكاء الاصطناعي",
   "كلية الهندسة",
-  "كلية الهندسة الإلكترونية",
+  "كلية الهندسة الإلكترونية بمنوف",
+  "كلية التخطيط العمراني",
   "كلية العلوم",
-  "كلية التكنولوجيا والتعليم الصناعي",
-  "كلية الألسن واللغات والترجمة",
+  "كلية الطب البشري",
+  "كلية طب جراحة الفم والأسنان",
+  "كلية الصيدلة والتصنيع الدوائي",
+  "كلية العلاج الطبيعي",
+  "كلية التمريض",
+  "كلية تكنولوجيا العلوم الصحية التطبيقية",
+  "كلية الطب البيطري",
+  "كلية الزراعة",
   "كلية التجارة وإدارة الأعمال",
+  "كلية الاقتصاد والعلوم السياسية",
+  "كلية الحقوق والشريعة والقانون",
+  "كلية الألسن واللغات والترجمة",
+  "كلية اللغات والترجمة",
+  "كلية الآداب",
+  "كلية الإعلام وتكنولوجيا الاتصال",
+  "كلية الفنون التطبيقية",
+  "كلية الفنون الجميلة",
+  "كلية التربية",
+  "كلية التربية النوعية",
+  "كلية التربية الرياضية",
+  "كلية التربية للطفولة المبكرة",
+  "كلية التربية الموسيقية",
+  "كلية التكنولوجيا والتعليم الصناعي",
+  "كلية تكنولوجيا الصناعة والطاقة",
+  "كلية السياحة والفنادق",
+  "كلية الآثار وعلم المصريات",
+  "كلية الخدمة الاجتماعية",
+  "كلية دار العلوم",
+  "كلية الدراسات الإنسانية",
+  "كلية أصول الدين والدعوة",
+  "كلية الشريعة والقانون",
+  "كلية اللغة العربية",
+  "كلية علوم الملاحة وتكنولوجيا الفضاء",
+  "كلية الثروة السمكية والمصايد",
+  "كلية الدراسات العليا للبحوث الإحصائية",
+  "كلية الدراسات العليا للنانوتكنولوجي",
+  "كلية الدراسات العليا للتربية",
+  "كلية الدراسات العليا والبحوث البيئية"
 ];
 
-const PRIMARY_TRACKS_LIST = [
-  "Full-Stack Web Developer (مطور ويب متكامل)",
-  "Frontend Engineer (مطور واجهات ومستخدم)",
-  "Backend & Systems Engineer (مطور أنظمة وقواعد بيانات)",
-  "Agentic AI Engineer (مهندس ذكاء اصطناعي وحلول ذكية)",
-  "Mobile App Engineer (مطور تطبيقات موبايل)",
-  "Cloud & DevOps Engineer (مهندس سحابيات وبنية تحتية)",
-  "Cybersecurity Specialist (مهندس أمن معلومات)",
-  "UI/UX Product Designer (مصمم واجهات وتجربة مستخدم)",
+// COMPREHENSIVE MULTI-SELECT TRACKS
+const COMPREHENSIVE_TRACKS_LIST = [
+  "Full-Stack Web Developer",
+  "Frontend Engineer",
+  "Backend Engineer",
+  "Agentic AI Engineer",
+  "Machine Learning & AI Engineer",
+  "Mobile App Engineer (iOS/Android/Flutter)",
+  "DevOps & Cloud Engineer",
+  "Cybersecurity & Penetration Tester",
+  "UI/UX & Product Designer",
+  "Data Engineer",
+  "Data Scientist & Analyst",
+  "Embedded Systems & IoT Engineer",
+  "Blockchain & Web3 Developer",
+  "Game Developer (Unity / Unreal)",
+  "QA & Automation Testing Engineer",
+  "Site Reliability Engineer (SRE)",
+  "Systems Architect",
+  "Database Administrator (DBA)",
+  "Computer Vision Engineer",
+  "NLP & LLM Engineer",
+  "MLOps Engineer",
+  "ERP & CRM Developer (Odoo / SAP)"
 ];
 
-const SKILLS_MASTER_LIST = [
-  "JavaScript", "TypeScript", "Python", "C++", "Java", "Go", "Rust",
-  "React.js", "Next.js", "Vue.js", "Node.js", "Express.js", "FastAPI", "Django",
-  "PostgreSQL", "MongoDB", "Redis", "Docker", "Kubernetes", "AWS", "Git & GitHub",
-  "PyTorch", "TensorFlow", "Tailwind CSS", "Figma"
+// MAPPING FROM TRACK TO RECOMMENDED TECH STACK & TOOLS
+const TRACK_RECOMMENDED_SKILLS: Record<string, string[]> = {
+  "Full-Stack Web Developer": [
+    "JavaScript", "TypeScript", "React.js", "Next.js", "Node.js", "Express.js", "PostgreSQL", "MongoDB", "Tailwind CSS", "REST APIs", "Git & GitHub"
+  ],
+  "Frontend Engineer": [
+    "JavaScript", "TypeScript", "React.js", "Next.js", "Vue.js", "Nuxt.js", "Angular", "Tailwind CSS", "HTML5", "CSS3", "Redux", "Zustand", "Figma"
+  ],
+  "Backend Engineer": [
+    "Node.js", "Express.js", "NestJS", "Python", "Django", "FastAPI", "Go", "Java", "Spring Boot", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Docker", "GraphQL", "REST APIs", "gRPC"
+  ],
+  "Agentic AI Engineer": [
+    "Python", "LangChain", "LlamaIndex", "CrewAI", "AutoGen", "OpenAI APIs", "Anthropic APIs", "PyTorch", "FastAPI", "Ollama", "Vector DBs", "Docker"
+  ],
+  "Machine Learning & AI Engineer": [
+    "Python", "PyTorch", "TensorFlow", "Scikit-learn", "Pandas", "NumPy", "OpenCV", "Hugging Face", "MLOps", "Jupyter", "SQL"
+  ],
+  "Mobile App Engineer (iOS/Android/Flutter)": [
+    "Flutter", "Dart", "React Native", "Swift", "SwiftUI", "Kotlin", "Android Jetpack", "Firebase", "REST APIs", "SQLite"
+  ],
+  "DevOps & Cloud Engineer": [
+    "Docker", "Kubernetes", "AWS", "Google Cloud (GCP)", "Microsoft Azure", "CI/CD Actions", "Linux", "Terraform", "Ansible", "Nginx", "Prometheus", "Grafana"
+  ],
+  "Cybersecurity & Penetration Tester": [
+    "Linux", "Python", "Wireshark", "Metasploit", "Burp Suite", "Nmap", "Network Security", "Cryptography", "Penetration Testing", "Shell / Bash"
+  ],
+  "UI/UX & Product Designer": [
+    "Figma", "Adobe XD", "User Research", "Wireframing", "Prototyping", "Design Systems", "Tailwind CSS", "HTML5", "CSS3"
+  ],
+  "Data Engineer": [
+    "Python", "SQL", "PostgreSQL", "Apache Spark", "Kafka", "Airflow", "Snowflake", "Docker", "AWS", "Redis", "Pandas"
+  ],
+  "Data Scientist & Analyst": [
+    "Python", "R", "SQL", "Pandas", "NumPy", "Power BI", "Tableau", "Scikit-learn", "Statistics", "Data Visualization"
+  ],
+  "Embedded Systems & IoT Engineer": [
+    "C++", "C#", "C", "Arduino", "Raspberry Pi", "RTOS", "Microcontrollers", "IoT Protocols", "Linux"
+  ],
+  "Blockchain & Web3 Developer": [
+    "Solidity", "Rust", "Ethereum", "Smart Contracts", "Web3.js", "Ethers.js", "Hardhat", "Truffle", "DeFi", "IPFS"
+  ],
+  "Game Developer (Unity / Unreal)": [
+    "C#", "C++", "Unity", "Unreal Engine", "3D Math", "Shader Programming", "Physics Engine", "Blender"
+  ],
+  "QA & Automation Testing Engineer": [
+    "Selenium", "Cypress", "Playwright", "Jest", "Vitest", "Postman", "JUnit", "Test Automation", "CI/CD Actions", "JavaScript", "Python"
+  ],
+  "Site Reliability Engineer (SRE)": [
+    "Kubernetes", "Docker", "Linux", "Prometheus", "Grafana", "Terraform", "Go", "Python", "AWS"
+  ],
+  "Systems Architect": [
+    "Microservices", "System Design", "Cloud Architecture", "Docker", "Kubernetes", "Design Patterns", "Kafka", "PostgreSQL", "NoSQL"
+  ],
+  "Database Administrator (DBA)": [
+    "PostgreSQL", "MySQL", "MongoDB", "Oracle", "SQL Server", "Performance Tuning", "Replication", "Database Backup", "Redis"
+  ],
+  "Computer Vision Engineer": [
+    "OpenCV", "PyTorch", "TensorFlow", "YOLO", "Image Processing", "Deep Learning", "Python", "CUDA"
+  ],
+  "NLP & LLM Engineer": [
+    "Hugging Face", "Transformers", "BERT", "GPT", "PyTorch", "LangChain", "Tokenization", "Python", "Vector DBs"
+  ],
+  "MLOps Engineer": [
+    "MLflow", "Kubeflow", "Docker", "Kubernetes", "CI/CD Actions", "Airflow", "DVC", "Python", "AWS SageMaker"
+  ],
+  "ERP & CRM Developer (Odoo / SAP)": [
+    "Odoo", "Python", "PostgreSQL", "XML", "SAP ABAP", "Salesforce", "ERP Systems", "Business Logic"
+  ]
+};
+
+// MASTER POOL OF ALL TECH STACK & TOOLS FOR AUTOCOMPLETE & SEARCH
+const MASTER_TECH_POOL = [
+  "JavaScript", "TypeScript", "Python", "C++", "C#", "Java", "Go", "Rust", "PHP", 
+  "Swift", "Kotlin", "Dart", "Ruby", "SQL", "HTML5", "CSS3", "R", "Scala", "Elixir", "Shell / Bash",
+  "React.js", "Next.js", "Vue.js", "Nuxt.js", "Angular", "Svelte", "Tailwind CSS", 
+  "Bootstrap", "React Native", "Flutter", "SwiftUI", "Android Jetpack", "Electron", "Redux", "Zustand",
+  "Node.js", "Express.js", "NestJS", "FastAPI", "Django", "Flask", "Spring Boot", 
+  "ASP.NET Core", "Laravel", "Symfony", "Gin (Go)", "Ruby on Rails", "GraphQL", "REST APIs", "gRPC", "WebSockets",
+  "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "Supabase", "Firebase", 
+  "Elasticsearch", "Cassandra", "Neo4j", "MariaDB", "DynamoDB", "Prisma", "TypeORM",
+  "PyTorch", "TensorFlow", "Scikit-learn", "LangChain", "LlamaIndex", "Hugging Face", 
+  "OpenAI APIs", "Anthropic APIs", "OpenCV", "Pandas", "NumPy", "Ollama", "CrewAI", "AutoGen",
+  "Docker", "Kubernetes", "AWS", "Google Cloud (GCP)", "Microsoft Azure", "CI/CD Actions", 
+  "Linux", "Nginx", "Terraform", "Ansible", "Prometheus", "Grafana", "Kafka", "RabbitMQ",
+  "Git & GitHub", "GitLab", "Jira", "Figma", "Adobe XD", "Postman", "Vitest", "Jest", "Cypress", "Playwright",
+  "Selenium", "Solidity", "Smart Contracts", "Web3.js", "Unity", "Unreal Engine", "Odoo", "SAP ABAP", "Salesforce"
 ];
 
 export default function DeveloperOnboardingPage() {
-  const router = useRouter();
-  const { developer, updateDeveloper, setUserRole, addToast } = useProfile();
+  const { developer, updateDeveloper, updateUsername, setUserRole, addToast } = useProfile();
 
-  // Multi-step state
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Step 1: Personal Info
+  // Form Fields
   const [firstName, setFirstName] = useState(developer.fullName.split(" ")[0] || "");
   const [fatherName, setFatherName] = useState(developer.fullName.split(" ")[1] || "");
   const [familyName, setFamilyName] = useState(developer.fullName.split(" ")[2] || "");
   const [phone, setPhone] = useState(developer.phone || "");
   const [username, setUsername] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(developer.avatarUrl);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(developer.avatarUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [isStartingAssessment, setIsStartingAssessment] = useState(false);
   const [assessmentError, setAssessmentError] = useState("");
 
-  // Step 2: Academic Info
-  const [qualificationType, setQualificationType] = useState("university");
-  const [universityName, setUniversityName] = useState("جامعة القاهرة");
-  const [collegeName, setCollegeName] = useState("كلية الحاسبات والمعلومات والذكاء الاصطناعي");
+  // Error highlighting state
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Custom Dropdown Popover States
-  const [isUniDropdownOpen, setIsUniDropdownOpen] = useState(false);
-  const [isColDropdownOpen, setIsColDropdownOpen] = useState(false);
-  const [isTrackDropdownOpen, setIsTrackDropdownOpen] = useState(false);
+  // Step 2: Academic
+  const [qualificationType, setQualificationType] = useState<"university" | "institute" | "self-taught">("university");
+  const [universityName, setUniversityName] = useState("");
+  const [collegeName, setCollegeName] = useState("");
 
+  // Custom Dropdown Open States
+  const [isUniOpen, setIsUniOpen] = useState(false);
+  const [isColOpen, setIsColOpen] = useState(false);
   const uniRef = useRef<HTMLDivElement>(null);
   const colRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
 
-  // Step 3: Technical Track & Skills
-  const [primaryTrack, setPrimaryTrack] = useState(PRIMARY_TRACKS_LIST[0]);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(developer.skills);
+  // Step 3: Tracks & Skills (Multi-select with dynamic recommendations)
+  const [selectedTracks, setSelectedTracks] = useState<string[]>(
+    developer.jobTitle ? [developer.jobTitle] : ["Full-Stack Web Developer"]
+  );
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(developer.skills || []);
+  const [skillSearchQuery, setSkillSearchQuery] = useState("");
+  const [isSkillSearchOpen, setIsSkillSearchOpen] = useState(false);
+  const skillSearchRef = useRef<HTMLDivElement>(null);
 
-  // Step 4: Passport & Social Links
+  // Step 4: Governorate & City (Separated & Initialized as empty)
+  const [governorate, setGovernorate] = useState(
+    developer.location ? developer.location.split(" - ")[0] || "" : ""
+  );
+  const [city, setCity] = useState(
+    developer.location ? developer.location.split(" - ")[1] || "" : ""
+  );
+  const [isGovOpen, setIsGovOpen] = useState(false);
+  const [isCityOpen, setIsCityOpen] = useState(false);
+  const govRef = useRef<HTMLDivElement>(null);
+  const cityRef = useRef<HTMLDivElement>(null);
+
   const [github, setGithub] = useState(developer.github || "");
   const [linkedin, setLinkedin] = useState(developer.linkedin || "");
   const [website, setWebsite] = useState(developer.website || "");
-  const [location, setLocation] = useState(developer.location || "القاهرة، مصر");
-  const [bio, setBio] = useState(developer.bio || "أبني منتجات ويب وتطبيقات قابلة للتوسع وأشرح قراراتي التقنية بوضوح.");
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [bio, setBio] = useState(developer.bio || "");
 
   // Close dropdowns on outside click
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (uniRef.current && !uniRef.current.contains(event.target as Node)) {
-        setIsUniDropdownOpen(false);
-      }
-      if (colRef.current && !colRef.current.contains(event.target as Node)) {
-        setIsColDropdownOpen(false);
-      }
-      if (trackRef.current && !trackRef.current.contains(event.target as Node)) {
-        setIsTrackDropdownOpen(false);
-      }
+    function handleClickOutside(e: MouseEvent) {
+      if (uniRef.current && !uniRef.current.contains(e.target as Node)) setIsUniOpen(false);
+      if (colRef.current && !colRef.current.contains(e.target as Node)) setIsColOpen(false);
+      if (govRef.current && !govRef.current.contains(e.target as Node)) setIsGovOpen(false);
+      if (cityRef.current && !cityRef.current.contains(e.target as Node)) setIsCityOpen(false);
+      if (skillSearchRef.current && !skillSearchRef.current.contains(e.target as Node)) setIsSkillSearchOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        addToast("حجم الصورة يجب ألا يتجاوز 5 ميجابايت", "warn");
+        return;
+      }
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+      addToast("تم اختيار الصورة بنجاح وتحديث بطاقة الجواز", "info");
+    }
+  };
+
+  const toggleTrack = (track: string) => {
+    if (errors.selectedTracks) setErrors((prev) => ({ ...prev, selectedTracks: "" }));
+    if (selectedTracks.includes(track)) {
+      setSelectedTracks(selectedTracks.filter((t) => t !== track));
+    } else {
+      setSelectedTracks([...selectedTracks, track]);
+    }
+  };
+
   const toggleSkill = (skill: string) => {
+    if (errors.selectedSkills) setErrors((prev) => ({ ...prev, selectedSkills: "" }));
     if (selectedSkills.includes(skill)) {
       setSelectedSkills(selectedSkills.filter((s) => s !== skill));
     } else {
@@ -150,40 +547,37 @@ export default function DeveloperOnboardingPage() {
     }
   };
 
-  // Auto detect location function
-  const handleAutoDetectLocation = () => {
-    setIsDetectingLocation(true);
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setIsDetectingLocation(false);
-          setLocation("القاهرة، مصر (تم التحديد أوتوماتيكياً)");
-          addToast("تم تحديد موقعك الجغرافي بنجاح: القاهرة، مصر", "success");
-        },
-        (error) => {
-          setIsDetectingLocation(false);
-          setLocation("القاهرة، مصر");
-          addToast("تم تحديد المدينة الافتراضية: القاهرة، مصر", "info");
-        }
-      );
+  const addCustomSkill = (skillToAdd: string) => {
+    const trimmed = skillToAdd.trim();
+    if (!trimmed) return;
+    if (errors.selectedSkills) setErrors((prev) => ({ ...prev, selectedSkills: "" }));
+    if (selectedSkills.includes(trimmed)) {
+      addToast("المهارة مضافة بالفعل", "info");
     } else {
-      setIsDetectingLocation(false);
-      setLocation("القاهرة، مصر");
-      addToast("تم تحديد المدينة الافتراضية: القاهرة، مصر", "info");
+      setSelectedSkills([...selectedSkills, trimmed]);
+      addToast(`تمت إضافة "${trimmed}" بنجاح`, "success");
     }
+    setSkillSearchQuery("");
+    setIsSkillSearchOpen(false);
   };
 
+  // Compute recommended skills based on chosen career tracks
+  const recommendedSkillsSet = new Set<string>();
+  selectedTracks.forEach((track) => {
+    const recs = TRACK_RECOMMENDED_SKILLS[track] || [];
+    recs.forEach((r) => recommendedSkillsSet.add(r));
+  });
+  const recommendedSkillsList = Array.from(recommendedSkillsSet);
+
+  // Filtered skills from master pool for search/add input
+  const filteredMasterSkills = MASTER_TECH_POOL.filter(
+    (sk) =>
+      sk.toLowerCase().includes(skillSearchQuery.trim().toLowerCase()) &&
+      !selectedSkills.includes(sk)
+  );
+
+  // Free Navigation: allowed at any time
   const handleNextStep = () => {
-    if (currentStep === 1) {
-      if (!firstName.trim() || !familyName.trim()) {
-        addToast("يرجى ملء الاسم الأول وعائلة الحساب إجباريًا", "warn");
-        return;
-      }
-      if (!username.trim()) {
-        addToast("اسم المستخدم مطلوب لإنشاء رابط البروفايل", "warn");
-        return;
-      }
-    }
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     }
@@ -195,295 +589,612 @@ export default function DeveloperOnboardingPage() {
     }
   };
 
+  const handleStepClick = (stepNum: number) => {
+    setCurrentStep(stepNum);
+  };
+
+  const combinedLocation = governorate ? (city ? `${governorate} - ${city}` : governorate) : "";
+
+  // Full validation check with error tracking and automated redirect to the first invalid step
   const handleCompleteOnboarding = async () => {
+    const newErrors: Record<string, string> = {};
+
+    // Validate Step 1
+    if (!firstName.trim()) newErrors.firstName = "الاسم الأول إجباري";
+    if (!familyName.trim()) newErrors.familyName = "اسم العائلة إجباري";
+    
+    // Egyptian phone validation: exactly 11 digits starting with 01 (010, 011, 012, 015) or 10 digits
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (!cleanPhone) {
+      newErrors.phone = "رقم الهاتف المصري للتوثيق إجباري";
+    } else if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      newErrors.phone = "يرجى إدخال رقم هاتف مصري صحيح (11 رقم)";
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    if (!cleanUsername) {
+      newErrors.username = "اسم المستخدم لرابط البروفايل إجباري";
+    } else if (cleanUsername.length < 3) {
+      newErrors.username = "اسم المستخدم يجب ألا يقل عن 3 أحرف";
+    }
+
+    // Validate Step 2
+    if (qualificationType !== "self-taught") {
+      if (!universityName.trim()) {
+        newErrors.universityName = qualificationType === "institute" ? "اسم المعهد إجباري" : "اسم الجامعة إجباري";
+      }
+      if (!collegeName.trim()) {
+        newErrors.collegeName = "الكلية والتخصص الدراسي إجباري";
+      }
+    }
+
+    // Validate Step 3
+    if (selectedTracks.length === 0) {
+      newErrors.selectedTracks = "يجب اختيار مسار وظيفي واحد على الأقل";
+    }
+    if (selectedSkills.length === 0) {
+      newErrors.selectedSkills = "يجب تحديد مهارة أو تقنية واحدة على الأقل";
+    }
+
+    // Validate Step 4
+    if (!governorate.trim()) newErrors.governorate = "المحافظة إجبارية";
+    if (!city.trim()) newErrors.city = "المدينة أو المركز إجباري";
+
+    setErrors(newErrors);
+
+    // If any error exists, immediately redirect to the earliest step with an error & show red marks
+    if (Object.keys(newErrors).length > 0) {
+      if (newErrors.firstName || newErrors.familyName || newErrors.phone || newErrors.username) {
+        setCurrentStep(1);
+        addToast("يرجى استكمال البيانات الشخصية الإجبارية أولاً (محددة بالأحمر)", "warn");
+      } else if (newErrors.universityName || newErrors.collegeName) {
+        setCurrentStep(2);
+        addToast("يرجى تحديد الجامعة والكلية (محددة بالأحمر)", "warn");
+      } else if (newErrors.selectedTracks || newErrors.selectedSkills) {
+        setCurrentStep(3);
+        addToast("يرجى تحديد مسارك الوظيفي ومهاراتك (محددة بالأحمر)", "warn");
+      } else if (newErrors.governorate || newErrors.city) {
+        setCurrentStep(4);
+        addToast("يرجى تحديد المحافظة والمدينة (محددة بالأحمر)", "warn");
+      }
+      return;
+    }
+
     if (isStartingAssessment) return;
     setIsStartingAssessment(true);
     setAssessmentError("");
-    const fullCombinedName = `${firstName.trim()} ${fatherName.trim()} ${familyName.trim()}`.trim();
+
+    const fullCombinedName = `${firstName.trim()} ${fatherName.trim()} ${familyName.trim()}`.trim() || developer.fullName;
+    const finalJobTitle = selectedTracks.join(" | ") || "Full-Stack Web Developer";
+    const finalUsername = username.trim() || `dev_${Math.floor(Math.random() * 10000)}`;
+
     const data = new FormData();
-    data.set("displayName", fullCombinedName || developer.fullName);
-    data.set("jobTitle", primaryTrack.split(" (")[0]);
+    data.set("displayName", fullCombinedName);
+    data.set("jobTitle", finalJobTitle);
     data.set("bio", bio);
-    data.set("location", location);
+    data.set("location", combinedLocation);
     data.set("phone", phone);
-    data.set("username", username);
+    data.set("username", finalUsername);
     data.set("availability", "available");
     data.set("github", github);
     data.set("linkedin", linkedin);
     data.set("website", website);
+
     const profileResult = await updateDeveloperProfile(undefined, data);
     if (!profileResult.ok) {
-      addToast(profileResult.error ?? Object.values(profileResult.fieldErrors ?? {}).flat()[0] ?? "تعذر حفظ الملف الشخصي", "warn");
-      setIsStartingAssessment(false); return;
+      const msg = profileResult.error ?? Object.values(profileResult.fieldErrors ?? {}).flat()[0] ?? "تعذر حفظ الملف الشخصي";
+      addToast(msg, "warn");
+      setIsStartingAssessment(false);
+      return;
     }
-    const skillsResult = await setDeveloperSkills(selectedSkills);
+
+    const skillsToSave = selectedSkills.length ? selectedSkills : ["JavaScript", "Problem Solving"];
+    const skillsResult = await setDeveloperSkills(skillsToSave);
     if (!skillsResult.ok) {
       addToast(skillsResult.error ?? "تعذر حفظ المهارات", "warn");
-      setIsStartingAssessment(false); return;
     }
+
+    let uploadedUrl = avatarPreview;
     if (avatarFile) {
       const avatarData = new FormData();
       avatarData.set("file", avatarFile);
       const avatarResult = await uploadAvatar(avatarData);
-      if (!avatarResult.ok) {
-        addToast(avatarResult.error ?? "تعذر رفع الصورة الشخصية", "warn");
-        setIsStartingAssessment(false); return;
+      if (avatarResult.ok && avatarResult.url) {
+        uploadedUrl = avatarResult.url;
+        updateDeveloper({ avatarUrl: avatarResult.url });
       }
-      updateDeveloper({ avatarUrl: avatarResult.url ?? null });
     }
+
     updateDeveloper({
-      fullName: fullCombinedName || developer.fullName,
+      fullName: fullCombinedName,
       phone,
-      jobTitle: primaryTrack.split(" (")[0],
-      location,
+      jobTitle: finalJobTitle,
+      location: combinedLocation,
       bio,
-      skills: selectedSkills,
+      skills: skillsToSave,
       github,
       linkedin,
       website,
+      avatarUrl: uploadedUrl,
     });
-
+    updateUsername(finalUsername);
     setUserRole("developer");
+
     addToast("تهانينا! تم تفعيل الجواز الرقمي وبدء حساب المطور بنجاح.", "success");
-    const assessmentResult = await startDeveloperAssessment();
-    if (assessmentResult && !assessmentResult.ok) { setAssessmentError(assessmentResult.error); addToast(assessmentResult.error, "warn"); }
-    setIsStartingAssessment(false);
+
+    try {
+      const assessmentResult = await startDeveloperAssessment();
+      if (assessmentResult && assessmentResult.ok && assessmentResult.assessmentUrl) {
+        window.location.href = assessmentResult.assessmentUrl;
+      } else {
+        window.location.href = "/developer-assessment/pending";
+      }
+    } catch {
+      window.location.href = "/developer-assessment/pending";
+    }
   };
 
-  const fullNameDisplay = `${firstName} ${fatherName} ${familyName}`.trim() || "اسم المطور";
-  const initials = [firstName, familyName].filter(Boolean).map((name) => name.trim()[0]).join("").slice(0, 2).toUpperCase() || "SC";
+  const fullNameDisplay = `${firstName} ${fatherName} ${familyName}`.trim();
+  const avatarLetter = (firstName.trim()[0] || "م");
+
+  // Current list based on tab
+  const institutionsList = qualificationType === "institute" ? ALL_EGYPTIAN_INSTITUTES : ALL_EGYPTIAN_UNIVERSITIES;
+
+  // Filtered dropdown items based on typed input
+  const filteredInstitutions = institutionsList.filter((inst) =>
+    inst.toLowerCase().includes(universityName.trim().toLowerCase())
+  );
+  const filteredColleges = ALL_EGYPTIAN_COLLEGES.filter((col) =>
+    col.toLowerCase().includes(collegeName.trim().toLowerCase())
+  );
+
+  // Available cities for selected governorate
+  const availableCities = governorate ? EGYPT_GOVERNORATES_AND_CITIES[governorate] || [] : [];
+  const filteredCities = availableCities.filter((c) =>
+    c.toLowerCase().includes(city.trim().toLowerCase())
+  );
+  const governoratesList = Object.keys(EGYPT_GOVERNORATES_AND_CITIES);
+  const filteredGovernorates = governoratesList.filter((g) =>
+    g.toLowerCase().includes(governorate.trim().toLowerCase())
+  );
+
+  // Clean Passport Tracks Display: 2 Tracks + ETC if more
+  const passportTracksDisplay = selectedTracks.length > 0
+    ? selectedTracks.length > 2
+      ? `${selectedTracks.slice(0, 2).join(" · ")} · ETC`
+      : selectedTracks.join(" · ")
+    : "Full-Stack Web Developer";
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-screen bg-white flex flex-col font-body" dir="rtl">
       <SiteHeader />
 
-      <main className="mx-auto max-w-[1296px] px-6 md:px-8 py-8 md:py-14 w-full flex-1 space-y-10">
+      <main className="mx-auto max-w-[1280px] px-4 md:px-6 py-6 md:py-8 w-full flex-1 space-y-6">
         
-        {/* TOP TITLE & STEPPER */}
-        <div className="rounded-[28px] bg-gradient-to-b from-[#E8FAF0] to-white border border-[#D1E3D6] p-8 md:p-10 space-y-6 shadow-2xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1 text-[12px] font-bold text-[#056B38] border border-[#D1E3D6] mb-3">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>إعداد حساب المطور · Developer Onboarding</span>
+        {/* TOP BANNER */}
+        <div className="rounded-[28px] bg-[#EAF7EE] border border-[#D3EBDC] p-6 md:p-8 relative">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            
+            {/* Right side in RTL: Title and Badge */}
+            <div className="text-right space-y-2">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-[11px] font-bold text-[#056B38] border border-[#CDE5D6]">
+                <Sparkles className="w-3.5 h-3.5 text-[#056B38]" />
+                <span>Developer Onboarding · إعداد حساب المطور</span>
               </div>
-              <h1 className="text-[28px] md:text-[38px] font-extrabold text-[#05291A] font-heading leading-tight">
+              <h1 className="text-[26px] md:text-[34px] font-black text-[#05291A] font-heading leading-tight">
                 أكمل إعداد الجواز الرقمي (Developer Passport)
               </h1>
-              <p className="text-[14px] text-[#526B5E] mt-1">
+              <p className="text-[13px] text-[#526B5E] font-medium">
                 ادخل بياناتك الشخصية والتعليمية ومهاراتك لتوثيق نقاط الثقة وتقييمات الكود.
               </p>
             </div>
 
-            {/* Step Progress Tracker */}
-            <div className="flex items-center gap-2 bg-white p-3 rounded-2xl border border-[#D1E3D6] shrink-0">
-              {[1, 2, 3, 4].map((stepNum) => {
-                const isCurrent = currentStep === stepNum;
+            {/* Left side in RTL: Interactive Clickable Stepper Circles (Always Accessible) */}
+            <div className="flex items-center gap-2 bg-white/75 backdrop-blur-xs border border-[#CDE5D6] rounded-full px-4 py-2 self-start md:self-center">
+              {[1, 2, 3, 4].map((stepNum, idx) => {
+                const isActive = currentStep === stepNum;
                 const isPassed = currentStep > stepNum;
                 return (
-                  <div key={stepNum} className="flex items-center gap-2">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold transition-all ${
-                        isCurrent
-                          ? "bg-[#056B38] text-white ring-4 ring-[#056B38]/15"
+                  <React.Fragment key={stepNum}>
+                    <button
+                      type="button"
+                      onClick={() => handleStepClick(stepNum)}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-[#056B38] text-white shadow-xs scale-110"
                           : isPassed
-                          ? "bg-[#E8FAF0] text-[#056B38] border border-[#056B38]"
-                          : "bg-neutral-100 text-[#526B5E]"
+                          ? "bg-[#056B38]/80 text-white hover:opacity-90"
+                          : "bg-white text-neutral-400 border border-neutral-200 hover:border-[#056B38] hover:text-[#056B38]"
                       }`}
+                      title={`الانتقال إلى الخطوة ${stepNum}`}
                     >
-                      {isPassed ? <Check className="w-4 h-4" /> : stepNum}
-                    </div>
-                    {stepNum < 4 && <div className="w-6 h-0.5 bg-[#D1E3D6]" />}
-                  </div>
+                      {stepNum}
+                    </button>
+                    {idx < 3 && <div className="w-3 h-0.5 bg-[#CDE5D6]" />}
+                  </React.Fragment>
                 );
               })}
             </div>
+
           </div>
         </div>
 
-        {/* ONBOARDING LAYOUT (GRID FORM + LIVE PASSPORT CARD PREVIEW) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        {/* 2-COLUMN SIDE-BY-SIDE LAYOUT */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* Left / Main Column: Multi-Step Form */}
-          <div className="lg:col-span-2 rounded-[24px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-8 shadow-2xs">
+          {/* RIGHT COLUMN: Form Card (8 Columns) */}
+          <div className="lg:col-span-8 rounded-[24px] bg-white border border-[#D1E3D6] p-6 md:p-8 space-y-6 shadow-xs">
             
-            {/* STEP 1: PERSONAL INFO */}
+            {/* STEP 1: PERSONAL & CONTACT INFO */}
             {currentStep === 1 && (
               <div className="space-y-6">
-                <div className="flex items-start justify-between gap-5">
-                  <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
-                    الخطوة 1: البيانات الشخصية والأساسية
-                  </h3>
-                  <p className="text-[13px] text-[#526B5E] mt-1">
-                    أدخل اسمك الرسمي ورقم هاتفك للتوثيق والاتصال بالشركات.
-                  </p>
-                  <label className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-[#D1E3D6] bg-[#F7FAF8] text-[#056B38] transition hover:border-[#056B38]" title="اختيار صورة شخصية">{avatarPreview?<img src={avatarPreview} alt="معاينة الصورة" className="h-full w-full object-cover"/>:<User className="h-7 w-7"/>}<span className="absolute inset-x-0 bottom-0 bg-[#05291A]/80 py-1 text-center text-[9px] font-bold text-white">تغيير</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e=>{const file=e.target.files?.[0]??null;setAvatarFile(file);if(file)setAvatarPreview(URL.createObjectURL(file))}}/></label>
+                
+                {/* Step Header: Title on Right, Avatar circle on Left */}
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-5">
+                  <div className="text-right">
+                    <h2 className="text-[20px] font-black text-[#05291A]">
+                      الخطوة 1: البيانات الشخصية والأساسية
+                    </h2>
+                    <p className="text-[12px] text-[#526B5E] mt-0.5">
+                      أدخل اسمك الرسمي ورقم هاتفك للتوثيق والاتصال بالشركات. الحقول بعلامة (<span className="text-red-500 font-bold">*</span>) إجبارية.
+                    </p>
+                  </div>
+
+                  {/* Avatar Upload circle */}
+                  <div
+                    className="relative group cursor-pointer shrink-0"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                    {avatarPreview ? (
+                      <img
+                        src={avatarPreview}
+                        alt="Avatar Preview"
+                        className="w-14 h-14 rounded-full object-cover border-2 border-[#056B38] shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-[#E8FAF0] border-2 border-[#CDE5D6] flex flex-col items-center justify-center text-[#056B38]">
+                        <User className="w-5 h-5" />
+                      </div>
+                    )}
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#056B38] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full shadow-xs">
+                      تغيير
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#05291A]">الاسم الأول *</label>
+                {/* 3 Name Inputs (Row 1) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      الاسم الأول <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
                     <input
                       type="text"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="مثال: محمد"
-                      className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38]"
+                      onChange={(e) => {
+                        setFirstName(e.target.value);
+                        if (errors.firstName) setErrors((prev) => ({ ...prev, firstName: "" }));
+                      }}
+                      placeholder="محمد"
+                      className={`w-full h-11 rounded-[14px] border px-3.5 text-[13px] text-[#05291A] focus:outline-none transition-all text-right ${
+                        errors.firstName
+                          ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                          : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                      }`}
                     />
+                    {errors.firstName && (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{errors.firstName}</span>
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#05291A]">اسم الأب</label>
+
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">اسم الأب</label>
                     <input
                       type="text"
                       value={fatherName}
                       onChange={(e) => setFatherName(e.target.value)}
-                      placeholder="مثال: وائل"
-                      className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38]"
+                      placeholder="وائل"
+                      className="w-full h-11 rounded-[14px] border border-[#D1E3D6] bg-[#F7FAF8] px-3.5 text-[13px] text-[#05291A] focus:bg-white focus:border-[#056B38] focus:outline-none transition-all text-right"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#05291A]">اسم العائلة *</label>
+
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      اسم العائلة <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
                     <input
                       type="text"
                       value={familyName}
-                      onChange={(e) => setFamilyName(e.target.value)}
+                      onChange={(e) => {
+                        setFamilyName(e.target.value);
+                        if (errors.familyName) setErrors((prev) => ({ ...prev, familyName: "" }));
+                      }}
                       placeholder="مثال: الغنام"
-                      className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38]"
+                      className={`w-full h-11 rounded-[14px] border px-3.5 text-[13px] text-[#05291A] focus:outline-none transition-all text-right ${
+                        errors.familyName
+                          ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                          : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                      }`}
                     />
+                    {errors.familyName && (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{errors.familyName}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start"><div className="space-y-1.5">
-                  <label className="text-[13px] font-bold text-[#05291A]">رقم الهاتف للتوثيق *</label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="010xxxxxxx"
-                      className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white pr-10 pl-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] dir-ltr"
-                    />
-                    <Phone className="w-4 h-4 text-[#526B5E] absolute right-3 pointer-events-none" />
+                {/* Phone (Egyptian Real Flag Badge + +20) + Username (Row 2) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  
+                  {/* Phone with Real Egyptian Flag Badge */}
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      رقم الهاتف للتوثيق (مصر فقط) <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none z-10 pl-2.5 border-l border-neutral-200">
+                        <EgyptFlagSVG className="w-5 h-3.5" />
+                        <span className="text-[12px] font-bold text-[#05291A] font-mono dir-ltr">+20</span>
+                      </div>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, "");
+                          setPhone(val);
+                          if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+                        }}
+                        placeholder="010 1234 5678"
+                        dir="ltr"
+                        maxLength={11}
+                        className={`w-full h-11 rounded-[14px] border pr-22 pl-3.5 text-[13px] font-bold text-[#05291A] focus:outline-none transition-all text-left font-mono ${
+                          errors.phone
+                            ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                            : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                        }`}
+                      />
+                    </div>
+                    {errors.phone && (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{errors.phone}</span>
+                      </p>
+                    )}
                   </div>
-                </div><div className="space-y-1.5"><label className="text-[13px] font-bold text-[#05291A]">اسم المستخدم لرابط البروفايل *</label><input type="text" required minLength={3} maxLength={30} value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""))} placeholder="مثال: mohamed_dev" className="h-[46px] w-full rounded-xl border border-[#D1E3D6] bg-white px-4 text-left text-[#05291A] placeholder:text-[#87988F] outline-none focus:border-[#056B38]" dir="ltr"/><p className="text-xs text-[#526B5E]">scora.app/profile/{username||"username"}</p></div></div>
+
+                  {/* Username */}
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      اسم المستخدم لرابط البروفايل (3 أحرف على الأقل) <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+                        if (errors.username) setErrors((prev) => ({ ...prev, username: "" }));
+                      }}
+                      placeholder="مثال: mohamed_dev"
+                      dir="ltr"
+                      className={`w-full h-11 rounded-[14px] border px-3.5 text-[13px] font-bold text-[#05291A] focus:outline-none transition-all text-left ${
+                        errors.username
+                          ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                          : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                      }`}
+                    />
+                    {errors.username ? (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{errors.username}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-[#526B5E] font-mono text-left select-none pt-0.5">
+                        scora.alwaysdata.net/profile/{username || "username"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
               </div>
             )}
 
-            {/* STEP 2: ACADEMIC QUALIFICATION */}
+            {/* STEP 2: ACADEMIC EDUCATION (CUSTOM SCORA STYLED DROPDOWNS) */}
             {currentStep === 2 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
-                    الخطوة 2: المؤهل الأكاديمي والتعليمي
-                  </h3>
-                  <p className="text-[13px] text-[#526B5E] mt-1">
-                    حدد تحصيلك الأكاديمي والجامعي لاحتساب نقاط المهارات المعتمدة.
-                  </p>
+              <div className="space-y-5">
+                <div className="border-b border-neutral-100 pb-4 text-right">
+                  <h2 className="text-[20px] font-black text-[#05291A]">الخطوة 2: التعليم والبيانات الأكاديمية</h2>
+                  <p className="text-[12px] text-[#526B5E] mt-0.5">حدد مسارك التعليمي وجامعتك أو معهدك وكليتك في مصر.</p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setQualificationType("university")}
-                    className={`p-4 rounded-[16px] border text-right transition-all cursor-pointer ${
-                      qualificationType === "university"
-                        ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] font-bold"
-                        : "border-[#D1E3D6] bg-white text-[#05291A] hover:bg-neutral-50"
-                    }`}
-                  >
-                    <GraduationCap className="w-6 h-6 mb-2" />
-                    <div className="text-[15px]">طالب أو خريج جامعي</div>
-                    <div className="text-[12px] opacity-80 mt-1">بكالوريوس / حاسبات / هندسة</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setQualificationType("self_taught")}
-                    className={`p-4 rounded-[16px] border text-right transition-all cursor-pointer ${
-                      qualificationType === "self_taught"
-                        ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] font-bold"
-                        : "border-[#D1E3D6] bg-white text-[#05291A] hover:bg-neutral-50"
-                    }`}
-                  >
-                    <Award className="w-6 h-6 mb-2" />
-                    <div className="text-[15px]">تعلم ذاتي / دورات مكثفة</div>
-                    <div className="text-[12px] opacity-80 mt-1">خبرة عملية بدون مؤهل حاسبات</div>
-                  </button>
+                {/* 3 Tabs */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: "university" as const, label: "جامعة مصرية / دولية" },
+                    { id: "institute" as const, label: "معهد عالي أو أكاديمية" },
+                    { id: "self-taught" as const, label: "تعلم ذاتي" },
+                  ].map((q) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => {
+                        setQualificationType(q.id);
+                        setUniversityName("");
+                        setIsUniOpen(false);
+                        setErrors((prev) => ({ ...prev, universityName: "", collegeName: "" }));
+                      }}
+                      className={`h-11 rounded-[14px] border text-[12px] font-bold transition-all flex items-center justify-center cursor-pointer ${
+                        qualificationType === q.id
+                          ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] shadow-2xs font-extrabold"
+                          : "border-[#D1E3D6] bg-[#F7FAF8] text-[#526B5E] hover:bg-white"
+                      }`}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
                 </div>
 
-                {qualificationType === "university" && (
-                  <div className="space-y-4 pt-2">
+                {qualificationType !== "self-taught" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     
-                    {/* CUSTOM POPOVER SELECT 1: UNIVERSITY */}
-                    <div className="space-y-1.5 relative" ref={uniRef}>
-                      <label className="text-[13px] font-bold text-[#05291A]">اسم الجامعة</label>
-                      <button
-                        type="button"
-                        onClick={() => setIsUniDropdownOpen(!isUniDropdownOpen)}
-                        className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 flex items-center justify-between text-[13px] text-[#05291A] font-bold outline-none hover:border-[#056B38] transition-all cursor-pointer"
-                      >
-                        <span>{universityName}</span>
-                        <ChevronDown className={`w-4 h-4 text-[#526B5E] transition-transform duration-200 ${isUniDropdownOpen ? "rotate-180 text-[#056B38]" : ""}`} />
-                      </button>
+                    {/* University / Institute Custom Popover Dropdown with Strict Internal Scroll */}
+                    <div className="space-y-1.5 text-right relative" ref={uniRef}>
+                      <label className="text-[12px] font-bold text-[#05291A]">
+                        {qualificationType === "institute" ? "اسم المعهد أو الأكاديمية" : "اسم الجامعة أو الأكاديمية"}{" "}
+                        <span className="text-red-500 font-bold text-[14px]">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={universityName}
+                          onFocus={() => setIsUniOpen(true)}
+                          onChange={(e) => {
+                            setUniversityName(e.target.value);
+                            setIsUniOpen(true);
+                            if (errors.universityName) setErrors((prev) => ({ ...prev, universityName: "" }));
+                          }}
+                          placeholder={qualificationType === "institute" ? "ابحث أو اختر المعهد العالي..." : "ابحث أو اختر الجامعة (القاهرة، طنطا...)"}
+                          className={`w-full h-11 rounded-[14px] border pr-3.5 pl-9 text-[13px] text-[#05291A] focus:outline-none transition-all ${
+                            errors.universityName
+                              ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                              : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsUniOpen(!isUniOpen)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#056B38] cursor-pointer"
+                        >
+                          <ChevronDown className={`w-4 h-4 transition-transform ${isUniOpen ? "rotate-180 text-[#056B38]" : ""}`} />
+                        </button>
+                      </div>
+                      {errors.universityName && (
+                        <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>{errors.universityName}</span>
+                        </p>
+                      )}
 
-                      {isUniDropdownOpen && (
-                        <div className="absolute top-full mt-1.5 right-0 left-0 z-50 max-h-60 overflow-y-auto rounded-[14px] border border-[#D1E3D6] bg-white p-1.5 shadow-lg space-y-1 animate-in fade-in duration-150">
-                          {EGYPTIAN_UNIVERSITIES.map((uni) => {
-                            const isSelected = uni === universityName;
-                            return (
-                              <button
-                                key={uni}
-                                type="button"
-                                onClick={() => {
-                                  setUniversityName(uni);
-                                  setIsUniDropdownOpen(false);
-                                }}
-                                className={`w-full px-3.5 py-2.5 rounded-[10px] text-[13px] font-bold text-right flex items-center justify-between cursor-pointer transition-colors ${
-                                  isSelected ? "bg-[#E8FAF0] text-[#056B38]" : "text-[#05291A] hover:bg-neutral-50"
-                                }`}
-                              >
-                                <span>{uni}</span>
-                                {isSelected && <Check className="w-4 h-4 text-[#056B38]" />}
-                              </button>
-                            );
-                          })}
+                      {/* Custom Popover with strict internal scroll */}
+                      {isUniOpen && (
+                        <div
+                          onWheel={(e) => e.stopPropagation()}
+                          className="absolute top-full right-0 left-0 mt-1.5 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-[#D1E3D6] bg-white shadow-xl z-50 p-1.5 space-y-0.5"
+                        >
+                          {filteredInstitutions.length > 0 ? (
+                            filteredInstitutions.map((inst) => {
+                              const isSelected = universityName === inst;
+                              return (
+                                <button
+                                  key={inst}
+                                  type="button"
+                                  onClick={() => {
+                                    setUniversityName(inst);
+                                    setIsUniOpen(false);
+                                    if (errors.universityName) setErrors((prev) => ({ ...prev, universityName: "" }));
+                                  }}
+                                  className={`w-full text-right px-3.5 py-2.5 rounded-xl text-[12px] font-bold transition-all flex items-center justify-between cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#E8FAF0] text-[#056B38]"
+                                      : "text-[#05291A] hover:bg-[#F7FAF8] hover:text-[#056B38]"
+                                  }`}
+                                >
+                                  <span>{inst}</span>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-[#056B38]" />}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="p-3 text-center text-xs text-[#526B5E]">
+                              سيتم حفظ القيمة المدخلة: &quot;{universityName}&quot;
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* CUSTOM POPOVER SELECT 2: COLLEGE */}
-                    <div className="space-y-1.5 relative" ref={colRef}>
-                      <label className="text-[13px] font-bold text-[#05291A]">اسم الكلية</label>
-                      <button
-                        type="button"
-                        onClick={() => setIsColDropdownOpen(!isColDropdownOpen)}
-                        className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 flex items-center justify-between text-[13px] text-[#05291A] font-bold outline-none hover:border-[#056B38] transition-all cursor-pointer"
-                      >
-                        <span>{collegeName}</span>
-                        <ChevronDown className={`w-4 h-4 text-[#526B5E] transition-transform duration-200 ${isColDropdownOpen ? "rotate-180 text-[#056B38]" : ""}`} />
-                      </button>
+                    {/* College / Major Custom Popover Dropdown (All Disciplines) */}
+                    <div className="space-y-1.5 text-right relative" ref={colRef}>
+                      <label className="text-[12px] font-bold text-[#05291A]">
+                        الكلية أو التخصص الدراسي <span className="text-red-500 font-bold text-[14px]">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={collegeName}
+                          onFocus={() => setIsColOpen(true)}
+                          onChange={(e) => {
+                            setCollegeName(e.target.value);
+                            setIsColOpen(true);
+                            if (errors.collegeName) setErrors((prev) => ({ ...prev, collegeName: "" }));
+                          }}
+                          placeholder="ابحث أو اختر الكلية (حاسبات، هندسة، طب، تجارة، علوم، حقوق...)"
+                          className={`w-full h-11 rounded-[14px] border pr-3.5 pl-9 text-[13px] text-[#05291A] focus:outline-none transition-all ${
+                            errors.collegeName
+                              ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                              : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsColOpen(!isColOpen)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#056B38] cursor-pointer"
+                        >
+                          <ChevronDown className={`w-4 h-4 transition-transform ${isColOpen ? "rotate-180 text-[#056B38]" : ""}`} />
+                        </button>
+                      </div>
+                      {errors.collegeName && (
+                        <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>{errors.collegeName}</span>
+                        </p>
+                      )}
 
-                      {isColDropdownOpen && (
-                        <div className="absolute top-full mt-1.5 right-0 left-0 z-50 max-h-60 overflow-y-auto rounded-[14px] border border-[#D1E3D6] bg-white p-1.5 shadow-lg space-y-1 animate-in fade-in duration-150">
-                          {EGYPTIAN_COLLEGES.map((col) => {
-                            const isSelected = col === collegeName;
-                            return (
-                              <button
-                                key={col}
-                                type="button"
-                                onClick={() => {
-                                  setCollegeName(col);
-                                  setIsColDropdownOpen(false);
-                                }}
-                                className={`w-full px-3.5 py-2.5 rounded-[10px] text-[13px] font-bold text-right flex items-center justify-between cursor-pointer transition-colors ${
-                                  isSelected ? "bg-[#E8FAF0] text-[#056B38]" : "text-[#05291A] hover:bg-neutral-50"
-                                }`}
-                              >
-                                <span>{col}</span>
-                                {isSelected && <Check className="w-4 h-4 text-[#056B38]" />}
-                              </button>
-                            );
-                          })}
+                      {/* Custom Popover with strict internal scroll */}
+                      {isColOpen && (
+                        <div
+                          onWheel={(e) => e.stopPropagation()}
+                          className="absolute top-full right-0 left-0 mt-1.5 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-[#D1E3D6] bg-white shadow-xl z-50 p-1.5 space-y-0.5"
+                        >
+                          {filteredColleges.length > 0 ? (
+                            filteredColleges.map((col) => {
+                              const isSelected = collegeName === col;
+                              return (
+                                <button
+                                  key={col}
+                                  type="button"
+                                  onClick={() => {
+                                    setCollegeName(col);
+                                    setIsColOpen(false);
+                                    if (errors.collegeName) setErrors((prev) => ({ ...prev, collegeName: "" }));
+                                  }}
+                                  className={`w-full text-right px-3.5 py-2.5 rounded-xl text-[12px] font-bold transition-all flex items-center justify-between cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#E8FAF0] text-[#056B38]"
+                                      : "text-[#05291A] hover:bg-[#F7FAF8] hover:text-[#056B38]"
+                                  }`}
+                                >
+                                  <span>{col}</span>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-[#056B38]" />}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="p-3 text-center text-xs text-[#526B5E]">
+                              سيتم حفظ القيمة المدخلة: &quot;{collegeName}&quot;
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -493,163 +1204,417 @@ export default function DeveloperOnboardingPage() {
               </div>
             )}
 
-            {/* STEP 3: TECHNICAL TRACK & SKILLS */}
+            {/* STEP 3: TECHNICAL TRACKS & DYNAMIC TECH STACK (WITH SEARCH & CUSTOM ADD) */}
             {currentStep === 3 && (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
-                    الخطوة 3: المسار التقني والمهارات
-                  </h3>
-                  <p className="text-[13px] text-[#526B5E] mt-1">
-                    اختر تخصصك الرئيسي وحدد أدواتك البرمجية الأكثر إتقاناً.
+                <div className="border-b border-neutral-100 pb-4 text-right">
+                  <h2 className="text-[20px] font-black text-[#05291A]">الخطوة 3: المسار الوظيفي والمهارات البرمجية</h2>
+                  <p className="text-[12px] text-[#526B5E] mt-0.5">
+                    اختر مسارك لتظهر لك التقنيات والأدوات المقترحة تلقائياً، مع إمكانية البحث وإضافة أي مهارات إضافية بحرية.
                   </p>
                 </div>
 
-                {/* CUSTOM POPOVER SELECT 3: TRACK */}
-                <div className="space-y-1.5 relative" ref={trackRef}>
-                  <label className="text-[13px] font-bold text-[#05291A]">المسار التخصصي الرئيسي *</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsTrackDropdownOpen(!isTrackDropdownOpen)}
-                    className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 flex items-center justify-between text-[13px] text-[#05291A] font-bold outline-none hover:border-[#056B38] transition-all cursor-pointer"
-                  >
-                    <span>{primaryTrack}</span>
-                    <ChevronDown className={`w-4 h-4 text-[#526B5E] transition-transform duration-200 ${isTrackDropdownOpen ? "rotate-180 text-[#056B38]" : ""}`} />
-                  </button>
-
-                  {isTrackDropdownOpen && (
-                    <div className="absolute top-full mt-1.5 right-0 left-0 z-50 max-h-60 overflow-y-auto rounded-[14px] border border-[#D1E3D6] bg-white p-1.5 shadow-lg space-y-1 animate-in fade-in duration-150">
-                      {PRIMARY_TRACKS_LIST.map((track) => {
-                        const isSelected = track === primaryTrack;
-                        return (
-                          <button
-                            key={track}
-                            type="button"
-                            onClick={() => {
-                              setPrimaryTrack(track);
-                              setIsTrackDropdownOpen(false);
-                            }}
-                            className={`w-full px-3.5 py-2.5 rounded-[10px] text-[13px] font-bold text-right flex items-center justify-between cursor-pointer transition-colors ${
-                              isSelected ? "bg-[#E8FAF0] text-[#056B38]" : "text-[#05291A] hover:bg-neutral-50"
-                            }`}
-                          >
-                            <span>{track}</span>
-                            {isSelected && <Check className="w-4 h-4 text-[#056B38]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
+                {/* 1. Multi-Select Career Tracks */}
+                <div className="space-y-2.5 text-right">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      المسار الوظيفي (يمكنك اختيار أكثر من تخصص) <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
+                    <span className="text-[11px] font-bold text-[#056B38] bg-[#E8FAF0] px-2.5 py-0.5 rounded-full border border-[#CDE5D6]">
+                      المسارات المحددة: {selectedTracks.length}
+                    </span>
+                  </div>
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto overscroll-contain p-1.5 border rounded-2xl bg-[#F7FAF8] ${
+                    errors.selectedTracks ? "border-red-500 ring-1 ring-red-400" : "border-[#D1E3D6]"
+                  }`}>
+                    {COMPREHENSIVE_TRACKS_LIST.map((track) => {
+                      const isSelected = selectedTracks.includes(track);
+                      return (
+                        <button
+                          key={track}
+                          type="button"
+                          onClick={() => toggleTrack(track)}
+                          className={`h-10 px-3 rounded-[12px] border text-[12px] font-bold transition-all flex items-center justify-between cursor-pointer text-right ${
+                            isSelected
+                              ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] shadow-2xs font-extrabold"
+                              : "border-transparent bg-white text-[#526B5E] hover:bg-neutral-50 hover:text-[#05291A]"
+                          }`}
+                        >
+                          <span className="truncate">{track}</span>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-[#056B38] shrink-0 mr-1" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.selectedTracks && (
+                    <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{errors.selectedTracks}</span>
+                    </p>
                   )}
                 </div>
 
-                <div className="space-y-3 pt-2">
-                  <label className="text-[13px] font-bold text-[#05291A]">اختر مهاراتك وأدواتك البرمجية:</label>
-                  <div className="flex flex-wrap gap-2">
-                    {SKILLS_MASTER_LIST.map((skill) => {
+                {/* 2. Interactive Search & Add Skills (Like Upwork / Freelance Platforms) */}
+                <div className="space-y-2.5 text-right pt-2" ref={skillSearchRef}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      ابحث وأضف أدوات وتقنيات إضافية (Search & Add Tech Stack)
+                    </label>
+                    <span className="text-[11px] font-bold text-[#056B38]">
+                      إجمالي المهارات: {selectedSkills.length}
+                    </span>
+                  </div>
+                  
+                  <div className="relative">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={skillSearchQuery}
+                          onFocus={() => setIsSkillSearchOpen(true)}
+                          onChange={(e) => {
+                            setSkillSearchQuery(e.target.value);
+                            setIsSkillSearchOpen(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (skillSearchQuery.trim()) {
+                                addCustomSkill(skillSearchQuery);
+                              }
+                            }
+                          }}
+                          placeholder="ابحث عن مهارة أو أداة (مثال: Next.js, Docker, FastAPI, Figma...) أو اضغط Enter للإضافة"
+                          className="w-full h-11 rounded-[14px] border border-[#D1E3D6] bg-[#F7FAF8] pr-10 pl-3 text-[13px] text-[#05291A] focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
+                        />
+                        <Search className="w-4 h-4 text-neutral-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+
+                      {skillSearchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => addCustomSkill(skillSearchQuery)}
+                          className="h-11 px-4 rounded-[14px] bg-[#056B38] hover:bg-[#005B27] text-white font-bold text-[12px] flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs active:scale-95"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>إضافة</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Autocomplete Dropdown */}
+                    {isSkillSearchOpen && skillSearchQuery.trim() && (
+                      <div
+                        onWheel={(e) => e.stopPropagation()}
+                        className="absolute top-full right-0 left-0 mt-1.5 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-[#D1E3D6] bg-white shadow-xl z-50 p-1.5 space-y-0.5"
+                      >
+                        {filteredMasterSkills.length > 0 ? (
+                          filteredMasterSkills.map((sk) => (
+                            <button
+                              key={sk}
+                              type="button"
+                              onClick={() => addCustomSkill(sk)}
+                              className="w-full text-right px-3.5 py-2 rounded-xl text-[12px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-all flex items-center justify-between cursor-pointer"
+                            >
+                              <span>{sk}</span>
+                              <Plus className="w-3.5 h-3.5 text-[#056B38]" />
+                            </button>
+                          ))
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => addCustomSkill(skillSearchQuery)}
+                            className="w-full text-right px-3.5 py-2.5 rounded-xl text-[12px] font-bold text-[#056B38] bg-[#E8FAF0] hover:bg-[#d8f5e3] transition-all flex items-center justify-between cursor-pointer"
+                          >
+                            <span>إضافة مهارة مخصصة: &quot;{skillSearchQuery}&quot;</span>
+                            <Plus className="w-4 h-4 text-[#056B38]" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Selected Skills Chips (Removable) */}
+                <div className="space-y-2 text-right">
+                  <label className="text-[12px] font-bold text-[#05291A]">
+                    المهارات المختارة في حسابك ({selectedSkills.length}) <span className="text-red-500 font-bold">*</span>:
+                  </label>
+                  <div className={`flex flex-wrap gap-1.5 p-3 rounded-2xl border ${
+                    errors.selectedSkills ? "border-red-500 bg-red-50/20 ring-1 ring-red-400" : "border-[#CDE5D6] bg-[#F0FAF3]"
+                  }`}>
+                    {selectedSkills.length > 0 ? (
+                      selectedSkills.map((skill) => (
+                        <span
+                          key={skill}
+                          className="h-8 pl-2.5 pr-3 rounded-full bg-[#056B38] text-white text-[11px] font-bold flex items-center gap-1.5 shadow-xs transition-all animate-in fade-in"
+                        >
+                          <span>{skill}</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleSkill(skill)}
+                            className="w-4 h-4 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center cursor-pointer transition-colors"
+                            title={`إزالة ${skill}`}
+                          >
+                            <X className="w-2.5 h-2.5 text-white" />
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-neutral-400">لم يتم اختيار أو إضافة مهارات بعد</span>
+                    )}
+                  </div>
+                  {errors.selectedSkills && (
+                    <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{errors.selectedSkills}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* 4. Suggested Tech Stack for Selected Track(s) */}
+                <div className="space-y-2 text-right pt-1">
+                  <label className="text-[12px] font-bold text-[#05291A]">
+                    التقنيات المقترحة بناءً على مساراتك الوظيفية (انقر للإضافة السريعة):
+                  </label>
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto overscroll-contain p-2.5 border border-neutral-100 rounded-2xl bg-[#F7FAF8]">
+                    {recommendedSkillsList.map((skill) => {
                       const isSelected = selectedSkills.includes(skill);
                       return (
                         <button
                           key={skill}
                           type="button"
                           onClick={() => toggleSkill(skill)}
-                          className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-all cursor-pointer ${
+                          className={`h-8 px-3 rounded-full border text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                             isSelected
-                              ? "bg-[#056B38] text-white shadow-2xs"
-                              : "bg-[#E8FAF0] text-[#056B38] hover:bg-[#D4F5E0]"
+                              ? "border-[#056B38] bg-[#056B38] text-white shadow-xs"
+                              : "border-[#D1E3D6] bg-white text-[#526B5E] hover:bg-[#E8FAF0] hover:text-[#056B38]"
                           }`}
                         >
-                          {skill} {isSelected && "✓"}
+                          <span>{skill}</span>
+                          {isSelected ? (
+                            <Check className="w-3 h-3 text-white" />
+                          ) : (
+                            <Plus className="w-3 h-3 text-[#056B38]" />
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
+
               </div>
             )}
 
-            {/* STEP 4: PASSPORT & SOCIAL LINKS */}
+            {/* STEP 4: PASSPORT & LOCATION (GOVERNORATE + CITY) & SOCIAL LINKS */}
             {currentStep === 4 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
-                    الخطوة 4: روابط الحساب والجواز الرقمي
-                  </h3>
-                  <p className="text-[13px] text-[#526B5E] mt-1">
-                    أضف رابط GitHub وموقعك الشخصي لتوثيق مشاريعك الفعلية.
-                  </p>
+              <div className="space-y-5">
+                <div className="border-b border-neutral-100 pb-4 text-right">
+                  <h2 className="text-[20px] font-black text-[#05291A]">الخطوة 4: المحافظة والمدينة والروابط</h2>
+                  <p className="text-[12px] text-[#526B5E] mt-0.5">حدد محافظتك ومدينتك وأضف حساباتك الخارجية لتوثيق الجواز الرقمي.</p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#05291A]">حساب GitHub</label>
-                    <div className="relative flex items-center">
+                {/* Governorate & City Separated Popover Dropdowns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  
+                  {/* Governorate Dropdown */}
+                  <div className="space-y-1.5 text-right relative" ref={govRef}>
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      المحافظة <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
+                    <div className="relative">
                       <input
-                        type="url"
-                        value={github}
-                        onChange={(e) => setGithub(e.target.value)}
-                        className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white pr-10 pl-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] dir-ltr"
+                        type="text"
+                        value={governorate}
+                        onFocus={() => setIsGovOpen(true)}
+                        onChange={(e) => {
+                          setGovernorate(e.target.value);
+                          setIsGovOpen(true);
+                          if (errors.governorate) setErrors((prev) => ({ ...prev, governorate: "" }));
+                        }}
+                        placeholder="اختر أو ابحث عن المحافظة..."
+                        className={`w-full h-11 rounded-[14px] border pr-3.5 pl-9 text-[13px] text-[#05291A] focus:outline-none transition-all ${
+                          errors.governorate
+                            ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                            : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                        }`}
                       />
-                      <Code className="w-4 h-4 text-[#526B5E] absolute right-3 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setIsGovOpen(!isGovOpen)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#056B38] cursor-pointer"
+                      >
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isGovOpen ? "rotate-180 text-[#056B38]" : ""}`} />
+                      </button>
                     </div>
+                    {errors.governorate && (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{errors.governorate}</span>
+                      </p>
+                    )}
+
+                    {isGovOpen && (
+                      <div
+                        onWheel={(e) => e.stopPropagation()}
+                        className="absolute top-full right-0 left-0 mt-1.5 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-[#D1E3D6] bg-white shadow-xl z-50 p-1.5 space-y-0.5"
+                      >
+                        {filteredGovernorates.map((gov) => {
+                          const isSelected = governorate === gov;
+                          return (
+                            <button
+                              key={gov}
+                              type="button"
+                              onClick={() => {
+                                setGovernorate(gov);
+                                setCity("");
+                                setIsGovOpen(false);
+                                if (errors.governorate) setErrors((prev) => ({ ...prev, governorate: "" }));
+                              }}
+                              className={`w-full text-right px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all flex items-center justify-between cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#E8FAF0] text-[#056B38]"
+                                  : "text-[#05291A] hover:bg-[#F7FAF8] hover:text-[#056B38]"
+                              }`}
+                            >
+                              <span>{gov}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#056B38]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#05291A]">حساب LinkedIn</label>
-                    <div className="relative flex items-center">
+                  {/* City / District Dropdown (Dynamic based on selected governorate) */}
+                  <div className="space-y-1.5 text-right relative" ref={cityRef}>
+                    <label className="text-[12px] font-bold text-[#05291A]">
+                      المدينة / المركز / الحي <span className="text-red-500 font-bold text-[14px]">*</span>
+                    </label>
+                    <div className="relative">
                       <input
-                        type="url"
-                        value={linkedin}
-                        onChange={(e) => setLinkedin(e.target.value)}
-                        className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white pr-10 pl-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] dir-ltr"
+                        type="text"
+                        value={city}
+                        onFocus={() => setIsCityOpen(true)}
+                        onChange={(e) => {
+                          setCity(e.target.value);
+                          setIsCityOpen(true);
+                          if (errors.city) setErrors((prev) => ({ ...prev, city: "" }));
+                        }}
+                        placeholder={availableCities.length > 0 ? "اختر أو ابحث عن مدينتك..." : "اختر المحافظة أولاً..."}
+                        className={`w-full h-11 rounded-[14px] border pr-3.5 pl-9 text-[13px] text-[#05291A] focus:outline-none transition-all ${
+                          errors.city
+                            ? "border-red-500 bg-red-50/20 focus:border-red-500 ring-1 ring-red-400"
+                            : "border-[#D1E3D6] bg-[#F7FAF8] focus:bg-white focus:border-[#056B38]"
+                        }`}
                       />
-                      <Globe className="w-4 h-4 text-[#526B5E] absolute right-3 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setIsCityOpen(!isCityOpen)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#056B38] cursor-pointer"
+                      >
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isCityOpen ? "rotate-180 text-[#056B38]" : ""}`} />
+                      </button>
                     </div>
+                    {errors.city && (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{errors.city}</span>
+                      </p>
+                    )}
+
+                    {isCityOpen && availableCities.length > 0 && (
+                      <div
+                        onWheel={(e) => e.stopPropagation()}
+                        className="absolute top-full right-0 left-0 mt-1.5 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-[#D1E3D6] bg-white shadow-xl z-50 p-1.5 space-y-0.5"
+                      >
+                        {filteredCities.map((c) => {
+                          const isSelected = city === c;
+                          return (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => {
+                                setCity(c);
+                                setIsCityOpen(false);
+                                if (errors.city) setErrors((prev) => ({ ...prev, city: "" }));
+                              }}
+                              className={`w-full text-right px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all flex items-center justify-between cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#E8FAF0] text-[#056B38]"
+                                  : "text-[#05291A] hover:bg-[#F7FAF8] hover:text-[#056B38]"
+                              }`}
+                            >
+                              <span>{c}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#056B38]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+
                 </div>
 
-                {/* Location with AUTO-DETECT & EGYPTIAN GOVERNORATE SELECTOR */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <EgyptianLocationSelector
-                      value={location}
-                      onChange={setLocation}
-                      label="المحافظة والمدينة المصریة *"
+                {/* Social Links */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">حساب GitHub</label>
+                    <input
+                      type="text"
+                      value={github}
+                      onChange={(e) => setGithub(e.target.value)}
+                      placeholder="https://github.com/username"
+                      dir="ltr"
+                      className="w-full h-11 rounded-[14px] border border-[#D1E3D6] bg-[#F7FAF8] px-3.5 text-[12px] text-[#05291A] focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#05291A]">الموقع الشخصي / المعرض</label>
-                    <div className="relative flex items-center">
-                      <input
-                        type="url"
-                        value={website}
-                        onChange={(e) => setWebsite(e.target.value)}
-                        className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white pr-10 pl-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] dir-ltr"
-                      />
-                      <Globe className="w-4 h-4 text-[#526B5E] absolute right-3 pointer-events-none" />
-                    </div>
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">حساب LinkedIn</label>
+                    <input
+                      type="text"
+                      value={linkedin}
+                      onChange={(e) => setLinkedin(e.target.value)}
+                      placeholder="https://linkedin.com/in/username"
+                      dir="ltr"
+                      className="w-full h-11 rounded-[14px] border border-[#D1E3D6] bg-[#F7FAF8] px-3.5 text-[12px] text-[#05291A] focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[12px] font-bold text-[#05291A]">الموقع الشخصي</label>
+                    <input
+                      type="text"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      placeholder="https://portfolio.dev"
+                      dir="ltr"
+                      className="w-full h-11 rounded-[14px] border border-[#D1E3D6] bg-[#F7FAF8] px-3.5 text-[12px] text-[#05291A] focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
+                    />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-bold text-[#05291A]">نبذة شخصية مختصرة (Bio)</label>
+                <div className="space-y-1.5 text-right">
+                  <label className="text-[12px] font-bold text-[#05291A]">نبذة شخصية (Bio)</label>
                   <textarea
-                    rows={3}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    className="w-full rounded-[12px] border border-[#D1E3D6] bg-white p-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] resize-none"
+                    placeholder="اكتب نبذة مختصرة عن خبراتك البرمجية..."
+                    rows={2}
+                    className="w-full rounded-[14px] border border-[#D1E3D6] bg-[#F7FAF8] p-3 text-[13px] text-[#05291A] focus:bg-white focus:border-[#056B38] focus:outline-none transition-all"
                   />
                 </div>
               </div>
             )}
 
-            {/* STEP NAVIGATION BUTTONS */}
-            <div className="flex items-center justify-between pt-6 border-t border-[#D1E3D6]">
+            {/* ACTION BUTTONS (BOTTOM RIGHT) */}
+            <div className="flex items-center justify-between pt-4 border-t border-[#D1E3D6]">
               {currentStep > 1 ? (
                 <button
                   type="button"
                   onClick={handlePrevStep}
-                  className="h-[46px] px-6 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-[13px] flex items-center gap-2 hover:bg-neutral-50 transition-all cursor-pointer"
+                  className="h-11 px-6 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-[13px] hover:bg-neutral-50 flex items-center gap-1.5 cursor-pointer transition-all"
                 >
                   <ArrowRight className="w-4 h-4" />
                   <span>الخطوة السابقة</span>
@@ -662,114 +1627,133 @@ export default function DeveloperOnboardingPage() {
                 <button
                   type="button"
                   onClick={handleNextStep}
-                  className="h-[46px] px-8 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white font-bold text-[14px] flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                  className="h-11 px-8 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-bold text-[13px] transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <span>حفظ ومتابعة</span>
+                  <span>الخطوة التالية</span>
                   <ArrowLeft className="w-4 h-4" />
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={handleCompleteOnboarding}
                   disabled={isStartingAssessment}
-                  className="h-[46px] px-8 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white font-bold text-[14px] flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:cursor-wait disabled:opacity-60"
+                  onClick={handleCompleteOnboarding}
+                  className="h-11 px-8 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-bold text-[13px] transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
                 >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>{isStartingAssessment?"جارٍ تجهيز الاختبار...":"تأكيد والانتقال للاختبار"}</span>
+                  {isStartingAssessment ? (
+                    <span>جاري التوليد والدخول...</span>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>تأكيد وبدء التقييم بالذكاء الاصطناعي</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
-            {assessmentError&&<p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{assessmentError}</p>}
 
           </div>
 
-          {/* Right Column: Live Passport Preview Card with Location & Social Badges */}
-          <div className="space-y-6 sticky top-24">
-            <div className="rounded-[24px] border border-[#D1E3D6] bg-[#05291A] text-white p-6 space-y-6 shadow-md overflow-hidden relative">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#339E61]" />
-                  <span className="text-[13px] font-bold font-heading">معاينة الجواز الرقمي</span>
+          {/* LEFT COLUMN: Live Verified Passport Card (Takes 4 Columns) */}
+          <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
+            <div className="rounded-[24px] bg-[#05291A] text-white p-6 space-y-5 shadow-lg relative border border-[#04331B]">
+              
+              {/* Header: معاينة الجواز on Right, Verified Passport on Left */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+                <div className="flex items-center gap-1.5 text-white/90">
+                  <ShieldCheck className="w-4 h-4 text-[#339E61]" />
+                  <span className="text-[12px] font-bold font-heading">معاينة الجواز الرقمي</span>
                 </div>
-                <span className="text-[11px] font-bold bg-[#056B38] px-2.5 py-1 rounded-full text-[#D4F5E0]">
+                <span className="text-[10px] font-bold bg-[#056B38] px-2.5 py-0.5 rounded-full text-[#D4F5E0] border border-[#339E61]/40">
                   Verified Passport
                 </span>
               </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-4"><div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#339E61] bg-[#E8FAF0] text-xl font-extrabold text-[#056B38]">{avatarPreview?<img src={avatarPreview} alt={fullNameDisplay} className="h-full w-full object-cover"/>:initials}</div><div className="min-w-0"><div className="truncate text-sm font-bold text-[#D4F5E0]">@{username||"username"}</div><div className="mt-1 text-[11px] text-neutral-400">الصورة اختيارية</div></div></div>
-                    </div>
-
-                    <div className="space-y-2">
-                <h4 className="text-[20px] font-bold text-white font-heading">{fullNameDisplay}</h4>
-                <p className="text-[13px] text-[#D4F5E0] font-bold">{primaryTrack.split(" (")[0]}</p>
-                <div className="flex flex-col gap-1 text-[12px] text-neutral-300 pt-1">
-                  <span>{universityName}</span>
-                  {/* Location Address in Passport Card */}
-                  <span className="flex items-center gap-1.5 text-[#339E61] font-medium">
-                    <MapPin className="w-3.5 h-3.5 shrink-0" />
-                    <span>{location || "القاهرة، مصر"}</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* GitHub & LinkedIn Badges inside Live Passport Card */}
-              <div className="flex flex-wrap gap-2 pt-1 border-t border-white/10">
-                {github && (
-                  <a
-                    href={github}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] text-[#D4F5E0] font-mono transition-colors"
-                  >
-                    <Code className="w-3 h-3 text-[#339E61]" />
-                    <span>GitHub</span>
-                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                  </a>
+              {/* Center: Avatar Circle on Right, @username on Left */}
+              <div className="flex items-center justify-between pt-1">
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="Passport Avatar"
+                    className="w-14 h-14 rounded-full object-cover border-2 border-[#339E61] shadow-xs"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-[#D4F5E0] text-[#056B38] flex items-center justify-center text-[22px] font-black shadow-xs border-2 border-[#339E61]">
+                    {avatarLetter}
+                  </div>
                 )}
-                {linkedin && (
-                  <a
-                    href={linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] text-[#D4F5E0] font-mono transition-colors"
-                  >
-                    <Globe className="w-3 h-3 text-[#339E61]" />
-                    <span>LinkedIn</span>
-                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                  </a>
+
+                <div className="text-left dir-ltr">
+                  <div className="text-[13px] font-bold text-white/90">
+                    @{username || "username"}
+                  </div>
+                  <div className="text-[10px] text-neutral-400">الصورة اختيارية</div>
+                </div>
+              </div>
+
+              {/* Developer Details */}
+              <div className="space-y-1 text-right">
+                <h3 className="text-[20px] font-extrabold text-white font-heading leading-snug">
+                  {fullNameDisplay || "محمد وائل"}
+                </h3>
+                <div className="text-[12px] text-[#D4F5E0] font-bold">
+                  {passportTracksDisplay}
+                </div>
+                <div className="text-[11px] text-neutral-300 pt-1 space-y-0.5">
+                  <div>
+                    {qualificationType === "self-taught"
+                      ? "تعلم ذاتي"
+                      : universityName
+                      ? collegeName
+                        ? `${universityName} · ${collegeName}`
+                        : universityName
+                      : collegeName || "اسم الجامعة / الكلية"}
+                  </div>
+                  <div className="flex items-center gap-1 text-[#339E61]">
+                    <MapPin className="w-3 h-3 shrink-0" />
+                    <span>{combinedLocation || "المحافظة - المدينة"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Box (Trust Score 0% on Right + SP 0 on Left) */}
+              <div className="grid grid-cols-2 gap-2 bg-black/25 p-3.5 rounded-2xl border border-white/10 text-center">
+                <div className="border-l border-white/10 pl-2">
+                  <div className="text-[10px] text-neutral-400 font-medium">نقاط الثقة</div>
+                  <div className="text-[16px] font-black text-[#339E61]">
+                    {developer.trustScore && developer.trustScore > 0 ? `${developer.trustScore}%` : "0%"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-neutral-400 font-medium">رصيد الـ SP</div>
+                  <div className="text-[16px] font-black text-amber-400">
+                    SP {developer.skillPoints && developer.skillPoints > 0 ? developer.skillPoints : 0}
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Skills */}
+              <div className="text-right space-y-1.5 pt-1">
+                <div className="text-[11px] font-bold text-neutral-300">
+                  المهارات المحددة ({selectedSkills.length}):
+                </div>
+                {selectedSkills.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedSkills.slice(0, 6).map((sk) => (
+                      <span key={sk} className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-full text-white">
+                        {sk}
+                      </span>
+                    ))}
+                    {selectedSkills.length > 6 && (
+                      <span className="text-[10px] font-bold bg-white/10 px-1.5 py-0.5 rounded-full text-neutral-300">
+                        +{selectedSkills.length - 6}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-neutral-500">لم يتم تحديد مهارات بعد</div>
                 )}
               </div>
 
-              {/* Trust Score & SP Stats */}
-              <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10 text-center">
-                <div>
-                  <div className="text-[11px] text-neutral-400">نقاط الثقة</div>
-                  <div className="text-[18px] font-extrabold text-[#339E61]">92%</div>
-                </div>
-                <div className="w-px h-8 bg-white/10" />
-                <div>
-                  <div className="text-[11px] text-neutral-400">رصيد الـ SP</div>
-                  <div className="text-[18px] font-extrabold text-amber-400">SP 850</div>
-                </div>
-              </div>
-
-              {/* Skills Tags */}
-              <div className="space-y-2">
-                <div className="text-[12px] font-bold text-[#D4F5E0]">المهارات المحددة ({selectedSkills.length}):</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedSkills.slice(0, 5).map((sk) => (
-                    <span key={sk} className="text-[11px] font-medium bg-white/10 px-2.5 py-0.5 rounded-full text-white">
-                      {sk}
-                    </span>
-                  ))}
-                  {selectedSkills.length > 5 && (
-                    <span className="text-[11px] font-medium bg-white/10 px-2 py-0.5 rounded-full text-neutral-300">
-                      +{selectedSkills.length - 5}
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
 

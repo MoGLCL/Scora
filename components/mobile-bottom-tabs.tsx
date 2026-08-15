@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Settings,
   X,
-  ChevronUp
+  ChevronUp,
+  Users
 } from "lucide-react";
 
 export function MobileBottomTabs() {
@@ -22,12 +23,30 @@ export function MobileBottomTabs() {
 
   const [isDropUpOpen, setIsDropUpOpen] = useState(false);
 
-  const tabs = [
-    { label: "الرئيسية", href: "/", icon: Home },
-    { label: "المشاريع", href: "/projects", icon: Briefcase },
-    { label: "المحادثات", href: "/chat", icon: MessageSquare },
-    { label: "اللوحة", href: "/dashboard", icon: LayoutDashboard },
-  ];
+  const tabs = React.useMemo(() => {
+    if (userRole === "developer") {
+      return [
+        { label: "اللوحة", href: "/dashboard", icon: LayoutDashboard },
+        { label: "المشاريع", href: "/projects", icon: Briefcase },
+        { label: "المطورين", href: "/developers", icon: Users },
+        { label: "المحادثات", href: "/chat", icon: MessageSquare },
+      ];
+    }
+    if (userRole === "client") {
+      return [
+        { label: "اللوحة", href: "/dashboard", icon: LayoutDashboard },
+        { label: "المطورين", href: "/developers", icon: Users },
+        { label: "مشاريعي", href: "/projects", icon: Briefcase },
+        { label: "المحادثات", href: "/chat", icon: MessageSquare },
+      ];
+    }
+    return [
+      { label: "الرئيسية", href: "/", icon: Home },
+      { label: "المطورين", href: "/developers", icon: Users },
+      { label: "المشاريع", href: "/projects", icon: Briefcase },
+      { label: "المحادثات", href: "/chat", icon: MessageSquare },
+    ];
+  }, [userRole]);
 
   const activeIndex = tabs.findIndex((tab) =>
     tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href)

@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { execute, query, type SqlParam } from "@/lib/db";
-import { queryOne, transaction } from "@/lib/db";
+import { execute, query, type SqlParam, queryOne, transaction } from "@/lib/db";
 import { createHash } from "node:crypto";
 import { HumanReviewEventType } from "@scora/trust-core";
 import { appendTrustEvent } from "@/lib/trust-events";
 import { verifySession } from "@/lib/dal";
 import type { AccountStatus, AppRole } from "@/lib/types";
+import type { PoolConnection } from "mysql2/promise";
 
 export interface DbUserItem {
   id: string;
@@ -30,11 +30,27 @@ export interface DbUserItem {
   rejectionReason?: string | null;
 }
 
+// ─── Helper Functions ──────────────────────────────────────────
+
 async function requireAdmin() {
   const session = await verifySession();
   if (!session?.isAdmin) throw new Error("FORBIDDEN");
   return session;
 }
+
+function revalidateAdminPaths() {
+  revalidatePath("/admin");
+  revalidatePath("/developer-assessment/pending");
+  revalidatePath("/dashboard");
+  revalidatePath("/profile");
+  revalidatePath("/complete-profile");
+}
+
+async function sendNotification(conn: PoolConnection, userId: number, message: string, linkUrl?: string | null) {
+  await conn.execute("INSERT INTO notifications (user_id, body, link_url) VALUES (?, ?, ?)", [userId, message, linkUrl ?? null]);
+}
+
+// ─── Public Admin Actions ──────────────────────────────────────
 
 export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
   await requireAdmin();
@@ -53,12 +69,23 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
 
   return rows.map((row) => {
     const joinedDate = new Date(row.created_at).toLocaleDateString("ar-EG");
-    const suspendedUntil = row.suspended_until ? new Date(row.suspended_until).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }) : null;
+    const suspendedUntil = row.suspended_until
+      ? new Date(row.suspended_until).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })
+      : null;
+
     return {
-      id: String(row.id), name: row.full_name, email: row.email, phone: row.phone ?? "",
-      role: row.role, isAdmin: Boolean(row.is_admin), status: row.status, skillPoints: Number(row.skill_points ?? 0),
-      trustScore: Number(row.trust_score ?? 0), reportsCount: Number(row.reports_count),
-      joinDate: joinedDate, joinedDate,
+      id: String(row.id),
+      name: row.full_name,
+      email: row.email,
+      phone: row.phone ?? "",
+      role: row.role,
+      isAdmin: Boolean(row.is_admin),
+      status: row.status,
+      skillPoints: Number(row.skill_points ?? 0),
+      trustScore: Number(row.trust_score ?? 0),
+      reportsCount: Number(row.reports_count),
+      joinDate: joinedDate,
+      joinedDate,
       approvalStatus: row.approval_status ?? undefined,
       rejectionReason: row.rejection_reason ?? undefined,
       assessmentPublicId: row.assessment_public_id,
@@ -75,17 +102,26 @@ export async function decideDeveloperAdmission(input: {
   skillPoints?: number;
 }) {
   const actor = await requireAdmin();
-  const p = z.object({
-    assessmentPublicId: z.string().min(10),
-    decision: z.enum(["approved", "rejected"]),
-    reason: z.string().trim().max(1000).optional(),
-    trustScore: z.number().int().min(0).max(100).optional(),
-    skillPoints: z.number().int().min(0).max(10000).optional(),
-  }).safeParse(input);
+  const parsed = z
+    .object({
+      assessmentPublicId: z.string().min(10),
+      decision: z.enum(["approved", "rejected"]),
+      reason: z.string().trim().max(1000).optional(),
+      trustScore: z.number().int().min(0).max(100).optional(),
+      skillPoints: z.number().int().min(0).max(10000).optional(),
+    })
+    .safeParse(input);
 
-  if (!p.success) return { ok: false as const, error: "بيانات القرار غير صالحة" };
+  if (!parsed.success) return { ok: false as const, error: "بيانات القرار غير صالحة" };
 
-  const row = await queryOne<{ id: number; developer_id: number; user_id: number; status: string; max_score: number; answer_score: number }>(
+  const row = await queryOne<{
+    id: number;
+    developer_id: number;
+    user_id: number;
+    status: string;
+    max_score: number;
+    answer_score: number;
+  }>(
     `SELECT das.id, das.developer_id, d.user_id, das.status, COALESCE(SUM(q.max_score),0) max_score, COALESCE(SUM(a.score),0) answer_score 
      FROM developer_assessment_sessions das 
      JOIN developers d ON d.id=das.developer_id 
@@ -93,52 +129,64 @@ export async function decideDeveloperAdmission(input: {
      LEFT JOIN developer_assessment_answers a ON a.question_id=q.id 
      WHERE das.public_id=? 
      GROUP BY das.id, d.user_id`,
-    [p.data.assessmentPublicId]
+    [parsed.data.assessmentPublicId]
   );
 
   if (!row) return { ok: false as const, error: "طلب التقييم غير موجود" };
 
-  const finalReason = p.data.reason || (p.data.decision === "approved" ? "تم قبول وتفعيل حساب المطور" : "تم رفض طلب التقييم");
-  const trust = p.data.trustScore ?? 85;
-  const sp = p.data.skillPoints ?? 500;
+  const finalReason = parsed.data.reason || (parsed.data.decision === "approved" ? "تم قبول وتفعيل حساب المطور" : "تم رفض طلب التقييم");
+  const trust = parsed.data.trustScore ?? 85;
+  const sp = parsed.data.skillPoints ?? 500;
 
-  await transaction(async c => {
+  await transaction(async (c) => {
     await c.execute(
       "UPDATE developer_assessment_sessions SET status=?, score=?, trust_awarded=?, sp_awarded=?, reviewed_at=CURRENT_TIMESTAMP, reviewed_by=?, review_reason=? WHERE id=?",
-      [p.data.decision, trust, trust, sp, actor.userId, finalReason, row.id]
+      [parsed.data.decision, trust, trust, sp, actor.userId, finalReason, row.id]
     );
+
     await c.execute(
       "UPDATE developers SET approval_status=?, approved_at=?, approved_by=?, rejection_reason=?, is_verified=?, trust_score=?, skill_points=? WHERE id=?",
       [
-        p.data.decision,
-        p.data.decision === "approved" ? new Date() : null,
-        p.data.decision === "approved" ? actor.userId : null,
-        p.data.decision === "rejected" ? finalReason : null,
-        p.data.decision === "approved" ? 1 : 0,
+        parsed.data.decision,
+        parsed.data.decision === "approved" ? new Date() : null,
+        parsed.data.decision === "approved" ? actor.userId : null,
+        parsed.data.decision === "rejected" ? finalReason : null,
+        parsed.data.decision === "approved" ? 1 : 0,
         trust,
         sp,
-        row.developer_id
+        row.developer_id,
       ]
     );
-    await c.execute(
-      "INSERT INTO notifications(user_id,body) VALUES(?,?)",
-      [row.user_id, p.data.decision === "approved" ? "تهانينا! تم تفعيل واعتماد حسابك كمطور بنجاح. يمكنك الآن تصفح المشاريع والتقديم عليها." : `تم رفض طلب اعتماد المطور: ${finalReason}`]
-    );
+
+    const notifyBody = parsed.data.decision === "approved"
+      ? "تهانينا! تم تفعيل واعتماد حسابك كمطور بنجاح. يمكنك الآن تصفح المشاريع والتقديم عليها."
+      : `تمت مراجعة طلب الاعتماد: ${finalReason}`;
+    const notifyLink = parsed.data.decision === "approved" ? "/profile" : "/developer-assessment/pending";
+
+    await sendNotification(c, row.user_id, notifyBody, notifyLink);
+
     const rationaleHash = createHash("sha256").update(finalReason).digest("hex");
-    await appendTrustEvent({
-      sessionPublicId: p.data.assessmentPublicId,
-      developerId: row.developer_id,
-      assessmentPublicId: p.data.assessmentPublicId,
-      type: HumanReviewEventType.REVIEW_DECISION_RECORDED,
-      source: "HUMAN",
-      payload: { reviewId: `review_${p.data.assessmentPublicId}`, reviewerId: `reviewer_${actor.userId}`, decision: p.data.decision === "approved" ? "APPROVE" : "REJECT", rationaleLength: finalReason.length, rationaleHash, reviewDurationMs: 0 }
-    }, c);
+    await appendTrustEvent(
+      {
+        sessionPublicId: parsed.data.assessmentPublicId,
+        developerId: row.developer_id,
+        assessmentPublicId: parsed.data.assessmentPublicId,
+        type: HumanReviewEventType.REVIEW_DECISION_RECORDED,
+        source: "HUMAN",
+        payload: {
+          reviewId: `review_${parsed.data.assessmentPublicId}`,
+          reviewerId: `reviewer_${actor.userId}`,
+          decision: parsed.data.decision === "approved" ? "APPROVE" : "REJECT",
+          rationaleLength: finalReason.length,
+          rationaleHash,
+          reviewDurationMs: 0,
+        },
+      },
+      c
+    );
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/developer-assessment/pending");
-  revalidatePath("/dashboard");
-  revalidatePath("/profile");
+  revalidateAdminPaths();
   return { ok: true as const };
 }
 
@@ -155,6 +203,7 @@ export async function updateUserForAdmin(input: z.input<typeof UserUpdateSchema>
   const parsed = UserUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "بيانات المستخدم غير صالحة" };
   const { userId, role, isAdmin, status, suspensionDays } = parsed.data;
+
   if (userId === actor.userId && (isAdmin === false || (status && status !== "active"))) {
     return { ok: false as const, error: "لا يمكنك سحب صلاحية حساب الإدارة الحالي أو تعطيله" };
   }
@@ -190,11 +239,11 @@ export async function deleteUserForAdmin(userId: number) {
   return { ok: true as const };
 }
 
-export async function approveReassessmentRequestForAdmin(developerId: number) {
+export async function approveReassessmentRequestForAdmin(userId: number) {
   const actor = await requireAdmin();
   const dev = await queryOne<{ id: number; user_id: number }>(
-    `SELECT id, user_id FROM developers WHERE id = ?`,
-    [developerId]
+    `SELECT id, user_id FROM developers WHERE user_id = ?`,
+    [userId]
   );
   if (!dev) return { ok: false as const, error: "المطور غير موجود" };
 
@@ -204,19 +253,23 @@ export async function approveReassessmentRequestForAdmin(developerId: number) {
       [dev.id]
     );
     await conn.execute(
-      `UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ?`,
+      `UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ? AND status IN ('generating', 'in_progress')`,
       [dev.id]
     );
     await conn.execute(
-      `INSERT INTO notifications (user_id, body) VALUES (?, ?)`,
-      [dev.user_id, "تمت إعادة إتاحة تقديم اختبار تقييم المطورين لك من قِبل الإدارة. اضغط على 'بدء الاختبار الآن' لإجراء الاختبار."]
+      `UPDATE developer_reassessment_requests
+          SET status='approved', decided_by=?, decision_reason='تمت الإتاحة مباشرة من لوحة الإدارة', decided_at=CURRENT_TIMESTAMP
+        WHERE developer_id=? AND status='pending'`,
+      [actor.userId, dev.id]
+    );
+    await sendNotification(
+      conn,
+      dev.user_id,
+      "تمت إعادة إتاحة تقديم اختبار تقييم المطورين لك من قِبل الإدارة. اضغط على 'بدء الاختبار الآن' لإجراء الاختبار."
     );
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/developer-assessment/pending");
-  revalidatePath("/complete-profile");
-  revalidatePath("/dashboard");
+  revalidateAdminPaths();
   return { ok: true as const };
 }
 
@@ -228,41 +281,56 @@ export async function decideReassessmentRequestForAdmin(input: {
   reason?: string;
 }) {
   const actor = await requireAdmin();
-  const parsed = z.object({requestId:z.coerce.number().int().positive(),decision:z.enum(["approve","reject"]),reason:z.string().trim().max(1000).optional()}).safeParse(input);
-  if(!parsed.success)return{ok:false as const,error:"بيانات طلب إعادة الاختبار غير صالحة"};
+  const parsed = z
+    .object({
+      requestId: z.coerce.number().int().positive(),
+      decision: z.enum(["approve", "reject"]),
+      reason: z.string().trim().max(1000).optional(),
+    })
+    .safeParse(input);
+
+  if (!parsed.success) return { ok: false as const, error: "بيانات طلب إعادة الاختبار غير صالحة" };
+
   const decided = await transaction(async (conn) => {
-    const [requestRows] = await conn.execute("SELECT rr.id,rr.developer_id,d.user_id,rr.status FROM developer_reassessment_requests rr JOIN developers d ON d.id=rr.developer_id WHERE rr.id=? FOR UPDATE",[parsed.data.requestId]);
-    const request=(requestRows as {id:number;developer_id:number;user_id:number;status:string}[])[0];
-    if(!request||request.status!=="pending")return false;
+    const [requestRows] = await conn.execute(
+      "SELECT rr.id, rr.developer_id, d.user_id, rr.status FROM developer_reassessment_requests rr JOIN developers d ON d.id=rr.developer_id WHERE rr.id=? FOR UPDATE",
+      [parsed.data.requestId]
+    );
+    const request = (requestRows as { id: number; developer_id: number; user_id: number; status: string }[])[0];
+    if (!request || request.status !== "pending") return false;
+
     if (parsed.data.decision === "approve") {
       await conn.execute(
         "UPDATE developers SET approval_status = 'reset_approved', rejection_reason = NULL WHERE id = ?",
         [request.developer_id]
       );
       await conn.execute(
-        "UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ?",
+        "UPDATE developer_assessment_sessions SET status = 'expired' WHERE developer_id = ? AND status IN ('generating', 'in_progress')",
         [request.developer_id]
       );
-      await conn.execute("UPDATE developer_reassessment_requests SET status='approved',decided_by=?,decision_reason=?,decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",[actor.userId,parsed.data.reason??null,request.id]);
       await conn.execute(
-        "INSERT INTO notifications (user_id, body) VALUES (?, ?)",
-        [request.user_id, "وافقت الإدارة على طلب إعادة تقييم مهاراتك. يمكنك الآن الضغط على 'بدء الاختبار الآن' لبدء التقييم التلقائي."]
+        "UPDATE developer_reassessment_requests SET status='approved', decided_by=?, decision_reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",
+        [actor.userId, parsed.data.reason ?? null, request.id]
+      );
+      await sendNotification(
+        conn,
+        request.user_id,
+        "وافقت الإدارة على طلب إعادة تقييم مهاراتك. يمكنك الآن الضغط على 'بدء الاختبار الآن' لبدء التقييم التلقائي.",
+        "/developer-assessment/pending"
       );
     } else {
-      const reason=parsed.data.reason||"تم رفض طلب إعادة التقييم من قِبل الإدارة";
-      await conn.execute("UPDATE developer_reassessment_requests SET status='rejected',decided_by=?,decision_reason=?,decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",[actor.userId,reason,request.id]);
-      await conn.execute("UPDATE developers SET approval_status='rejected', rejection_reason=? WHERE id=?", [reason, request.developer_id]);
+      const reason = parsed.data.reason || "تم رفض طلب إعادة التقييم من قِبل الإدارة";
       await conn.execute(
-        "INSERT INTO notifications (user_id, body) VALUES (?, ?)",
-        [request.user_id, `تم رفض طلب إعادة تقييم المهارات: ${reason}`]
+        "UPDATE developer_reassessment_requests SET status='rejected', decided_by=?, decision_reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",
+        [actor.userId, reason, request.id]
       );
+      await sendNotification(conn, request.user_id, `تم رفض طلب إعادة تقييم المهارات: ${reason}`, "/developer-assessment/pending");
     }
     return true;
   });
-  if(!decided)return{ok:false as const,error:"طلب إعادة الاختبار غير موجود أو تمت مراجعته بالفعل"};
 
-  revalidatePath("/admin");
-  revalidatePath("/developer-assessment/pending");
-  revalidatePath("/dashboard");
+  if (!decided) return { ok: false as const, error: "طلب إعادة الاختبار غير موجود أو تمت مراجعته بالفعل" };
+
+  revalidateAdminPaths();
   return { ok: true as const };
 }

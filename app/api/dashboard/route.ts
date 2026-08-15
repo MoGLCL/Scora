@@ -8,7 +8,7 @@ export async function GET() {
   if (session.role === "developer") {
     const stats = await queryOne<{ trustScore: number; skillPoints: number; assessments: number; proposals: number }>(
       `SELECT d.trust_score trustScore, d.skill_points skillPoints,
-        (SELECT COUNT(*) FROM assessments a WHERE a.developer_id=d.id AND a.status='passed') assessments,
+        (SELECT COUNT(*) FROM developer_assessment_sessions das WHERE das.developer_id=d.id AND das.status='approved') assessments,
         (SELECT COUNT(*) FROM proposals p WHERE p.developer_id=d.id) proposals
        FROM developers d WHERE d.user_id=?`, [session.userId]);
     return NextResponse.json({ role: session.role, stats: stats ?? { trustScore: 0, skillPoints: 0, assessments: 0, proposals: 0 } });
