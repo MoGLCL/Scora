@@ -10,7 +10,6 @@ import {
   X,
   Sparkles,
   Bot,
-  Minimize2,
   DollarSign,
   Users,
   ArrowLeft,
@@ -222,6 +221,7 @@ export function AiAssistantSsd() {
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
+    if ((e.target as HTMLElement).closest("button")) return;
     const rect = e.currentTarget.getBoundingClientRect();
     setIsDragging(true);
     setDragOffset({
@@ -250,6 +250,11 @@ export function AiAssistantSsd() {
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
+
+    if ((e.target as HTMLElement).closest("button")) {
+      setCurrentDragCoords(null);
+      return;
+    }
 
     const dist = Math.hypot(
       e.clientX - dragStartPos.current.x,
@@ -676,6 +681,8 @@ export function AiAssistantSsd() {
           {/* Dismiss Button */}
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               setShowSsdAssistant(false);
@@ -787,9 +794,9 @@ export function AiAssistantSsd() {
                 type="button"
                 onClick={handleCloseChat}
                 className="h-8 w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                title="إغلاق"
+                title="إغلاق نافذة SSD"
               >
-                <Minimize2 className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
