@@ -1459,6 +1459,16 @@ export default function AdminPage() {
 
                           <button
                             type="button"
+                            onClick={() => setPlanModalUser(u)}
+                            title="تعيين وتعديل باقة اشتراك المستخدم"
+                            className="h-9 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                          >
+                            <Sliders className="h-3.5 w-3.5 text-amber-700" />
+                            <span>باقة {u.subscriptionPlan ? u.subscriptionPlan.toUpperCase() : "FREE"}</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setEditInfoUser(u)}
                             title="تعديل البيانات الأساسية"
                             className="h-9 px-3 rounded-xl border border-neutral-200 bg-[#F7FAF8] hover:bg-[#E8FAF0] hover:border-[#056B38] text-[#05291A] text-xs font-black flex items-center gap-1 transition-all cursor-pointer"

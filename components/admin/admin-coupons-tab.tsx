@@ -110,7 +110,6 @@ export function AdminCouponsTab({ notify }: AdminCouponsTabProps) {
   };
 
   const handleDeleteCoupon = async (id: number, code: string) => {
-    if (!window.confirm(`هل أنت متأكد من رغبتك في حذف الكوبون (${code})؟`)) return;
     try {
       const res = await fetch(`/api/admin/coupons?id=${id}`, {
         method: "DELETE",

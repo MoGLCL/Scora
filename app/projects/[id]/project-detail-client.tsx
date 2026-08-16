@@ -315,12 +315,6 @@ export function ProjectDetailClient({
 
   // Unhire / Release Developer and reopen project for bidding
   const handleUnhireDeveloper = async () => {
-    if (
-      !window.confirm(
-        "هل أنت متأكد من رغبتك في إلغاء توظيف المطور الحالي وإعادة فتح المشروع لاختيار عروض أخرى؟"
-      )
-    )
-      return;
     setIsManagingProject(true);
     try {
       const res = await unhireDeveloper(Number(project.id));

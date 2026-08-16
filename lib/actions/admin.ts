@@ -76,9 +76,9 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
              d.skill_points, d.trust_score, d.approval_status, d.rejection_reason,
              (SELECT das.public_id FROM developer_assessment_sessions das WHERE das.developer_id=d.id AND das.status='admin_review' ORDER BY das.id DESC LIMIT 1) assessment_public_id,
              (SELECT COUNT(*) FROM support_tickets st WHERE st.reported_user_id = u.id) reports_count,
-             (SELECT s.plan FROM user_subscriptions s WHERE s.user_id = u.id) subscription_plan,
-             (SELECT s.status FROM user_subscriptions s WHERE s.user_id = u.id) subscription_status,
-             (SELECT s.current_period_end FROM user_subscriptions s WHERE s.user_id = u.id) subscription_end
+             (SELECT s.plan FROM user_subscriptions s WHERE s.user_id = u.id ORDER BY s.id DESC LIMIT 1) subscription_plan,
+             (SELECT s.status FROM user_subscriptions s WHERE s.user_id = u.id ORDER BY s.id DESC LIMIT 1) subscription_status,
+             (SELECT s.current_period_end FROM user_subscriptions s WHERE s.user_id = u.id ORDER BY s.id DESC LIMIT 1) subscription_end
       FROM users u LEFT JOIN developers d ON d.user_id = u.id
       ORDER BY u.id DESC`);
 
@@ -802,18 +802,25 @@ export async function setUserSubscriptionForAdmin(input: {
       periodEnd = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
     }
 
-    await execute(
-      `INSERT INTO user_subscriptions (user_id, plan, status, trial_ends_at, current_period_start, current_period_end)
-       VALUES (?, ?, ?, ?, NOW(), ?)
-       ON DUPLICATE KEY UPDATE
-         plan = VALUES(plan),
-         status = VALUES(status),
-         trial_ends_at = VALUES(trial_ends_at),
-         current_period_start = NOW(),
-         current_period_end = VALUES(current_period_end),
-         updated_at = NOW()`,
-      [userId, plan, status, trialEndsAt, periodEnd]
+    const existing = await queryOne<{ id: number }>(
+      "SELECT id FROM user_subscriptions WHERE user_id = ?",
+      [userId]
     );
+
+    if (existing) {
+      await execute(
+        `UPDATE user_subscriptions
+         SET plan = ?, status = ?, trial_ends_at = ?, current_period_start = NOW(), current_period_end = ?, updated_at = NOW()
+         WHERE user_id = ?`,
+        [plan, status, trialEndsAt, periodEnd, userId]
+      );
+    } else {
+      await execute(
+        `INSERT INTO user_subscriptions (user_id, plan, status, trial_ends_at, current_period_start, current_period_end)
+         VALUES (?, ?, ?, ?, NOW(), ?)`,
+        [userId, plan, status, trialEndsAt, periodEnd]
+      );
+    }
 
     const planNames: Record<string, string> = {
       free: "المجانية (Free)",

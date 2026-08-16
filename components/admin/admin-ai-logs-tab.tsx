@@ -109,8 +109,6 @@ export function AdminAiLogsTab({ notify }: AdminAiLogsTabProps) {
   };
 
   const handleDeleteSession = async (sessionKey: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذه الجلسة وسجل رسائلها نهائياً؟")) return;
-
     try {
       const res = await fetch(`/api/admin/ai-sessions?sessionKey=${encodeURIComponent(sessionKey)}`, {
         method: "DELETE",

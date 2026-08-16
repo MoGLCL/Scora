@@ -83,7 +83,6 @@ export function AdminPlansTab({ notify }: AdminPlansTabProps) {
   };
 
   const handleReset = async () => {
-    if (!confirm("هل أنت متأكد من استعادة الأسعار والمميزات الافتراضية للباقات؟")) return;
     setResetting(true);
     try {
       const res = await fetch("/api/admin/plans", { method: "PUT" });
