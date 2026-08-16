@@ -544,7 +544,7 @@ export function EditProjectModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="block">الميزانية من (ج.م):</label>
               <input
@@ -737,7 +737,7 @@ export function BroadcastNotificationModal({
 
           <div className="space-y-1.5">
             <label className="block">الفئة المستهدفة:</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {([
                 { key: "all", label: "جميع المستخدمين" },
                 { key: "developers", label: "المطورون فقط" },

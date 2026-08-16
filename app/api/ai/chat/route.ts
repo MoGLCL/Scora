@@ -11,6 +11,22 @@ export async function POST(request: Request) {
   const s = await verifySession();
   if (!s) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
+  if (s.role === "developer") {
+    const dev = await queryOne<{ approval_status: string }>(
+      "SELECT approval_status FROM developers WHERE user_id=?",
+      [s.userId]
+    );
+    if (dev?.approval_status !== "approved") {
+      return NextResponse.json(
+        {
+          error: "DEVELOPER_NOT_APPROVED",
+          message: "مساعد SSD متاح بعد إكمال التقييم البرمجي واعتماد حسابك من الإدارة.",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   const enabled = await queryOne<{ setting_value: string }>(
     "SELECT setting_value FROM platform_settings WHERE setting_key='ai_assistant_enabled'"
   );

@@ -39,7 +39,7 @@ function PassportCard() {
 
 export function Hero() {
   return (
-    <section className="mx-auto max-w-[1296px] px-6 py-14 md:px-8 lg:py-20">
+    <section className="mx-auto max-w-[1296px] px-4 sm:px-6 md:px-8 py-14 lg:py-20">
       <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Copy */}
         <div>

@@ -6,7 +6,7 @@ import { Lock, Eye, Server } from "lucide-react";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-white flex flex-col font-body dir-rtl" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto max-w-[1296px] px-6 md:px-8 py-10 md:py-16 w-full flex-1 space-y-12">

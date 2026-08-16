@@ -3,6 +3,7 @@
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useProfile } from "@/components/profile-provider";
 import { useFloatingChat, FloatingChatUser } from "@/components/floating-chat-provider";
 import { sendMessage } from "@/lib/actions/chat";
@@ -217,7 +218,7 @@ function FloatingChatWindow({
               <span className="truncate text-xs font-black leading-tight text-white block">
                 {user.name}
               </span>
-              <p className="text-[9px] text-emerald-200 leading-tight">
+              <p className="text-[11px] text-emerald-200 leading-tight">
                 {isOtherTyping ? "يكتب الآن..." : "نشط الآن"}
               </p>
             </div>
@@ -294,7 +295,7 @@ function FloatingChatWindow({
                         )}
                         {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
                       </div>
-                      <span className="text-[9px] text-[#526B5E] px-1 mt-0.5">
+                      <span className="text-[11px] text-[#526B5E] px-1 mt-0.5">
                         {new Date(msg.createdAt).toLocaleTimeString("ar-EG", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -446,8 +447,10 @@ function FloatingChatWindow({
 }
 
 export function FloatingChatContainer() {
+  const pathname = usePathname();
   const { openChats } = useFloatingChat();
 
+  if (pathname?.startsWith("/chat")) return null;
   if (!openChats || openChats.length === 0) return null;
 
   return (

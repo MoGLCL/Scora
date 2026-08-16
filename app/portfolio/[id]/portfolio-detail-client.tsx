@@ -53,7 +53,7 @@ export function PortfolioDetailClient({
   const activeStarRating = hoverRating || rating;
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] text-[#05291A] font-body" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] text-[#05291A] font-body" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-[1180px] px-5 py-8 md:px-8 md:py-12">

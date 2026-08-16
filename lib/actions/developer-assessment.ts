@@ -19,11 +19,17 @@ export async function submitAndFinalizeAssessment(publicId: string) {
   );
   if (!session) return { ok: false as const, error: "جلسة الاختبار غير موجودة" };
 
-  await finalizeAssessmentSession(session.id, session.developer_id);
+  try {
+    await finalizeAssessmentSession(session.id, session.developer_id);
+  } catch (err) {
+    console.error("[submitAndFinalizeAssessment]", err);
+    return { ok: false as const, error: "تعذر إرسال التقييم للمراجعة. يرجى المحاولة مرة أخرى." };
+  }
   revalidatePath("/admin");
   revalidatePath("/developer-assessment/pending");
   revalidatePath("/complete-profile");
   revalidatePath("/dashboard");
+  revalidatePath(`/admin/developers/${publicId}/review`);
   return { ok: true as const };
 }
 

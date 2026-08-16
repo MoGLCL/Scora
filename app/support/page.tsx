@@ -173,7 +173,7 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-[1340px] flex-1 px-4 sm:px-6 py-8 space-y-6">

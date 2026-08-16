@@ -1,5 +1,5 @@
 export function PageSkeleton() {
-  return <div className="min-h-screen bg-[#F7FAF8] px-6 py-10" dir="rtl">
+  return <div className="min-h-dvh bg-[#F7FAF8] px-6 py-10" dir="rtl">
     <div className="mx-auto max-w-[1296px] animate-pulse space-y-8">
       <div className="h-40 rounded-[28px] bg-[#E3ECE6]" />
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">

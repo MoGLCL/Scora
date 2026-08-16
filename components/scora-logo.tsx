@@ -90,17 +90,24 @@ export function ScoraLogo({
   badgeText = "PRO",
 }: ScoraLogoProps) {
   const iconSizes = {
-    sm: 24,
-    md: 32,
-    lg: 40,
-    xl: 48,
+    sm: 28,
+    md: 38,
+    lg: 46,
+    xl: 54,
   };
 
   const textSizes = {
-    sm: "text-[19px] tracking-tight",
-    md: "text-[23px] tracking-tight",
-    lg: "text-[28px] tracking-tight",
-    xl: "text-[34px] tracking-tight",
+    sm: "text-[21px] tracking-tight",
+    md: "text-[27px] tracking-tight",
+    lg: "text-[33px] tracking-tight",
+    xl: "text-[39px] tracking-tight",
+  };
+
+  const dotSizes = {
+    sm: "w-1.5 h-1.5 ml-0.5",
+    md: "w-2 h-2 ml-0.5",
+    lg: "w-2.5 h-2.5 ml-1",
+    xl: "w-3 h-3 ml-1",
   };
 
   const isDark = theme === "white";
@@ -113,7 +120,7 @@ export function ScoraLogo({
 
   const content = (
     <div
-      className={`inline-flex items-center gap-2.5 select-none font-heading font-black group transition-all ${className}`}
+      className={`inline-flex items-center gap-1 select-none font-heading font-black group transition-all ${className}`}
       dir="ltr"
     >
       {(variant === "full" || variant === "icon") && (
@@ -123,9 +130,9 @@ export function ScoraLogo({
       {(variant === "full" || variant === "text") && (
         <div className="flex items-baseline leading-none">
           <span className={`font-black ${textSizes[size]} ${textColor} transition-colors`}>
-            Scora
+            cora
           </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block ml-0.5 shadow-2xs group-hover:scale-125 transition-transform" />
+          <span className={`${dotSizes[size]} rounded-full bg-[#10B981] inline-block shadow-2xs group-hover:scale-125 transition-transform`} />
 
           {showBadge && (
             <span className="ml-1.5 text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-[#E8FAF0] text-[#056B38] border border-[#C5E8D1] leading-none">

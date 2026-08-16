@@ -257,7 +257,8 @@ export function ChatClient({
 
   return (
     <>
-      <div ref={chatContainerRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-5 font-body" dir="rtl">
+      <div className="flex flex-col h-full min-h-0 bg-[#F7FAF8]">
+      <div ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 font-body space-y-3" dir="rtl">
         {messages.map((message) => {
           const isMe = message.senderId === currentUserId;
           return (
@@ -355,7 +356,7 @@ export function ChatClient({
 
       {/* Selected Image Preview Bar */}
       {previewUrl && (
-        <div className="px-4 py-2 bg-[#E8FAF0] border-t border-[#D1E3D6] flex items-center justify-between gap-3 font-body">
+        <div className="px-4 py-2 bg-[#E8FAF0] border-t border-[#D1E3D6] flex items-center justify-between gap-3 font-body shrink-0">
           <div className="flex items-center gap-3">
             <Image src={previewUrl} alt="Preview" width={48} height={48} unoptimized className="h-12 w-12 object-cover rounded-xl border border-[#C5E8D1]" />
             <div className="text-xs">
@@ -373,9 +374,9 @@ export function ChatClient({
         </div>
       )}
 
-      {/* Input Form */}
+      {/* Input Form — Anchored at bottom */}
       <form
-        className="flex flex-wrap items-center gap-2.5 border-t border-neutral-100 p-4 bg-white font-body"
+        className="mt-auto shrink-0 flex flex-wrap items-center gap-2.5 border-t border-[#D1E3D6] p-3.5 sm:p-4 bg-white font-body shadow-xs"
         dir="rtl"
         onSubmit={handleSendMessage}
       >
@@ -392,7 +393,7 @@ export function ChatClient({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="h-12 w-12 rounded-full border border-[#D1E3D6] hover:border-[#056B38] hover:bg-[#E8FAF0] text-[#526B5E] hover:text-[#056B38] flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
+          className="h-11 w-11 sm:h-12 sm:w-12 rounded-full border border-[#D1E3D6] hover:border-[#056B38] hover:bg-[#E8FAF0] text-[#526B5E] hover:text-[#056B38] flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
           title="إرفاق صورة"
           aria-label="إرفاق صورة"
         >
@@ -407,14 +408,14 @@ export function ChatClient({
             void sendTypingStatus(event.target.value.trim().length > 0);
           }}
           onBlur={() => void sendTypingStatus(false)}
-          className="min-w-0 flex-1 h-12 rounded-full border border-[#D1E3D6] px-5 text-sm text-[#05291A] focus:border-[#056B38] focus:outline-none bg-[#F7FAF8] transition-all"
+          className="min-w-0 flex-1 h-11 sm:h-12 rounded-full border border-[#D1E3D6] px-4 sm:px-5 text-sm text-[#05291A] focus:border-[#056B38] focus:outline-none bg-[#F7FAF8] transition-all"
           placeholder="اكتب رسالتك هنا..."
         />
 
         <button
           type="submit"
           disabled={busy || (!body.trim() && !selectedFile)}
-          className="h-12 rounded-full bg-[#056B38] hover:bg-[#08592E] px-6 font-bold text-xs text-white shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+          className="h-11 sm:h-12 rounded-full bg-[#056B38] hover:bg-[#08592E] px-5 sm:px-6 font-bold text-xs sm:text-sm text-white shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 shrink-0"
         >
           {busy || isUploadingImage ? (
             <span className="flex items-center gap-1.5">
@@ -430,6 +431,7 @@ export function ChatClient({
         </button>
         {error && <p className="w-full text-xs font-bold text-red-600 px-2">{error}</p>}
       </form>
+    </div>
 
       {/* ───────────────────────────────────────────────────────────── */}
       {/* LIGHTBOX MODAL */}

@@ -86,7 +86,7 @@ export default function NewPortfolioProjectPage() {
 
   if (userRole !== "developer") {
     return (
-      <div className="min-h-screen bg-[#F7FAF8] text-[#05291A]" dir="rtl">
+      <div className="min-h-dvh bg-[#F7FAF8] text-[#05291A]" dir="rtl">
         <SiteHeader />
         <main className="mx-auto flex min-h-[60vh] w-full max-w-xl flex-col items-center justify-center px-5 text-center">
           <h1 className="text-2xl font-black">إضافة المشاريع للمطورين فقط</h1>
@@ -153,7 +153,7 @@ export default function NewPortfolioProjectPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] text-[#05291A]" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] text-[#05291A]" dir="rtl">
       <SiteHeader />
       
       <main className="mx-auto w-full max-w-[1040px] px-5 py-8 md:px-8 md:py-12">
@@ -488,7 +488,7 @@ export default function NewPortfolioProjectPage() {
                     <div key={preview.url} className="relative aspect-video overflow-hidden rounded-xl border border-[#D1E3D6]">
                       <Image src={preview.url} alt="Preview" fill unoptimized sizes="(max-width: 640px) 50vw, 180px" className="object-cover" />
                       {index === 0 && (
-                        <span className="absolute bottom-1 right-1 rounded-md bg-[#056B38] px-1.5 py-0.5 text-[9px] font-black text-white">
+                        <span className="absolute bottom-1 right-1 rounded-md bg-[#056B38] px-1.5 py-0.5 text-[11px] font-black text-white">
                           الغلاف
                         </span>
                       )}

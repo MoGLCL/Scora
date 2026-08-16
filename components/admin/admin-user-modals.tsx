@@ -997,7 +997,7 @@ export function ChangeUserPlanModal({
           {/* Plan Selector */}
           <div className="space-y-1.5">
             <label className="block">اختر الباقة:</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[
                 { id: "free" as const, name: "المجانية (Free)" },
                 { id: "pro" as const, name: "الاحترافية (Pro)" },
@@ -1037,7 +1037,7 @@ export function ChangeUserPlanModal({
           {/* Duration Selector */}
           <div className="space-y-1.5">
             <label className="block">المدة الزمنية للاشتراك:</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { value: 30, label: "شهر (30 يوم)" },
                 { value: 90, label: "3 أشهر" },

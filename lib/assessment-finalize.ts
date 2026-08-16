@@ -1,3 +1,4 @@
+// Requires notifications.link_url (scripts/migrate-v13.js). Fallback INSERT without link_url if column missing.
 import "server-only";
 import { createHash } from "node:crypto";
 import { query, queryOne, transaction } from "@/lib/db";
@@ -21,8 +22,17 @@ export async function finalizeAssessmentSession(sessionId: number, developerId: 
   );
   if (!session) return;
 
-  // If already locked, do not overwrite evidence
+  // If already locked, ensure queue state is consistent (repair partial failures)
   if (session.evidence_snapshot_hash) {
+    if (session.status !== "admin_review") {
+      await transaction(async (c) => {
+        await c.execute(
+          "UPDATE developer_assessment_sessions SET status='admin_review', current_phase='completed', submitted_at=COALESCE(submitted_at,CURRENT_TIMESTAMP) WHERE id=?",
+          [sessionId]
+        );
+        await c.execute("UPDATE developers SET approval_status='admin_review' WHERE id=?", [developerId]);
+      });
+    }
     return;
   }
 
@@ -176,12 +186,19 @@ export async function finalizeAssessmentSession(sessionId: number, developerId: 
 
     await c.execute("UPDATE developers SET approval_status='admin_review' WHERE id=?", [developerId]);
 
-    await c.execute(
-      "INSERT INTO notifications(user_id, body, link_url) SELECT id, ?, ? FROM users WHERE is_admin=1 AND status='active'",
-      [
-        `تم قفل حزمة الأدلة لاختبار مطور جديد (${session.public_id}). جاهز للمراجعة في لوحة الإدارة.`,
-        `/admin/developers/${session.public_id}/review`
-      ]
-    );
+    const notifyBody = `تم قفل حزمة الأدلة لاختبار مطور جديد (${session.public_id}). جاهز للمراجعة في لوحة الإدارة.`;
+    const notifyLink = `/admin/developers/${session.public_id}/review`;
+    try {
+      await c.execute(
+        "INSERT INTO notifications(user_id, body, link_url) SELECT id, ?, ? FROM users WHERE is_admin=1 AND status='active'",
+        [notifyBody, notifyLink]
+      );
+    } catch {
+      // Fallback if migrate-v13 link_url column missing — still complete the submission
+      await c.execute(
+        "INSERT INTO notifications(user_id, body) SELECT id, ? FROM users WHERE is_admin=1 AND status='active'",
+        [`${notifyBody} — ${notifyLink}`]
+      );
+    }
   });
 }

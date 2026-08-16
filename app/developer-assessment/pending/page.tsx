@@ -24,7 +24,7 @@ export default async function Page() {
   if (!developer) redirect("/complete-profile");
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto max-w-[1100px] px-6 py-10 w-full flex-1 space-y-8">

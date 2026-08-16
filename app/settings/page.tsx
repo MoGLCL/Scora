@@ -147,7 +147,7 @@ function SettingsContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
       <SiteHeader />
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 sm:px-6 py-8 space-y-6">
         <div className="bg-white p-6 rounded-[28px] border border-[#D1E3D6] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -243,4 +243,4 @@ function SelectField({ label, value, onChange, options }: { label: string; value
 
 function TextField({ label, value, onChange, type = "text", required = false, dir }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; dir?: "ltr" | "rtl" }) { return <div className="space-y-1.5"><label className="block text-xs font-bold text-[#05291A]">{label}</label><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} dir={dir} className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] focus:bg-white transition-all" /></div>; }
 
-export default function SettingsPage() { return <Suspense fallback={<div className="min-h-screen bg-[#F7FAF8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#056B38]" /></div>}><SettingsContent /></Suspense>; }
+export default function SettingsPage() { return <Suspense fallback={<div className="min-h-dvh bg-[#F7FAF8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#056B38]" /></div>}><SettingsContent /></Suspense>; }

@@ -7,7 +7,7 @@ import { VerifiedBadge } from "@/components/verified-badge";
 import { UserStatusIndicator, AvatarStatusBadge } from "@/components/user-status-indicator";
 import { verifySession } from "@/lib/dal";
 import { execute, query, queryOne } from "@/lib/db";
-import { MessageSquare, UserCheck, ShieldCheck, Clock } from "lucide-react";
+import { MessageSquare, UserCheck, ShieldCheck, Clock, ChevronRight } from "lucide-react";
 
 interface ConversationItem {
   id: number;
@@ -109,6 +109,11 @@ export default async function ChatPage({
       )
     : null;
 
+  // Mobile master-detail: with no explicit ?with= target we show the
+  // conversation list; with a target we show that thread instead.
+  // Desktop (xl+) always shows both panes side by side.
+  const showThreadOnMobile = Boolean(targetParam && person);
+
   // 4. Fetch messages between session.userId and selected partner
   const rawMessages = person
     ? await query<{
@@ -158,16 +163,16 @@ export default async function ChatPage({
   };
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-[1340px] flex-1 px-4 sm:px-6 py-6">
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr] h-[calc(100vh-140px)] min-h-[640px]">
+        <div className="grid gap-6 xl:grid-cols-[360px_1fr] h-[calc(100dvh-196px)] xl:h-[calc(100dvh-140px)] xl:min-h-[640px]">
           
           {/* ───────────────────────────────────────────────────────────── */}
           {/* SIDEBAR: CONVERSATIONS LIST */}
           {/* ───────────────────────────────────────────────────────────── */}
-          <aside className="flex flex-col rounded-[28px] border border-[#D1E3D6] bg-white shadow-xs overflow-hidden">
+          <aside className={`flex-col rounded-[28px] border border-[#D1E3D6] bg-white shadow-xs overflow-hidden ${showThreadOnMobile ? "hidden xl:flex" : "flex"}`}>
             {/* Sidebar Header */}
             <div className="p-4 border-b border-[#D1E3D6] space-y-3">
               <div className="flex items-center justify-between">
@@ -314,12 +319,19 @@ export default async function ChatPage({
           {/* ───────────────────────────────────────────────────────────── */}
           {/* MAIN CHAT WINDOW */}
           {/* ───────────────────────────────────────────────────────────── */}
-          <section className="flex flex-col rounded-[28px] border border-[#D1E3D6] bg-white shadow-xs overflow-hidden">
+          <section className={`h-full min-h-0 flex-col rounded-[28px] border border-[#D1E3D6] bg-white shadow-xs overflow-hidden ${showThreadOnMobile ? "flex" : "hidden xl:flex"}`}>
             {person ? (
               <>
                 {/* Chat Partner Header */}
-                <header className="flex items-center justify-between border-b border-[#D1E3D6] bg-white p-4">
+                <header className="flex items-center justify-between border-b border-[#D1E3D6] bg-white p-4 shrink-0">
                   <div className="flex items-center gap-3.5">
+                    <Link
+                      href="/chat"
+                      className="flex xl:hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#D1E3D6] bg-white text-[#05291A] transition-colors hover:bg-[#E8FAF0]"
+                      aria-label="رجوع لقائمة المحادثات"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Link>
                     <div className="relative shrink-0">
                       <div className="h-12 w-12 overflow-hidden rounded-full bg-[#E8FAF0] font-black text-sm text-[#056B38] flex items-center justify-center border border-[#D1E3D6] shadow-2xs">
                         {person.avatar ? (
@@ -375,7 +387,7 @@ export default async function ChatPage({
                 </header>
 
                 {/* Messages Body */}
-                <div className="flex-1 overflow-hidden bg-[#F7FAF8]">
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#F7FAF8]">
                   <ChatClient
                     receiverId={person.id}
                     receiverName={person.name}
@@ -408,7 +420,9 @@ export default async function ChatPage({
         </div>
       </main>
 
-      <SiteFooter />
+      <div className="hidden xl:block">
+        <SiteFooter />
+      </div>
     </div>
   );
 }

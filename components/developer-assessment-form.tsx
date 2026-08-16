@@ -284,22 +284,50 @@ export function DeveloperAssessmentForm({
     return () => clearTimeout(timer);
   }, [answers, index, save]);
 
+  const finalizeToAdminQueue = useCallback(async (): Promise<boolean> => {
+    const result = await submitAndFinalizeAssessment(publicId);
+    if (!result?.ok) {
+      setError(result?.error || "تعذر تسليم التقييم للمراجعة. حاول مرة أخرى أو تواصل مع الدعم.");
+      return false;
+    }
+    return true;
+  }, [publicId]);
+
   useEffect(() => {
-    const timer = setInterval(
-      () =>
-        setRemaining((value) => {
-          if (value <= 1) {
-            if (phase === "assessment") void save();
-            void submitAndFinalizeAssessment(publicId);
-            queueMicrotask(() => setPhase("complete"));
-            return 0;
-          }
-          return value - 1;
-        }),
-      1000
-    );
+    const timer = setInterval(() => {
+      setRemaining((value) => {
+        if (value > 1) return value - 1;
+
+        // Timer expired — behavior depends on phase
+        if (phase === "assessment") {
+          void save();
+          // Move to interview; do NOT finalize yet
+          queueMicrotask(() => {
+            setRounds((prev) =>
+              prev.length > 0
+                ? prev
+                : [
+                    {
+                      public_id: `int_${Date.now()}`,
+                      question_text:
+                        "وضح بالتفصيل آلية اختبار كفاءة الكود الذي قمت بكتابته والأساليب البرمجية المتبعة للحفاظ على جودة وأمان النظام؟",
+                      response_transcript: null,
+                      audio_url: null,
+                    },
+                  ]
+            );
+            setPhase("interview");
+          });
+        } else if (phase === "interview") {
+          void finalizeToAdminQueue().then((ok) => {
+            if (ok) setPhase("complete");
+          });
+        }
+        return 0;
+      });
+    }, 1000);
     return () => clearInterval(timer);
-  }, [phase, publicId, save]);
+  }, [phase, publicId, save, finalizeToAdminQueue]);
 
   const setAnswer = (value: string) => {
     if (!current || remaining <= 0) return;
@@ -462,8 +490,8 @@ export function DeveloperAssessmentForm({
         setTranscript("");
         latestAudio.current = null;
         if (data.complete) {
-          await submitAndFinalizeAssessment(publicId);
-          setPhase("complete");
+          const ok = await finalizeToAdminQueue();
+          if (ok) setPhase("complete");
         } else if (typeof data.remainingSeconds === "number") {
           setRemaining(data.remainingSeconds);
         }
@@ -482,15 +510,16 @@ export function DeveloperAssessmentForm({
     setBusy(true);
     setError("");
     try {
-      await submitAndFinalizeAssessment(publicId);
-    } catch {
-      // Ignore
-    } finally {
-      setBusy(false);
+      const ok = await finalizeToAdminQueue();
+      if (!ok) return;
       setPhase("complete");
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
+    } catch {
+      setError("حدث خطأ أثناء تسليم التقييم. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -499,12 +528,14 @@ export function DeveloperAssessmentForm({
     setError("");
     setBusy(true);
 
-    // Save draft answers to DB asynchronously
+    // Persist answers only — finalize happens AFTER interview (skip or complete)
     try {
       await save();
-      await submitAndFinalizeAssessment(publicId);
     } catch (err) {
-      console.warn("[finishAssessment]", err);
+      console.warn("[finishAssessment:save]", err);
+      setError("تعذر حفظ إجاباتك. حاول مرة أخرى قبل الانتقال للمقابلة.");
+      setBusy(false);
+      return;
     }
 
     // Provide initial default interview question if rounds array is empty

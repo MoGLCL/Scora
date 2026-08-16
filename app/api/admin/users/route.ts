@@ -53,7 +53,10 @@ export async function GET() {
       d.job_title, d.headline, d.bio, d.country, d.city, d.location, d.experience_years,
       d.github_url, d.linkedin_url, d.portfolio_url,
       c.company_name, c.website as client_website,
-      (SELECT das.public_id FROM developer_assessment_sessions das WHERE das.developer_id=d.id AND das.status='admin_review' ORDER BY das.id DESC LIMIT 1) assessment_public_id,
+      (SELECT das.public_id FROM developer_assessment_sessions das
+       WHERE das.developer_id=d.id AND das.status IN ('admin_review','approved','rejected')
+       ORDER BY FIELD(das.status,'admin_review','approved','rejected'), das.submitted_at DESC, das.id DESC
+       LIMIT 1) assessment_public_id,
       (SELECT das.status FROM developer_assessment_sessions das WHERE das.developer_id=d.id ORDER BY das.id DESC LIMIT 1) assessment_session_status,
       (SELECT rr.id FROM developer_reassessment_requests rr WHERE rr.developer_id=d.id ORDER BY rr.id DESC LIMIT 1) reassessment_request_id,
       (SELECT rr.status FROM developer_reassessment_requests rr WHERE rr.developer_id=d.id ORDER BY rr.id DESC LIMIT 1) reassessment_status,

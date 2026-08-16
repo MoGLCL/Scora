@@ -1441,7 +1441,7 @@ export default function NotFound() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body dir-rtl select-none" dir="rtl">
+    <div className="min-h-dvh bg-white flex flex-col font-body dir-rtl select-none" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto max-w-[1296px] px-6 md:px-8 py-8 md:py-12 w-full flex-1 space-y-8">

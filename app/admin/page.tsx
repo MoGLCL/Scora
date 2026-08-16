@@ -787,7 +787,7 @@ export default function AdminPage() {
   const newTicketsCount = tickets.filter((t) => t.status === "new").length;
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-[1360px] flex-1 px-4 sm:px-6 py-8 space-y-6">
@@ -1152,11 +1152,11 @@ export default function AdminPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2.5">
                   {users
-                    .filter((u) => u.approvalStatus === "admin_review" && u.assessmentPublicId)
+                    .filter((u) => u.approvalStatus === "admin_review")
                     .map((u) => (
                       <Link
                         key={u.id}
-                        href={`/admin/developers/${u.assessmentPublicId}/review`}
+                        href={u.assessmentPublicId ? `/admin/developers/${u.assessmentPublicId}/review` : "/admin"}
                         className="rounded-2xl bg-amber-900 hover:bg-amber-950 px-4 py-2.5 text-xs font-black text-white transition-all shadow-xs flex items-center gap-2"
                       >
                         <ShieldCheck className="h-4 w-4" />
@@ -1515,6 +1515,17 @@ export default function AdminPage() {
                             }}
                           />
 
+                          {u.role === "developer" && u.approvalStatus === "admin_review" && (
+                            <Link
+                              href={u.assessmentPublicId ? `/admin/developers/${u.assessmentPublicId}/review` : "/admin"}
+                              title="فتح صفحة مراجعة واعتماد المطور"
+                              className="h-9 px-3 rounded-xl border border-amber-400 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 transition-all shadow-xs"
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              <span>مراجعة الاعتماد</span>
+                            </Link>
+                          )}
+
                           {u.role === "developer" && (
                             <button
                               type="button"
@@ -1587,7 +1598,7 @@ export default function AdminPage() {
                                   <div className="font-black flex items-center gap-1.5">
                                     <span>{u.name}</span>
                                     {u.isAdmin && (
-                                      <span className="rounded-full bg-[#056B38] text-white text-[9px] px-1.5 py-0.2 font-black">
+                                      <span className="rounded-full bg-[#056B38] text-white text-[11px] px-1.5 py-0.2 font-black">
                                         أدمن
                                       </span>
                                     )}

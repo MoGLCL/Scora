@@ -148,6 +148,7 @@ interface ProfileContextType {
   addAppliedProject: (project: AppliedProjectItem) => void;
   showSsdAssistant: boolean;
   setShowSsdAssistant: (show: boolean) => void;
+  developerApprovalStatus: string | null;
   toasts: ToastMessage[];
   addToast: (text: string, type?: "success" | "info" | "warn") => void;
   removeToast: (id: string) => void;
@@ -241,12 +242,14 @@ export interface InitialProfileState {
   username: string;
   isAiAssistantEnabled: boolean;
   showSsdAssistant: boolean;
+  developerApprovalStatus?: string | null;
   developer?: Partial<DeveloperProfileData>;
   client?: Partial<ClientProfileData>;
 }
 
 export function ProfileProvider({ children, initialProfile }: { children: React.ReactNode; initialProfile: InitialProfileState }) {
   const [userRoleState, setUserRoleState] = useState<UserRole>(initialProfile.role);
+  const [developerApprovalStatus] = useState<string | null>(initialProfile.developerApprovalStatus ?? null);
   const [isAdmin] = useState(initialProfile.isAdmin);
   const [username, setUsername] = useState(initialProfile.username);
   const [developer, setDeveloper] = useState<DeveloperProfileData>({ ...defaultDeveloper, ...initialProfile.developer });
@@ -334,6 +337,7 @@ export function ProfileProvider({ children, initialProfile }: { children: React.
         addAppliedProject,
         showSsdAssistant,
         setShowSsdAssistant,
+        developerApprovalStatus,
         toasts,
         addToast,
         removeToast,

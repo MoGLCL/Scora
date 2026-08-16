@@ -402,7 +402,7 @@ export default async function PublicProfilePage({
   const recentActivities = activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 sm:px-6 py-8 space-y-6">
@@ -839,49 +839,49 @@ export default async function PublicProfilePage({
 
               {/* Metrics Banner */}
               {user.role === "developer" ? (
-                <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-3 text-center divide-x divide-x-reverse divide-[#D1E3D6]">
+                <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-0 text-center divide-y sm:divide-y-0 sm:divide-x divide-x-reverse divide-[#D1E3D6]">
                   <div className="space-y-1">
                     <span className="text-[11px] font-bold text-[#526B5E] block">Trust Score</span>
                     <span className="text-base font-black text-[#05291A] block">{trustScore}%</span>
-                    <span className="text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                    <span className="text-[11px] sm:text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200 inline-block">
                       {trustScore >= 80 ? "مرتفع" : trustScore >= 50 ? "متوسط" : "مبتدئ"}
                     </span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1 pt-2 sm:pt-0">
                     <span className="text-[11px] font-bold text-[#526B5E] block">Skill Points</span>
                     <span className="text-base font-black text-[#05291A] block">{skillPoints}</span>
-                    <span className="text-[10px] font-bold text-[#056B38] block">+0 هذا الشهر</span>
+                    <span className="text-[11px] sm:text-[10px] font-bold text-[#056B38] block">+0 هذا الشهر</span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1 pt-2 sm:pt-0">
                     <span className="text-[11px] font-bold text-[#526B5E] block">Verified Skills</span>
                     <span className="text-base font-black text-[#05291A] block">{devSkills.length}</span>
-                    <span className="text-[10px] text-[#526B5E] block">مهارات موثقة</span>
+                    <span className="text-[11px] sm:text-[10px] text-[#526B5E] block">مهارات موثقة</span>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-3 text-center divide-x divide-x-reverse divide-[#D1E3D6]">
+                <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-0 text-center divide-y sm:divide-y-0 sm:divide-x divide-x-reverse divide-[#D1E3D6]">
                   <div className="space-y-1">
                     <span className="text-[11px] font-bold text-[#526B5E] block">Trust Score</span>
                     <span className="text-base font-black text-[#05291A] block">{trustScore}%</span>
-                    <span className="text-[10px] font-bold bg-[#E8FAF0] text-[#056B38] px-2 py-0.5 rounded-full border border-[#D1E3D6]">
+                    <span className="text-[11px] sm:text-[10px] font-bold bg-[#E8FAF0] text-[#056B38] px-2 py-0.5 rounded-full border border-[#D1E3D6] inline-block">
                       {isOwnProfile ? "يزداد مع تسليم المشاريع" : trustScore >= 80 ? "موثوقية عالية" : "حساب معتمد"}
                     </span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1 pt-2 sm:pt-0">
                     <span className="text-[11px] font-bold text-[#526B5E] block">المشاريع المكتملة</span>
                     <span className="text-base font-black text-[#05291A] block">{completedProjectsCount}</span>
-                    <span className="text-[10px] font-bold text-[#056B38] block">تم تسليمها بنجاح</span>
+                    <span className="text-[11px] sm:text-[10px] font-bold text-[#056B38] block">تم تسليمها بنجاح</span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1 pt-2 sm:pt-0">
                     <span className="text-[11px] font-bold text-[#526B5E] block">حالة التوثيق</span>
                     <span className="text-base font-black text-[#05291A] block">
                       {isVerified ? "موثق" : "نشط"}
                     </span>
-                    <span className="text-[10px] text-[#526B5E] block">
+                    <span className="text-[11px] sm:text-[10px] text-[#526B5E] block">
                       حساب معتمد
                     </span>
                   </div>

@@ -102,7 +102,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-body" dir="rtl">
+    <div className="min-h-dvh bg-background flex flex-col font-body" dir="rtl">
       <SiteHeader />
 
       <main className="flex-1 flex items-center justify-center px-4 py-10 md:py-16">

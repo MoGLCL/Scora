@@ -63,10 +63,10 @@ export function ProjectsClient({ projects: initialProjects }: { projects: Projec
   }, [projectsList, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-white flex flex-col font-body dir-rtl" dir="rtl">
       <SiteHeader />
 
-      <main className="mx-auto max-w-[1296px] px-6 md:px-8 py-10 md:py-16 w-full flex-1 space-y-12">
+      <main className="mx-auto max-w-[1296px] px-4 sm:px-6 md:px-8 py-10 md:py-16 w-full flex-1 space-y-12">
         
         {/* HERO SECTION */}
         <div className="rounded-[28px] bg-gradient-to-b from-[#E8FAF0] to-white border border-[#D1E3D6] p-8 md:p-12 space-y-6 text-center shadow-2xs">

@@ -22,6 +22,8 @@ import {
   Code2,
   Crown,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { SubscriptionCheckoutModal } from "@/components/subscription-checkout-modal";
 import { EgpCurrencyIcon } from "@/components/egp-currency-icon";
@@ -157,6 +159,7 @@ export function AiAssistantSsd() {
     systemSettings,
     showSsdAssistant,
     setShowSsdAssistant,
+    developerApprovalStatus,
     addToast,
   } = useProfile();
 
@@ -288,6 +291,28 @@ export function AiAssistantSsd() {
   const SESSION_INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
   const [_lastActiveTime, setLastActiveTime] = useState<number>(() => Date.now());
+
+  // Quick Prompt Chips Scroll State (Wheel & Swipe)
+  const chipsScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollChipsLeft, setCanScrollChipsLeft] = useState(false);
+  const [canScrollChipsRight, setCanScrollChipsRight] = useState(false);
+
+  const checkChipsScroll = () => {
+    if (!chipsScrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = chipsScrollRef.current;
+    const absScroll = Math.abs(scrollLeft);
+    const maxScroll = scrollWidth - clientWidth - 4;
+    setCanScrollChipsRight(absScroll > 4);
+    setCanScrollChipsLeft(absScroll < maxScroll);
+  };
+
+  const handleScrollChips = (direction: "left" | "right") => {
+    if (!chipsScrollRef.current) return;
+    const scrollAmount = 140;
+    const delta = direction === "left" ? -scrollAmount : scrollAmount;
+    chipsScrollRef.current.scrollBy({ left: delta, behavior: "smooth" });
+    setTimeout(checkChipsScroll, 250);
+  };
 
   // Initial Welcome Message
   const getInitialMessage = (): string => {
@@ -650,7 +675,13 @@ export function AiAssistantSsd() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  if (userRole === "guest" || !systemSettings.isAiAssistantEnabled || !showSsdAssistant) return null;
+  const onAssessmentPage = pathname?.startsWith("/developer-assessment");
+  if (onAssessmentPage) return null;
+
+  const developerBlocked =
+    userRole === "developer" && developerApprovalStatus !== "approved";
+
+  if (userRole === "guest" || developerBlocked || !systemSettings.isAiAssistantEnabled || !showSsdAssistant) return null;
 
   return (
     <>
@@ -715,7 +746,7 @@ export function AiAssistantSsd() {
             {/* Text details - Hidden on mobile, visible on desktop */}
             <div className="hidden sm:flex flex-col text-right pl-2 pr-0.5">
               <span className="text-xs font-black leading-tight tracking-wide">SSD Agent</span>
-              <span className="text-[9px] text-emerald-200 leading-tight">وكيل سكورا الذكي</span>
+              <span className="text-[11px] text-emerald-200 leading-tight">وكيل سكورا الذكي</span>
             </div>
           </div>
         </div>
@@ -731,19 +762,20 @@ export function AiAssistantSsd() {
             left: position.side === "left" ? "16px" : undefined,
             right: position.side === "right" ? "16px" : undefined,
           }}
-          className="fixed bottom-[76px] sm:bottom-6 z-50 flex flex-col w-[calc(100vw-32px)] sm:w-[420px] h-[540px] max-h-[78vh] rounded-[28px] border border-[#D1E3D6] bg-white shadow-2xl overflow-hidden font-body animate-in slide-in-from-bottom-5 duration-200"
+          className="fixed inset-x-2.5 bottom-4 sm:bottom-6 sm:inset-x-auto z-50 flex flex-col sm:w-[430px] max-w-[calc(100vw-20px)] h-[min(580px,calc(100dvh-3rem))] rounded-[26px] border border-[#D1E3D6] bg-white shadow-2xl overflow-hidden font-body animate-ssd-popup"
         >
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#056B38] to-[#04552D] text-white shadow-xs shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="relative h-9 w-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
-                <BrainCircuit className="w-5 h-5 text-emerald-300" />
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-[#056B38]" />
+          {/* Header */}
+          <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-[#056B38] to-[#04552D] text-white shadow-xs shrink-0 gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                <BrainCircuit className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" />
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-emerald-400 border-2 border-[#056B38]" />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm font-black text-white">SSD AI Agent</h3>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="text-xs sm:text-sm font-black text-white truncate">SSD AI Agent</h3>
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    className={`text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0 ${
                       quota?.plan === "vip"
                         ? "bg-amber-400 text-neutral-950"
                         : quota?.plan === "pro"
@@ -754,38 +786,38 @@ export function AiAssistantSsd() {
                     {quota?.plan ? quota.plan.toUpperCase() : "AI"}
                   </span>
                   {quota?.isTrial && (
-                    <span className="text-[9px] bg-amber-500/30 text-amber-200 px-1 rounded-sm">
-                      تجريبي ({quota.trialDaysLeft} أيام)
+                    <span className="text-[10px] bg-amber-500/30 text-amber-200 px-1 rounded-sm shrink-0">
+                      تجريبي ({quota.trialDaysLeft}د)
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-emerald-100/80">
-                  <span>المساعد والوكيل المستقل</span>
+                <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-emerald-100/80 truncate">
+                  <span>المساعد والوكيل الذكي</span>
                   {quota && !isAdmin && (
-                    <span className="text-emerald-200 font-mono text-[10px] bg-white/10 px-1.5 py-0.2 rounded-md">
-                      باقي اليوم: {quota.remainingToday}/{quota.dailyRequestsLimit}
+                    <span className="text-emerald-200 font-mono text-[9.5px] sm:text-[10px] bg-white/10 px-1.5 py-0.2 rounded-md shrink-0" dir="ltr">
+                      {quota.remainingToday}/{quota.dailyRequestsLimit}
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               {!isAdmin && quota?.plan !== "vip" && (
                 <button
                   type="button"
                   onClick={() => setIsUpgradeModalOpen(true)}
-                  className="h-8 px-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-900 flex items-center gap-1 text-[11px] font-black transition-all cursor-pointer shadow-xs mr-1"
+                  className="h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-900 flex items-center gap-1 text-[10.5px] sm:text-[11px] font-black transition-all cursor-pointer shadow-xs"
                   title="ترقية الباقة"
                 >
-                  <Crown className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">ترقية</span>
+                  <Crown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden xs:inline">ترقية</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleResetChat}
-                className="h-8 w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                 title="محادثة جديدة"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -793,7 +825,7 @@ export function AiAssistantSsd() {
               <button
                 type="button"
                 onClick={handleCloseChat}
-                className="h-8 w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                 title="إغلاق نافذة SSD"
               >
                 <X className="w-4 h-4" />
@@ -801,49 +833,86 @@ export function AiAssistantSsd() {
             </div>
           </div>
 
-          <div className="p-2 bg-[#F7FAF8] border-b border-[#D1E3D6] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-            {userRole === "developer" && (
+          {/* Quick Prompt Chips with Mouse Wheel, Touch Swipe & Mini Nav Arrows */}
+          <div className="relative flex items-center bg-[#F7FAF8] border-b border-[#D1E3D6] px-1 py-1.5 shrink-0">
+            {canScrollChipsRight && (
               <button
                 type="button"
-                onClick={() => handleCreateProjectPrompt("ساعدني في نشر مشروع متكامل لمعرض أعمالي مع وصف احترافي بالـ Markdown")}
-                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+                onClick={() => handleScrollChips("right")}
+                className="h-6 w-6 rounded-full bg-white border border-[#D1E3D6] text-[#05291A] hover:text-[#056B38] flex items-center justify-center shrink-0 shadow-2xs transition-all cursor-pointer z-10 mr-1"
+                aria-label="تمرير لليمين"
+                title="تمرير لليمين"
               >
-                <Code2 className="w-3 h-3" />
-                <span>مشروع بالمعرض (MD)</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => handleCreateProjectPrompt("اعملي مشروع متجر إلكتروني متكامل")}
-              className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+
+            <div
+              ref={chipsScrollRef}
+              onScroll={checkChipsScroll}
+              onWheel={(e) => {
+                if (e.deltaY !== 0 && chipsScrollRef.current) {
+                  chipsScrollRef.current.scrollLeft += e.deltaY;
+                }
+              }}
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-pan-x overscroll-x-contain py-1 px-1.5 scroll-smooth flex-1 min-w-0"
+              style={{ scrollbarWidth: "none" }}
             >
-              <Zap className="w-3 h-3" />
-              <span>مشروع متجر</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCreateProjectPrompt("اعملي مشروع تطبيق موبايل للخدمات")}
-              className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
-            >
-              <Zap className="w-3 h-3" />
-              <span>مشروع موبايل</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSearchDevelopers()}
-              className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
-            >
-              <Users className="w-3 h-3" />
-              <span>بحث مطورين</span>
-            </button>
-            {userRole === "developer" && (
+              {userRole === "developer" && (
+                <button
+                  type="button"
+                  onClick={() => handleCreateProjectPrompt("ساعدني في نشر مشروع متكامل لمعرض أعمالي مع وصف احترافي بالـ Markdown")}
+                  className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs whitespace-nowrap active:scale-95"
+                >
+                  <Code2 className="w-3 h-3" />
+                  <span>مشروع بالمعرض (MD)</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleEstimateDeveloperPrice}
-                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+                onClick={() => handleCreateProjectPrompt("اعملي مشروع متجر إلكتروني متكامل")}
+                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs whitespace-nowrap active:scale-95"
               >
-                <DollarSign className="w-3 h-3" />
-                <span>تسعير عروضي</span>
+                <Zap className="w-3 h-3" />
+                <span>مشروع متجر</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCreateProjectPrompt("اعملي مشروع تطبيق موبايل للخدمات")}
+                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs whitespace-nowrap active:scale-95"
+              >
+                <Zap className="w-3 h-3" />
+                <span>مشروع موبايل</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSearchDevelopers()}
+                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs whitespace-nowrap active:scale-95"
+              >
+                <Users className="w-3 h-3" />
+                <span>بحث مطورين</span>
+              </button>
+              {userRole === "developer" && (
+                <button
+                  type="button"
+                  onClick={handleEstimateDeveloperPrice}
+                  className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs whitespace-nowrap active:scale-95"
+                >
+                  <DollarSign className="w-3 h-3" />
+                  <span>تسعير عروضي</span>
+                </button>
+              )}
+            </div>
+
+            {canScrollChipsLeft && (
+              <button
+                type="button"
+                onClick={() => handleScrollChips("left")}
+                className="h-6 w-6 rounded-full bg-white border border-[#D1E3D6] text-[#05291A] hover:text-[#056B38] flex items-center justify-center shrink-0 shadow-2xs transition-all cursor-pointer z-10 ml-1"
+                aria-label="تمرير لليسار"
+                title="تمرير لليسار"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -886,7 +955,7 @@ export function AiAssistantSsd() {
                               {msg.projectDraft.target === "developer_portfolio" ? "مسودة مشروع معرض الأعمال (MD)" : "مسودة المشروع المقترحة"}
                             </span>
                           </span>
-                          <span className="rounded-full bg-[#056B38] text-white text-[9px] font-black px-2 py-0.5">
+                          <span className="rounded-full bg-[#056B38] text-white text-[11px] font-black px-2 py-0.5">
                             جاهز للنقل
                           </span>
                         </div>
@@ -931,7 +1000,7 @@ export function AiAssistantSsd() {
                             {msg.projectDraft.skills.map((sk, idx) => (
                               <span
                                 key={idx}
-                                className="text-[9px] font-black text-[#056B38] bg-white px-1.5 py-0.2 rounded border border-[#D1E3D6]"
+                                className="text-[11px] font-black text-[#056B38] bg-white px-1.5 py-0.2 rounded border border-[#D1E3D6]"
                               >
                                 {sk}
                               </span>
@@ -977,7 +1046,7 @@ export function AiAssistantSsd() {
                               </div>
                               <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#056B38]" />
                             </div>
-                            <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-bold text-[#056B38]">
+                            <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-bold text-[#056B38]">
                               <span className="rounded bg-white px-1.5 py-0.5">Trust {card.trustScore}%</span>
                               <span className="rounded bg-white px-1.5 py-0.5">{card.skillPoints} SP</span>
                               {card.skills.slice(0, 3).map((skill) => <span key={skill} className="rounded bg-white px-1.5 py-0.5">{skill}</span>)}
@@ -996,7 +1065,7 @@ export function AiAssistantSsd() {
                               </div>
                               <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#056B38]" />
                             </div>
-                            <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-bold text-[#056B38]">
+                            <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-bold text-[#056B38]">
                               <span className="rounded bg-white px-1.5 py-0.5 flex items-center gap-1">
                                 <span>{card.budgetFrom.toLocaleString("ar-EG")} - {card.budgetTo.toLocaleString("ar-EG")}</span>
                                 <EgpCurrencyIcon className="w-3 h-3 text-[#056B38]" />
@@ -1013,7 +1082,7 @@ export function AiAssistantSsd() {
                       <div className="mt-3 rounded-2xl border-2 border-[#056B38]/25 bg-[#E8FAF0]/70 p-3 text-[10px] text-[#05291A]">
                         <div className="mb-2 flex items-center justify-between border-b border-[#D1E3D6] pb-2">
                           <span className="font-black">تقرير اليوم مقارنة بالأمس</span>
-                          <span className="text-[9px] text-[#526B5E]">بيانات مباشرة</span>
+                          <span className="text-[11px] text-[#526B5E]">بيانات مباشرة</span>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5">
                           {Object.entries(msg.adminReport.today).map(([key, value]) => {
@@ -1054,7 +1123,7 @@ export function AiAssistantSsd() {
                     )}
 
                     <div
-                      className={`text-[9px] mt-1 text-left ${
+                      className={`text-[11px] mt-1 text-left ${
                         isSSD ? "text-[#526B5E]" : "text-emerald-200"
                       }`}
                     >

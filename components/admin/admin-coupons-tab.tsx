@@ -513,7 +513,7 @@ export function AdminCouponsTab({ notify }: AdminCouponsTabProps) {
               {/* Discount Type */}
               <div className="space-y-1.5">
                 <label className="font-black text-[#05291A]">نوع الخصم *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => {

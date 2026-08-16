@@ -47,7 +47,7 @@ export default function ChooseUsernamePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col items-center justify-center p-4 font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col items-center justify-center p-4 font-body dir-rtl" dir="rtl">
       <div className="w-full max-w-md bg-white rounded-[32px] border border-[#D1E3D6] p-8 sm:p-10 shadow-xs space-y-6">
         
         {/* Header Logo */}

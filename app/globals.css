@@ -90,12 +90,44 @@
   scrollbar-color: #BFE3CD #F7FAF8;
 }
 
+/* ─── Global Custom Range Slider Styling ──────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #056B38;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(5, 107, 56, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+  box-shadow: 0 3px 8px rgba(5, 107, 56, 0.45);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #056B38;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(5, 107, 56, 0.35);
+  cursor: pointer;
+}
+
 @layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-ink);
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
   h1,
@@ -110,6 +142,14 @@
 @utility technical {
   font-family: var(--font-technical);
   font-weight: 800;
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ─── SCORA Global Select Input System ──────────────────────── */
@@ -191,6 +231,49 @@ select.bg-transparent {
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes ssdSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdownPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-ssd-popup {
+  animation: ssdSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-dropdown-pop {
+  animation: dropdownPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Mobile form fields: prevent iOS Safari zoom-on-focus ─────
+   iOS zooms the viewport when a focused field computes under 16px
+   and never zooms back out. Below sm we force 16px; from sm: up the
+   Tailwind size utilities take over, so desktop density is unchanged.
+   !important is required to beat Tailwind's utility specificity. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 }
 

@@ -442,7 +442,7 @@ export function AdminAiLogsTab({ notify }: AdminAiLogsTabProps) {
 
                         {/* Metadata badge if model or error */}
                         {msg.model_used && !isUser && (
-                          <div className="pt-2 border-t border-[#D1E3D6]/60 flex items-center justify-between text-[9px] text-[#526B5E] font-mono">
+                          <div className="pt-2 border-t border-[#D1E3D6]/60 flex items-center justify-between text-[11px] text-[#526B5E] font-mono">
                             <span>الموديل: {msg.model_used}</span>
                           </div>
                         )}

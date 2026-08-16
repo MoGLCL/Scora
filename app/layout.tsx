@@ -1,10 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Tajawal, Outfit, JetBrains_Mono } from "next/font/google";
 import { ProfileProvider } from "@/components/profile-provider";
 import { FloatingChatProvider } from "@/components/floating-chat-provider";
 import { FloatingChatContainer } from "@/components/floating-chat-container";
 import { AiAssistantSsd } from "@/components/ai-assistant-ssd";
-import { MobileBottomTabs } from "@/components/mobile-bottom-tabs";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
 import { UserHeartbeat } from "@/components/user-heartbeat";
 import { getCurrentClient, getCurrentDeveloper, getCurrentUser, verifySession } from "@/lib/dal";
@@ -36,6 +35,11 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  themeColor: "#056B38",
+  interactiveWidget: "resizes-visual",
+};
 
 export const metadata: Metadata = {
   title: "سكورا — اعرف مين فاهم الكود بجد",
@@ -73,10 +77,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   ) : null;
   const initialProfile = {
     role: (session?.role ?? "guest") as "developer" | "client" | "guest",
+    developerApprovalStatus: session?.developerApprovalStatus ?? null,
     isAdmin: session?.isAdmin ?? false,
     username: user?.username ?? "",
     isAiAssistantEnabled: aiSetting?.setting_value !== "false",
-    showSsdAssistant: userAiSetting?.setting_value !== "false",
+    showSsdAssistant:
+      userAiSetting?.setting_value !== "false" &&
+      (session?.role !== "developer" || session?.developerApprovalStatus === "approved"),
     developer: user ? {
       fullName: developer?.display_name || user.full_name || "مطور",
       email: user.email,
@@ -114,13 +121,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       dir="rtl"
       className={`${cairo.variable} ${tajawal.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full`}
     >
-      <body suppressHydrationWarning className="min-h-full flex flex-col pb-20 lg:pb-0">
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
         <ProfileProvider key={`${session?.userId ?? "guest"}:${session?.isAdmin ?? false}`} initialProfile={initialProfile}>
           <FloatingChatProvider>
             {children}
             <FloatingChatContainer />
             <AiAssistantSsd />
-            <MobileBottomTabs />
             <AnalyticsTracker />
             <UserHeartbeat />
           </FloatingChatProvider>
@@ -129,3 +135,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+

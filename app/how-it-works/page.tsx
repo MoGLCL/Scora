@@ -73,13 +73,13 @@ export default function HowItWorksPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-white flex flex-col font-body dir-rtl" dir="rtl">
       <SiteHeader />
 
       <main className="flex-1 space-y-16 md:space-y-24 py-12 md:py-20">
         
         {/* HERO SECTION */}
-        <section className="mx-auto max-w-[1296px] px-6 md:px-8 text-center space-y-6">
+        <section className="mx-auto max-w-[1296px] px-4 sm:px-6 md:px-8 text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E8FAF0] text-[#056B38] text-[13px] font-bold border border-[#D1E3D6]">
             <Sparkles className="w-4 h-4 text-[#056B38]" />
             <span>كيف تعمل منصة سكورا؟ — الدليل الشامل</span>
@@ -112,7 +112,7 @@ export default function HowItWorksPage() {
         </section>
 
         {/* FOR DEVELOPERS WORKFLOW */}
-        <section className="mx-auto max-w-[1296px] px-6 md:px-8 space-y-10">
+        <section className="mx-auto max-w-[1296px] px-4 sm:px-6 md:px-8 space-y-10">
           <div className="text-center max-w-2xl mx-auto space-y-2">
             <h2 className="text-[28px] md:text-[38px] font-extrabold text-[#05291A] font-heading">
               رحلة المطور في سكورا (Developers Workflow)
@@ -154,7 +154,7 @@ export default function HowItWorksPage() {
 
         {/* FOR CLIENTS WORKFLOW */}
         <section className="bg-[#E8FAF0]/50 py-16 border-y border-[#D1E3D6]/60">
-          <div className="mx-auto max-w-[1296px] px-6 md:px-8 space-y-10">
+          <div className="mx-auto max-w-[1296px] px-4 sm:px-6 md:px-8 space-y-10">
             <div className="text-center max-w-2xl mx-auto space-y-2">
               <h2 className="text-[28px] md:text-[38px] font-extrabold text-[#05291A] font-heading">
                 رحلة العميل وصاحب العمل (Clients Workflow)
@@ -196,7 +196,7 @@ export default function HowItWorksPage() {
         </section>
 
         {/* TRUST ENGINE EXPLANATION BANNER */}
-        <section className="mx-auto max-w-[1296px] px-6 md:px-8">
+        <section className="mx-auto max-w-[1296px] px-4 sm:px-6 md:px-8">
           <div className="rounded-[36px] bg-[#05291A] text-white p-8 md:p-14 relative overflow-hidden space-y-6">
             <div className="max-w-2xl space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-300 text-[12px] font-bold">

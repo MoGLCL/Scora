@@ -74,7 +74,10 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
     subscription_end: Date | null;
   }>(`SELECT u.id, u.email, u.full_name, u.phone, u.role, u.is_admin, u.status, u.created_at, u.suspended_until,
              d.skill_points, d.trust_score, d.approval_status, d.rejection_reason,
-             (SELECT das.public_id FROM developer_assessment_sessions das WHERE das.developer_id=d.id AND das.status='admin_review' ORDER BY das.id DESC LIMIT 1) assessment_public_id,
+             (SELECT das.public_id FROM developer_assessment_sessions das
+              WHERE das.developer_id=d.id AND das.status IN ('admin_review','approved','rejected')
+              ORDER BY FIELD(das.status,'admin_review','approved','rejected'), das.submitted_at DESC, das.id DESC
+              LIMIT 1) assessment_public_id,
              (SELECT COUNT(*) FROM support_tickets st WHERE st.reported_user_id = u.id) reports_count,
              (SELECT s.plan FROM user_subscriptions s WHERE s.user_id = u.id ORDER BY s.id DESC LIMIT 1) subscription_plan,
              (SELECT s.status FROM user_subscriptions s WHERE s.user_id = u.id ORDER BY s.id DESC LIMIT 1) subscription_status,
@@ -207,6 +210,24 @@ export async function decideDeveloperAdmission(input: {
       c
     );
   });
+
+  if (parsed.data.decision === "approved" && actor.userId === row.user_id) {
+    const { createSession } = await import("@/lib/session");
+    const approvedUser = await queryOne<{ role: AppRole; onboarding_completed_at: Date | null; is_admin: 0 | 1; username: string | null }>(
+      "SELECT role, onboarding_completed_at, is_admin, username FROM users WHERE id=?",
+      [row.user_id]
+    );
+    if (approvedUser) {
+      await createSession(
+        row.user_id,
+        approvedUser.role,
+        Boolean(approvedUser.onboarding_completed_at),
+        Boolean(approvedUser.is_admin),
+        true,
+        Boolean(approvedUser.username?.trim())
+      );
+    }
+  }
 
   revalidateAdminPaths();
   return { ok: true as const };

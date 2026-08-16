@@ -624,7 +624,7 @@ export default function DeveloperOnboardingPage() {
     : "Full-Stack Web Developer";
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body" dir="rtl">
+    <div className="min-h-dvh bg-white flex flex-col font-body" dir="rtl">
       <SiteHeader />
 
       <main className="mx-auto max-w-[1280px] px-4 md:px-6 py-6 md:py-8 w-full flex-1 space-y-6">
@@ -721,7 +721,7 @@ export default function DeveloperOnboardingPage() {
                         <User className="w-5 h-5" />
                       </div>
                     )}
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#056B38] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full shadow-xs">
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#056B38] text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full shadow-xs">
                       تغيير
                     </span>
                   </div>

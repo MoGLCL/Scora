@@ -30,9 +30,9 @@ export default function DashboardPage() {
     { label: "العروض المستلمة", value: stats?.proposals ?? 0, icon: Award },
     { label: "المطورون المتقدمون", value: stats?.developers ?? 0, icon: Users },
   ];
-  return <div className="min-h-screen bg-[#F7FAF8] flex flex-col" dir="rtl">
+  return <div className="min-h-dvh bg-[#F7FAF8] flex flex-col" dir="rtl">
     <SiteHeader />
-    <main className="mx-auto w-full max-w-[1296px] flex-1 px-6 py-10 space-y-8">
+    <main className="mx-auto w-full max-w-[1296px] flex-1 px-4 sm:px-6 md:px-8 py-10 space-y-8">
       <section className="rounded-[28px] border border-[#D1E3D6] bg-gradient-to-b from-[#E8FAF0] to-white p-8">
         <h1 className="text-3xl font-extrabold text-[#05291A]">مرحباً، {displayName}</h1>
         <p className="mt-2 text-[#526B5E]">البيانات هنا مباشرة من قاعدة البيانات وتتحدث تلقائياً.</p>

@@ -177,7 +177,14 @@ export function ChatMenu({
 
       {/* Dropdown Menu Popover */}
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-[340px] sm:w-[380px] rounded-[24px] border border-[#D1E3D6] bg-white p-3 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 font-body">
+        <>
+          {/* Mobile backdrop for seamless tap-away dismissal */}
+          <div
+            className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40 sm:hidden animate-in fade-in duration-150"
+            onClick={handleClose}
+          />
+
+          <div className="fixed inset-x-3.5 top-[72px] sm:inset-x-auto sm:absolute sm:left-0 sm:top-full sm:mt-2 sm:w-[380px] max-h-[calc(100dvh-5.5rem)] sm:max-h-[480px] flex flex-col rounded-[24px] border border-[#D1E3D6] bg-white p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 sm:zoom-in-100 slide-in-from-top-2 duration-150 font-body">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[#D1E3D6]/70 px-2 pb-3 mb-2">
             <div className="flex items-center gap-2">
@@ -306,7 +313,8 @@ export function ChatMenu({
             )}
           </div>
         </div>
-      )}
-    </div>
-  );
+      </>
+    )}
+  </div>
+);
 }

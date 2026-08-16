@@ -14,7 +14,7 @@ export function DeveloperProfileClient({
   isOwner: boolean;
 }) {
   return (
-    <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
+    <div className="min-h-dvh bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">
       <SiteHeader />
       <main className="mx-auto w-full max-w-[1000px] flex-1 px-6 py-12">
         <Link href="/developers" className="text-sm font-bold text-[#056B38] hover:underline">

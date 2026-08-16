@@ -377,29 +377,29 @@ export function SubscriptionCheckoutModal({
               {/* Paymob */}
               <div className="p-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-100 flex flex-col items-center justify-center text-center gap-1">
                 <span className="text-xs font-black text-neutral-700">Paymob</span>
-                <span className="text-[9px] text-neutral-500 font-medium">باي موب</span>
-                <span className="text-[8px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
+                <span className="text-[11px] text-neutral-500 font-medium">باي موب</span>
+                <span className="text-[10px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
               </div>
 
               {/* Fawry */}
               <div className="p-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-100 flex flex-col items-center justify-center text-center gap-1">
                 <span className="text-xs font-black text-amber-800">Fawry</span>
-                <span className="text-[9px] text-neutral-500 font-medium">فوري باي</span>
-                <span className="text-[8px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
+                <span className="text-[11px] text-neutral-500 font-medium">فوري باي</span>
+                <span className="text-[10px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
               </div>
 
               {/* Bank Cards */}
               <div className="p-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-100 flex flex-col items-center justify-center text-center gap-1">
                 <span className="text-xs font-black text-blue-900">Visa / Meeza</span>
-                <span className="text-[9px] text-neutral-500 font-medium">كروت بنكية</span>
-                <span className="text-[8px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
+                <span className="text-[11px] text-neutral-500 font-medium">كروت بنكية</span>
+                <span className="text-[10px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
               </div>
 
               {/* PayPal */}
               <div className="p-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-100 flex flex-col items-center justify-center text-center gap-1">
                 <span className="text-xs font-black text-indigo-900">PayPal</span>
-                <span className="text-[9px] text-neutral-500 font-medium">باي بال</span>
-                <span className="text-[8px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
+                <span className="text-[11px] text-neutral-500 font-medium">باي بال</span>
+                <span className="text-[10px] bg-neutral-200 text-neutral-600 px-1.5 rounded-full">قريباً</span>
               </div>
             </div>
 
