@@ -41,7 +41,6 @@ import {
   Phone,
   ExternalLink,
   Code,
-  ArrowLeft,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { VerifiedBadge } from "@/components/verified-badge";
@@ -55,7 +54,6 @@ import {
   updateUserFullDetailsForAdmin,
   setUserPasswordForAdmin,
   sendAdminDirectNotification,
-  toggleDeveloperVerificationForAdmin,
   updateProjectForAdmin,
   deleteProjectForAdmin,
   deleteProposalForAdmin,
@@ -1284,344 +1282,225 @@ export default function AdminPage() {
 
             {/* ─── Cards View Mode ─── */}
             {viewMode === "cards" && (
-              <div className="grid gap-4">
+              <div className="grid gap-3">
                 {visibleUsers.length ? (
                   visibleUsers.map((u) => (
                     <article
                       key={u.id}
-                      className="rounded-[26px] border border-[#D1E3D6] bg-white p-5 sm:p-6 shadow-xs hover:border-[#056B38]/50 hover:shadow-md transition-all space-y-4"
+                      className="rounded-[22px] border border-[#D1E3D6] bg-white p-4 sm:px-5 hover:border-[#056B38] hover:shadow-xs transition-all flex flex-col xl:flex-row xl:items-center justify-between gap-4"
                     >
-                      {/* TOP LEVEL: User Identity & Primary Badges */}
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        {/* Identity Info */}
-                        <div className="flex items-start sm:items-center gap-3.5">
-                          {/* Avatar with Online Indicator */}
-                          <div className="relative shrink-0">
-                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#E8FAF0] to-[#C5E8D1] border border-[#A8DBB9] text-[#056B38] flex items-center justify-center font-black text-base shadow-2xs">
-                              {u.name ? u.name.slice(0, 2).toUpperCase() : "U"}
-                            </div>
-                            {u.isOnline && (
-                              <span
-                                title="متواجد الآن"
-                                className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-emerald-500/20"
-                              />
-                            )}
+                      {/* Right Side: Avatar + User Info */}
+                      <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                        {/* Avatar */}
+                        <div className="relative shrink-0">
+                          <div className="h-11 w-11 rounded-2xl bg-[#E8FAF0] border border-[#C5E8D1] text-[#056B38] flex items-center justify-center font-black text-sm shadow-2xs">
+                            {u.name ? u.name.slice(0, 2).toUpperCase() : "U"}
                           </div>
-
-                          {/* Details */}
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[11px] font-mono font-black text-[#056B38] bg-[#E8FAF0] px-2 py-0.5 rounded-md border border-[#C5E8D1]">
-                                #{u.id}
-                              </span>
-                              <h4 className="text-base font-black text-[#05291A]">
-                                {u.name}
-                              </h4>
-                              {u.username ? (
-                                <Link
-                                  href={`/profile/${u.username}`}
-                                  target="_blank"
-                                  className="font-mono text-xs font-bold text-[#056B38] bg-[#E8FAF0] px-2.5 py-0.5 rounded-lg border border-[#C5E8D1] hover:bg-[#D4F5E0] transition-colors inline-flex items-center gap-1"
-                                >
-                                  <span>@{u.username}</span>
-                                  <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                                </Link>
-                              ) : (
-                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                                  بدون يوزرنيم
-                                </span>
-                              )}
-
-                              {/* Role badge */}
-                              <span
-                                className={`rounded-full text-[10px] font-black px-2.5 py-0.5 flex items-center gap-1 ${
-                                  u.role === "developer"
-                                    ? "bg-emerald-100/70 text-[#056B38] border border-emerald-300"
-                                    : "bg-sky-100/70 text-sky-800 border border-sky-300"
-                                }`}
-                              >
-                                {u.role === "developer" ? <Code className="w-3 h-3" /> : <Briefcase className="w-3 h-3" />}
-                                <span>{u.role === "developer" ? "مطور برمجيات" : "عميل"}</span>
-                              </span>
-
-                              {u.isAdmin && (
-                                <span className="rounded-full bg-[#056B38] text-white text-[10px] font-black px-2.5 py-0.5 flex items-center gap-1 shadow-2xs">
-                                  <ShieldCheck className="w-3 h-3" />
-                                  <span>أدمن</span>
-                                </span>
-                              )}
-
-                              {u.isVerified && (
-                                <VerifiedBadge
-                                  type={u.role === "developer" ? "developer" : u.role === "client" ? "client" : "general"}
-                                  showLabel
-                                  size="sm"
-                                />
-                              )}
-                            </div>
-
-                            {/* Contact info strip */}
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#526B5E]">
-                              <span className="flex items-center gap-1">
-                                <Mail className="w-3 h-3 text-[#056B38]" />
-                                <span>{u.email}</span>
-                              </span>
-                              {u.phone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3 text-[#056B38]" />
-                                  <span dir="ltr">{u.phone}</span>
-                                </span>
-                              )}
-                              {u.jobTitle && (
-                                <span className="font-bold text-[#05291A]">· {u.jobTitle}</span>
-                              )}
-                              {u.companyName && (
-                                <span className="font-bold text-[#05291A]">· شركة: {u.companyName}</span>
-                              )}
-                              <span className="text-[#526B5E]/80">· انضم: {u.joinDate}</span>
-                            </div>
-                          </div>
+                          {u.isOnline && (
+                            <span
+                              title="متواجد الآن"
+                              className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-500/20"
+                            />
+                          )}
                         </div>
 
-                        {/* Metric & Plan Cluster */}
-                        <div className="flex flex-wrap items-center gap-2 self-start lg:self-center">
-                          {/* Plan Button */}
-                          <button
-                            type="button"
-                            onClick={() => setPlanModalUser(u)}
-                            title="انقر لتعديل وتعيين باقة الاشتراك للمستخدم"
-                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
-                              u.subscriptionPlan === "vip"
-                                ? "bg-[#05291A] text-amber-300 hover:bg-black border border-amber-400/40"
-                                : u.subscriptionPlan === "pro"
-                                ? "bg-[#056B38] text-white hover:bg-[#005B27] border border-emerald-400/40"
-                                : "bg-[#F7FAF8] text-[#526B5E] border border-[#D1E3D6] hover:border-[#056B38] hover:text-[#05291A]"
-                            }`}
-                          >
-                            <Crown className={`w-3.5 h-3.5 ${u.subscriptionPlan === "vip" ? "text-amber-400" : u.subscriptionPlan === "pro" ? "text-emerald-200" : "text-neutral-400"}`} />
-                            <span>باقة {u.subscriptionPlan ? u.subscriptionPlan.toUpperCase() : "FREE"}</span>
-                            <Sliders className="w-3 h-3 opacity-60 ml-0.5" />
-                          </button>
-
-                          {/* Account Status Badge */}
-                          <span
-                            className={`rounded-xl text-xs font-black px-3 py-1.5 flex items-center gap-1.5 ${
-                              u.status === "active"
-                                ? "bg-[#E8FAF0] text-[#056B38] border border-[#C5E8D1]"
-                                : u.status === "suspended"
-                                ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                : "bg-red-100 text-red-700 border border-red-200"
-                            }`}
-                          >
-                            {u.status === "active" ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-[#056B38]" />
-                            ) : u.status === "suspended" ? (
-                              <Clock className="w-3.5 h-3.5 text-amber-800" />
+                        {/* Details */}
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-mono font-black text-[#056B38] bg-[#E8FAF0] px-1.5 py-0.2 rounded-md border border-[#C5E8D1]">
+                              #{u.id}
+                            </span>
+                            <span className="text-sm font-black text-[#05291A] truncate">
+                              {u.name}
+                            </span>
+                            {u.username ? (
+                              <Link
+                                href={`/profile/${u.username}`}
+                                target="_blank"
+                                className="font-mono text-[11px] font-bold text-[#056B38] bg-[#E8FAF0] px-2 py-0.2 rounded-md hover:bg-[#D4F5E0] transition-colors inline-flex items-center gap-1"
+                              >
+                                <span>@{u.username}</span>
+                                <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                              </Link>
                             ) : (
-                              <Ban className="w-3.5 h-3.5 text-red-600" />
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-md border border-amber-200">
+                                بدون يوزرنيم
+                              </span>
                             )}
-                            <span>{u.status === "active" ? "نشط" : u.status === "suspended" ? "موقوف" : "محظور"}</span>
-                          </span>
-
-                          {/* Trust & SP Pill */}
-                          {u.role === "developer" && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditPoints(u)}
-                              title="انقر لتعديل نقاط التراست والـ SP"
-                              className="px-3 py-1.5 rounded-xl bg-[#F7FAF8] border border-[#D1E3D6] hover:border-[#056B38] hover:bg-[#E8FAF0] text-xs font-bold text-[#526B5E] flex items-center gap-2 transition-all cursor-pointer"
+                            <span
+                              className={`rounded-full text-[10px] font-black px-2 py-0.5 flex items-center gap-1 ${
+                                u.role === "developer"
+                                  ? "bg-emerald-50 text-[#056B38] border border-emerald-200"
+                                  : "bg-sky-50 text-sky-800 border border-sky-200"
+                              }`}
                             >
-                              <div className="flex items-center gap-1">
-                                <span>Trust:</span>
-                                <span className="font-black text-[#056B38]">{u.trustScore}%</span>
-                              </div>
-                              <div className="h-3 w-px bg-neutral-300" />
-                              <div className="flex items-center gap-1">
-                                <span>SP:</span>
-                                <span className="font-black text-[#05291A]">{u.skillPoints}</span>
-                              </div>
-                              <Award className="w-3.5 h-3.5 text-[#056B38] opacity-70" />
-                            </button>
-                          )}
+                              {u.role === "developer" ? <Code className="w-2.5 h-2.5" /> : <Briefcase className="w-2.5 h-2.5" />}
+                              <span>{u.role === "developer" ? "مطور" : "عميل"}</span>
+                            </span>
+                            {u.isAdmin && (
+                              <span className="rounded-full bg-[#056B38] text-white text-[9px] font-black px-2 py-0.2 flex items-center gap-1">
+                                <ShieldCheck className="w-2.5 h-2.5" />
+                                <span>أدمن</span>
+                              </span>
+                            )}
+                            {u.isVerified && (
+                              <VerifiedBadge
+                                type={u.role === "developer" ? "developer" : u.role === "client" ? "client" : "general"}
+                                showLabel
+                                size="sm"
+                              />
+                            )}
+                            {u.status !== "active" && (
+                              <span
+                                className={`rounded-full text-[10px] font-black px-2 py-0.5 flex items-center gap-1 ${
+                                  u.status === "suspended"
+                                    ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                    : "bg-red-100 text-red-700 border border-red-200"
+                                }`}
+                              >
+                                {u.status === "suspended" ? <Clock className="w-2.5 h-2.5" /> : <Ban className="w-2.5 h-2.5" />}
+                                <span>{u.status === "suspended" ? "موقوف" : "محظور"}</span>
+                              </span>
+                            )}
+                            {u.approvalStatus === "admin_review" && (
+                              <span className="rounded-full bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 border border-amber-300 animate-pulse">
+                                بانتظار الاعتماد
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Meta line */}
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#526B5E]">
+                            <span className="flex items-center gap-1">
+                              <Mail className="w-3 h-3 text-[#056B38]" />
+                              <span>{u.email}</span>
+                            </span>
+                            {u.phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3 h-3 text-[#056B38]" />
+                                <span dir="ltr">{u.phone}</span>
+                              </span>
+                            )}
+                            {u.jobTitle && <span className="font-bold text-[#05291A]">· {u.jobTitle}</span>}
+                            {u.companyName && <span className="font-bold text-[#05291A]">· شركة: {u.companyName}</span>}
+                            <span className="text-[#526B5E]/70">· انضم {u.joinDate}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* PENDING REVIEW / SUSPENDED ALERTS (IF ANY) */}
-                      {u.approvalStatus === "admin_review" && (
-                        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-bold text-amber-900">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span>المطور اجتاز الاختبار وينتظر قرار اعتماد الملف الشخصي من الأدمن</span>
-                          </div>
-                          {u.assessmentPublicId && (
-                            <Link
-                              href={`/admin/developers/${u.assessmentPublicId}/review`}
-                              className="h-8 px-3.5 rounded-xl bg-[#056B38] text-white hover:bg-[#005B27] text-xs font-black flex items-center gap-1.5 transition-all shadow-2xs self-start sm:self-auto shrink-0"
-                            >
-                              <span>مراجعة واعتماد الإنترفيو</span>
-                              <ArrowLeft className="w-3.5 h-3.5" />
-                            </Link>
-                          )}
-                        </div>
-                      )}
+                      {/* Left Side: Metrics & Action Buttons in a clean row */}
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 xl:pt-0 border-t xl:border-t-0 border-neutral-100">
+                        {/* Trust & SP (Developers only) */}
+                        {u.role === "developer" && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditPoints(u)}
+                            title="انقر لتعديل نقاط التراست والـ SP"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#F7FAF8] border border-[#D1E3D6] hover:border-[#056B38] hover:bg-[#E8FAF0] text-xs font-bold text-[#526B5E] flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <span className="text-[#056B38] font-black">{u.trustScore}% Trust</span>
+                            <span className="text-neutral-300">/</span>
+                            <span className="text-[#05291A] font-black">{u.skillPoints} SP</span>
+                            <Award className="w-3 h-3 text-[#056B38] opacity-70" />
+                          </button>
+                        )}
 
-                      {u.status === "suspended" && u.suspendedUntil && (
-                        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-2.5 text-xs font-bold text-amber-900 flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-                          <span>الحساب موقوف مؤقتاً وينتهي الإيقاف تلقائياً بتاريخ: <strong>{u.suspendedUntil}</strong></span>
-                        </div>
-                      )}
+                        {/* Plan badge button */}
+                        <button
+                          type="button"
+                          onClick={() => setPlanModalUser(u)}
+                          title="تعديل باقة الاشتراك"
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
+                            u.subscriptionPlan === "vip"
+                              ? "bg-[#05291A] text-amber-300 hover:bg-black border border-amber-400/40"
+                              : u.subscriptionPlan === "pro"
+                              ? "bg-[#056B38] text-white hover:bg-[#005B27] border border-emerald-400/40"
+                              : "bg-[#F7FAF8] text-[#526B5E] border border-[#D1E3D6] hover:border-[#056B38] hover:text-[#05291A]"
+                          }`}
+                        >
+                          <Crown className={`w-3.5 h-3.5 ${u.subscriptionPlan === "vip" ? "text-amber-400" : u.subscriptionPlan === "pro" ? "text-emerald-200" : "text-neutral-400"}`} />
+                          <span>باقة {u.subscriptionPlan ? u.subscriptionPlan.toUpperCase() : "FREE"}</span>
+                        </button>
 
-                      {/* BOTTOM CONTROLS HUB */}
-                      <div className="pt-3 border-t border-neutral-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-[#FAFDFB] -mx-5 -mb-5 sm:-mx-6 sm:-mb-6 p-4 sm:px-6 rounded-b-[26px]">
-                        {/* Quick Setting Dropdowns & Toggles */}
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          {/* Role Selector */}
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] font-bold text-[#526B5E]">الدور:</span>
-                            <ScoraSelectControl
-                              disabled={savingUserId === u.id}
-                              value={u.role}
-                              options={[
-                                { value: "developer", label: "مطور برمجيات" },
-                                { value: "client", label: "عميل" },
-                              ]}
-                              onChange={(newRole) => updateStatusOrRole(u.id, { role: newRole as AppRole })}
-                            />
-                          </div>
+                        {/* Pending Review CTA (if any) */}
+                        {u.approvalStatus === "admin_review" && u.assessmentPublicId && (
+                          <Link
+                            href={`/admin/developers/${u.assessmentPublicId}/review`}
+                            className="h-8.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black flex items-center gap-1 transition-all shadow-2xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>مراجعة القبول</span>
+                          </Link>
+                        )}
 
-                          {/* Status Selector */}
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] font-bold text-[#526B5E]">الحالة:</span>
-                            <ScoraSelectControl
-                              disabled={savingUserId === u.id}
-                              value={u.status}
-                              options={[
-                                { value: "active", label: "نشط" },
-                                { value: "suspended", label: "إيقاف مؤقت..." },
-                                { value: "banned", label: "حظر نهائي" },
-                              ]}
-                              onChange={(newStatus) => {
-                                if (newStatus === "suspended") {
-                                  setSuspensionModalUser(u);
-                                } else {
-                                  updateStatusOrRole(u.id, { status: newStatus as AccountStatus });
-                                }
-                              }}
-                            />
-                          </div>
+                        {/* Primary: Full Profile Modal */}
+                        <button
+                          type="button"
+                          onClick={() => setDetailsModalUser(u)}
+                          title="عرض وفحص تفاصيل الملف الشخصي الكامل"
+                          className="h-8.5 px-3 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>فحص الملف</span>
+                        </button>
 
-                          {/* Admin Toggle */}
+                        {/* Edit Details */}
+                        <button
+                          type="button"
+                          onClick={() => setEditInfoUser(u)}
+                          title="تعديل البيانات الأساسية"
+                          className="h-8.5 px-2.5 rounded-xl border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] text-[#05291A] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Edit3 className="h-3.5 w-3.5 text-[#056B38]" />
+                          <span>تعديل</span>
+                        </button>
+
+                        {/* Set Password */}
+                        <button
+                          type="button"
+                          onClick={() => setPasswordModalUser(u)}
+                          title="تعيين كلمة مرور جديدة"
+                          className="h-8.5 px-2.5 rounded-xl border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] text-[#05291A] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <KeyRound className="h-3.5 w-3.5 text-[#056B38]" />
+                          <span>كلمة السر</span>
+                        </button>
+
+                        {/* Notify User */}
+                        <button
+                          type="button"
+                          onClick={() => setNotifyModalUser(u)}
+                          title="إرسال إشعار مباشر"
+                          className="h-8.5 px-2.5 rounded-xl border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] text-[#05291A] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Bell className="h-3.5 w-3.5 text-[#056B38]" />
+                          <span>إشعار</span>
+                        </button>
+
+                        {/* Reset Test (Developers only) */}
+                        {u.role === "developer" && (
                           <button
                             type="button"
                             disabled={savingUserId === u.id}
-                            onClick={() => updateStatusOrRole(u.id, { isAdmin: !u.isAdmin })}
-                            className={`h-8.5 px-3 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                              u.isAdmin
-                                ? "bg-[#056B38] text-white hover:bg-[#005B27] shadow-2xs"
-                                : "border border-[#D1E3D6] bg-white text-[#526B5E] hover:text-[#05291A] hover:bg-[#E8FAF0]"
-                            }`}
+                            onClick={() => setResetTestUser(u)}
+                            title="إعادة إتاحة اختبار التقييم للمطور"
+                            className="h-8.5 px-2.5 rounded-xl border border-[#056B38]/30 bg-[#E8FAF0] hover:bg-[#056B38] hover:text-white text-[#056B38] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
                           >
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            <span>{u.isAdmin ? "أدمن" : "منح أدمن"}</span>
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>إعادة الاختبار</span>
                           </button>
+                        )}
 
-                          {/* Verification Toggle */}
-                          {u.role === "developer" && (
-                            <button
-                              type="button"
-                              disabled={savingUserId === u.id}
-                              onClick={async () => {
-                                setSavingUserId(u.id);
-                                await toggleDeveloperVerificationForAdmin(Number(u.id), !u.isVerified);
-                                await loadUsers();
-                                setSavingUserId(null);
-                                addToast("تم تحديث شارة التوثيق", "success");
-                              }}
-                              className={`h-8.5 px-3 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                                u.isVerified
-                                  ? "border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100"
-                                  : "border border-[#D1E3D6] bg-white text-[#526B5E] hover:bg-sky-50 hover:text-sky-800"
-                              }`}
-                            >
-                              <ShieldCheck className="h-3.5 w-3.5" />
-                              <span>{u.isVerified ? "موثق" : "توثيق"}</span>
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Action Toolset */}
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {/* View full profile modal */}
-                          <button
-                            type="button"
-                            onClick={() => setDetailsModalUser(u)}
-                            title="عرض وفحص تفاصيل الملف الشخصي الكامل"
-                            className="h-8.5 px-3 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>فحص الملف</span>
-                          </button>
-
-                          {/* Edit modal */}
-                          <button
-                            type="button"
-                            onClick={() => setEditInfoUser(u)}
-                            title="تعديل البيانات الأساسية"
-                            className="h-8.5 px-2.5 rounded-xl border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] text-[#05291A] text-xs font-black flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <Edit3 className="h-3.5 w-3.5 text-[#056B38]" />
-                            <span>تعديل</span>
-                          </button>
-
-                          {/* Set Password modal */}
-                          <button
-                            type="button"
-                            onClick={() => setPasswordModalUser(u)}
-                            title="تعيين كلمة مرور جديدة"
-                            className="h-8.5 px-2.5 rounded-xl border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] text-[#05291A] text-xs font-black flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <KeyRound className="h-3.5 w-3.5 text-[#056B38]" />
-                            <span>كلمة السر</span>
-                          </button>
-
-                          {/* Notify modal */}
-                          <button
-                            type="button"
-                            onClick={() => setNotifyModalUser(u)}
-                            title="إرسال إشعار مباشر"
-                            className="h-8.5 px-2.5 rounded-xl border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] text-[#05291A] text-xs font-black flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <Bell className="h-3.5 w-3.5 text-[#056B38]" />
-                            <span>إشعار</span>
-                          </button>
-
-                          {/* Reset test (dev only) */}
-                          {u.role === "developer" && (
-                            <button
-                              type="button"
-                              disabled={savingUserId === u.id}
-                              onClick={() => setResetTestUser(u)}
-                              title="إعادة إتاحة اختبار التقييم للمطور"
-                              className="h-8.5 px-2.5 rounded-xl border border-[#056B38]/30 bg-[#E8FAF0] hover:bg-[#056B38] hover:text-white text-[#056B38] text-xs font-black flex items-center gap-1 transition-all cursor-pointer"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                              <span>إعادة الاختبار</span>
-                            </button>
-                          )}
-
-                          {/* Delete User */}
-                          <button
-                            type="button"
-                            disabled={savingUserId === u.id}
-                            onClick={() => setDeleteModalUser(u)}
-                            title="حذف الحساب نهائياً"
-                            className="h-8.5 px-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-black text-xs flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>حذف</span>
-                          </button>
-                        </div>
+                        {/* Delete User */}
+                        <button
+                          type="button"
+                          disabled={savingUserId === u.id}
+                          onClick={() => setDeleteModalUser(u)}
+                          title="حذف الحساب نهائياً"
+                          className="h-8.5 w-8.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 flex items-center justify-center transition-all cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </article>
                   ))
