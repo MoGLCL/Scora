@@ -7,7 +7,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 import { createProject } from "@/lib/actions/profile";
 import {
-  DollarSign,
   Calendar,
   Code,
   FileText,
@@ -23,6 +22,7 @@ import {
   CheckSquare,
   LayoutDashboard
 } from "lucide-react";
+import { EgpCurrencyIcon } from "@/components/egp-currency-icon";
 
 export default function CreateProjectOfferPage() {
   const { addToast } = useProfile();
@@ -388,13 +388,13 @@ export default function CreateProjectOfferPage() {
                         type="number"
                         required
                         min={1250}
-                        step={100}
+                        step="any"
                         value={budgetFrom}
                         onChange={(e) => setBudgetFrom(e.target.value)}
                         placeholder="1250"
                         className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white pl-4 pr-10 text-[13px] font-bold text-[#05291A] outline-none focus:border-[#056B38]"
                       />
-                      <DollarSign className="w-4 h-4 text-[#056B38] absolute right-3 pointer-events-none" />
+                      <EgpCurrencyIcon className="w-4 h-4 text-[#056B38] absolute right-3 pointer-events-none" />
                     </div>
                   </div>
 
@@ -407,13 +407,13 @@ export default function CreateProjectOfferPage() {
                         type="number"
                         required
                         min={Math.max(1250, Number(budgetFrom) || 1250)}
-                        step={100}
+                        step="any"
                         value={budgetTo}
                         onChange={(e) => setBudgetTo(e.target.value)}
                         placeholder="15000"
                         className="w-full h-[46px] rounded-[12px] border border-[#D1E3D6] bg-white pl-4 pr-10 text-[13px] font-bold text-[#05291A] outline-none focus:border-[#056B38]"
                       />
-                      <DollarSign className="w-4 h-4 text-[#056B38] absolute right-3 pointer-events-none" />
+                      <EgpCurrencyIcon className="w-4 h-4 text-[#056B38] absolute right-3 pointer-events-none" />
                     </div>
                   </div>
 
@@ -424,7 +424,7 @@ export default function CreateProjectOfferPage() {
                         type="number"
                         min={3}
                         max={365}
-                        step={1}
+                        step="any"
                         value={deadline}
                         onChange={(e) => setDeadline(e.target.value)}
                         placeholder="3"

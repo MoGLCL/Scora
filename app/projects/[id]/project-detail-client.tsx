@@ -21,7 +21,6 @@ import {
 import {
   Briefcase,
   Clock,
-  DollarSign,
   ShieldCheck,
   CheckCircle2,
   Send,
@@ -39,6 +38,7 @@ import {
   RotateCcw,
   UserCheck
 } from "lucide-react";
+import { EgpCurrencyIcon } from "@/components/egp-currency-icon";
 import { VerifiedBadge } from "@/components/verified-badge";
 
 export interface ProposalComment {
@@ -712,7 +712,7 @@ export function ProjectDetailClient({
                       <div className="rounded-2xl border border-emerald-200 bg-white p-4 space-y-3 shadow-2xs">
                         <div className="flex items-center justify-between text-[12px] font-bold text-[#526B5E] border-b border-neutral-100 pb-2">
                           <span className="flex items-center gap-1.5">
-                            <DollarSign className="w-4 h-4 text-[#056B38]" />
+                            <EgpCurrencyIcon className="w-4 h-4 text-[#056B38]" />
                             <span>تفاصيل الحسبة والأرباح الصافية (Scora Fee Breakdown):</span>
                           </span>
                           <span className="text-[11px] bg-emerald-50 text-[#056B38] px-2.5 py-0.5 rounded-full border border-emerald-200">
