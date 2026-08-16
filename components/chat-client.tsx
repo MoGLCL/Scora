@@ -424,7 +424,7 @@ export function ChatClient({
           ) : (
             <>
               <span>إرسال</span>
-              <Send className="w-3.5 h-3.5" />
+              <Send className="w-3.5 h-3.5 -scale-x-100" />
             </>
           )}
         </button>

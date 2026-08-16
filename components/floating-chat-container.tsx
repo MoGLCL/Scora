@@ -367,7 +367,7 @@ function FloatingChatWindow({
                 disabled={(!inputText.trim() && !selectedFile) || isSending}
                 className="h-8 w-8 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
               >
-                {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3.5 h-3.5 rotate-180" />}
+                {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3.5 h-3.5 -scale-x-100" />}
               </button>
             </form>
           </>

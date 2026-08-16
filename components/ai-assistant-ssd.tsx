@@ -1127,7 +1127,7 @@ export function AiAssistantSsd() {
               disabled={!inputText.trim() || isTyping}
               className="h-10 w-10 rounded-2xl bg-[#056B38] hover:bg-[#005B27] text-white flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
             >
-              <Send className="w-4 h-4 rotate-180" />
+              <Send className="w-4 h-4 -scale-x-100" />
             </button>
           </form>
         </div>
