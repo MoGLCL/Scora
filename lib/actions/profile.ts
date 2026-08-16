@@ -226,13 +226,18 @@ export async function createProject(
 ): Promise<ActionState> {
   const session = await verifySession();
   if (!session) return { error: "غير مصرح لك" };
-  if (session.role !== "client") return { error: "إنشاء المشاريع متاح للعملاء فقط" };
 
-  const client = await queryOne<{ id: number }>(
+  let client = await queryOne<{ id: number }>(
     "SELECT id FROM clients WHERE user_id = ?",
     [session.userId]
   );
-  if (!client) return { error: "أكمل ملف العميل الشخصي قبل نشر مشروع" };
+  if (!client) {
+    const res = await execute(
+      "INSERT INTO clients (user_id, account_type) VALUES (?, 'individual')",
+      [session.userId]
+    );
+    client = { id: res.insertId };
+  }
 
   const rawSkills = formData.getAll("skills").map(String).filter(Boolean);
   const parsed = CreateProjectSchema.safeParse({

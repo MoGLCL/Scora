@@ -69,9 +69,43 @@ export async function proxy(request: NextRequest) {
     return redirectTo(url);
   }
 
-  // Logout must always be reachable, including while onboarding is incomplete.
-  // Otherwise the onboarding redirect traps the user with an orphaned session.
-  if (pathname.startsWith("/api/auth/logout")) return NextResponse.next();
+  // 1. Direct logout handling in middleware (fastest & most reliable across any hosting like Alwaysdata)
+  if (pathname === "/logout" || pathname.startsWith("/api/auth/logout")) {
+    const isSecure = process.env.NODE_ENV === "production" || request.url.startsWith("https:");
+    const res = NextResponse.redirect(new URL("/login?logged_out=1", request.url), 303);
+    res.cookies.delete(SESSION_COOKIE);
+    res.cookies.set(SESSION_COOKIE, "", {
+      httpOnly: true,
+      expires: new Date(0),
+      maxAge: 0,
+      path: "/",
+      sameSite: "lax",
+      secure: isSecure,
+    });
+    return res;
+  }
+
+  if (isGuestOnlyRoute) {
+    if (request.nextUrl.searchParams.has("logged_out") || request.nextUrl.searchParams.has("logout")) {
+      const isSecure = process.env.NODE_ENV === "production" || request.url.startsWith("https:");
+      const res = NextResponse.next();
+      res.cookies.delete(SESSION_COOKIE);
+      res.cookies.set(SESSION_COOKIE, "", {
+        httpOnly: true,
+        expires: new Date(0),
+        maxAge: 0,
+        path: "/",
+        sameSite: "lax",
+        secure: isSecure,
+      });
+      return res;
+    }
+    if (session) {
+      return NextResponse.redirect(
+        new URL(session.isAdmin && session.onboardingCompleted ? "/admin" : session.onboardingCompleted ? "/dashboard" : onboardingRoute, request.url)
+      );
+    }
+  }
 
   // Mandatory Username Gate: any user without a username must set one first!
   if (session && session.hasUsername === false && pathname !== "/choose-username" && !pathname.startsWith("/api/")) {
@@ -90,12 +124,6 @@ export async function proxy(request: NextRequest) {
 
   if (session?.role === "developer" && !session.isAdmin && session.onboardingCompleted && !session.developerApproved && !developerAdmissionAllowed) {
     return NextResponse.redirect(new URL("/developer-assessment/pending", request.url));
-  }
-
-  if (isGuestOnlyRoute && session) {
-    return NextResponse.redirect(
-      new URL(session.isAdmin && session.onboardingCompleted ? "/admin" : session.onboardingCompleted ? "/dashboard" : onboardingRoute, request.url)
-    );
   }
 
   if (hasStaleCookie) {

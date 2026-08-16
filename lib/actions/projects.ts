@@ -9,7 +9,7 @@ export async function toggleProjectProposalsStatus(
   newStatus: "open" | "closed"
 ) {
   const session = await verifySession();
-  if (!session || (session.role !== "client" && !session.isAdmin)) {
+  if (!session) {
     return { ok: false as const, error: "غير مصرح لك بتعديل حالة هذا المشروع" };
   }
 
@@ -35,7 +35,7 @@ export async function toggleProjectProposalsStatus(
 
 export async function cancelProject(projectId: number) {
   const session = await verifySession();
-  if (!session || (session.role !== "client" && !session.isAdmin)) {
+  if (!session) {
     return { ok: false as const, error: "غير مصرح لك بإلغاء هذا المشروع" };
   }
 
@@ -61,7 +61,7 @@ export async function cancelProject(projectId: number) {
 
 export async function deleteProject(projectId: number) {
   const session = await verifySession();
-  if (!session || (session.role !== "client" && !session.isAdmin)) {
+  if (!session) {
     return { ok: false as const, error: "غير مصرح لك بحذف هذا المشروع" };
   }
 

@@ -266,12 +266,19 @@ export function SiteHeader() {
 
                   {/* Logout Button */}
                   <div className="pt-2 border-t border-neutral-100">
-                    <form action="/api/auth/logout" method="post" onSubmit={() => setActiveDropdown(null)}>
-                      <button type="submit" className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
-                        <LogOut className="w-4 h-4 text-red-500" />
-                        <span>تسجيل الخروج</span>
-                      </button>
-                    </form>
+                    <a
+                      href="/api/auth/logout"
+                      onClick={() => {
+                        setActiveDropdown(null);
+                        try {
+                          document.cookie = "scora_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+                        } catch {}
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>تسجيل الخروج</span>
+                    </a>
                   </div>
 
                 </div>

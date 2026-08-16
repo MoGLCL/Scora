@@ -127,11 +127,17 @@ export default function ChooseUsernamePage() {
             <ShieldCheck className="w-4 h-4 text-[#056B38]" />
             <span>بيئة موثقة وآمنة</span>
           </span>
-          <form action="/api/auth/logout" method="post">
-            <button type="submit" className="text-neutral-500 hover:text-rose-600 hover:underline transition-colors cursor-pointer">
-              تسجيل الخروج
-            </button>
-          </form>
+          <a
+            href="/api/auth/logout"
+            onClick={() => {
+              try {
+                document.cookie = "scora_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+              } catch {}
+            }}
+            className="text-neutral-500 hover:text-rose-600 hover:underline transition-colors cursor-pointer"
+          >
+            تسجيل الخروج
+          </a>
         </div>
       </div>
     </div>
