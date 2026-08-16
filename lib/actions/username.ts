@@ -55,7 +55,7 @@ export async function setMandatoryUsername(
     session.role,
     session.onboardingCompleted,
     session.isAdmin,
-    session.developerApprovalStatus === "approved",
+    session.role !== "developer" || session.developerApprovalStatus === "approved",
     true
   );
 

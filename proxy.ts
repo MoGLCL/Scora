@@ -22,6 +22,7 @@ const PROTECTED_ROUTES = [
   "/assessments",
   "/complete-profile",
   "/complete-client-profile",
+  "/choose-username",
 ];
 
 /** Routes that require the independent admin permission. */
@@ -38,7 +39,12 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
   const isGuestOnlyRoute = GUEST_ONLY_ROUTES.some((r) => pathname === r);
   const onboardingRoute = session?.role === "developer" ? "/complete-profile" : "/complete-client-profile";
-  const onboardingAllowed = pathname.startsWith(onboardingRoute) || pathname.startsWith("/laws") || pathname.startsWith("/privacy") || pathname.startsWith("/support");
+  const onboardingAllowed =
+    pathname.startsWith(onboardingRoute) ||
+    pathname.startsWith("/laws") ||
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/support") ||
+    pathname.startsWith("/api/");
   const developerAdmissionAllowed =
     pathname.startsWith("/developer-assessment") ||
     onboardingAllowed ||
@@ -57,6 +63,7 @@ export async function proxy(request: NextRequest) {
     return res;
   };
 
+  // 1. Unauthenticated users on admin or protected routes
   if (isAdminRoute && !session) {
     const url = new URL("/login", request.url);
     url.searchParams.set("from", pathname);
@@ -69,7 +76,7 @@ export async function proxy(request: NextRequest) {
     return redirectTo(url);
   }
 
-  // 1. Direct logout handling in middleware (fastest & most reliable across any hosting like Alwaysdata)
+  // 2. Direct logout handling in middleware (fastest & most reliable across any hosting like Alwaysdata)
   if (pathname === "/logout" || pathname.startsWith("/api/auth/logout")) {
     const isSecure = process.env.NODE_ENV === "production" || request.url.startsWith("https:");
     const res = NextResponse.redirect(new URL("/login?logged_out=1", request.url), 303);
@@ -85,6 +92,7 @@ export async function proxy(request: NextRequest) {
     return res;
   }
 
+  // 3. Guest-only routes (/login, /register, /reset-password)
   if (isGuestOnlyRoute) {
     if (request.nextUrl.searchParams.has("logged_out") || request.nextUrl.searchParams.has("logout")) {
       const isSecure = process.env.NODE_ENV === "production" || request.url.startsWith("https:");
@@ -101,28 +109,62 @@ export async function proxy(request: NextRequest) {
       return res;
     }
     if (session) {
+      if (session.hasUsername === false) {
+        return NextResponse.redirect(new URL("/choose-username", request.url));
+      }
+      const isDevApproved = session.role === "developer" && session.developerApproved;
+      const isCompleted = session.onboardingCompleted || isDevApproved;
       return NextResponse.redirect(
-        new URL(session.isAdmin && session.onboardingCompleted ? "/admin" : session.onboardingCompleted ? "/dashboard" : onboardingRoute, request.url)
+        new URL(
+          session.isAdmin && isCompleted
+            ? "/admin"
+            : isCompleted
+            ? "/dashboard"
+            : onboardingRoute,
+          request.url
+        )
       );
     }
   }
 
-  // Mandatory Username Gate: any user without a username must set one first!
-  if (session && session.hasUsername === false && pathname !== "/choose-username" && !pathname.startsWith("/api/")) {
-    return NextResponse.redirect(new URL("/choose-username", request.url));
+  // 4. Mandatory Username Gate: any user without a username must set one first!
+  if (session && session.hasUsername === false) {
+    if (
+      pathname !== "/choose-username" &&
+      !pathname.startsWith("/api/") &&
+      !pathname.startsWith("/laws") &&
+      !pathname.startsWith("/privacy") &&
+      !pathname.startsWith("/support")
+    ) {
+      return NextResponse.redirect(new URL("/choose-username", request.url));
+    }
+    return NextResponse.next();
   }
 
+  const isDevApproved = session?.role === "developer" && session.developerApproved;
+  const isOnboardingDone = session?.onboardingCompleted || isDevApproved;
+
+  // 5. If user already has a username, do not let them stay on /choose-username
   if (session && session.hasUsername !== false && pathname === "/choose-username") {
     return NextResponse.redirect(
-      new URL(session.isAdmin && session.onboardingCompleted ? "/admin" : session.onboardingCompleted ? "/dashboard" : onboardingRoute, request.url)
+      new URL(
+        session.isAdmin && isOnboardingDone
+          ? "/admin"
+          : isOnboardingDone
+          ? "/dashboard"
+          : onboardingRoute,
+        request.url
+      )
     );
   }
 
-  if (session && !session.onboardingCompleted && !onboardingAllowed) {
+  // 6. Onboarding Gate: If user has not completed onboarding, force them to onboardingRoute
+  if (session && !isOnboardingDone && !onboardingAllowed) {
     return NextResponse.redirect(new URL(onboardingRoute, request.url));
   }
 
-  if (session?.role === "developer" && !session.isAdmin && session.onboardingCompleted && !session.developerApproved && !developerAdmissionAllowed) {
+  // 7. Developer Admission Gate
+  if (session?.role === "developer" && !session.isAdmin && isOnboardingDone && !session.developerApproved && !developerAdmissionAllowed) {
     return NextResponse.redirect(new URL("/developer-assessment/pending", request.url));
   }
 

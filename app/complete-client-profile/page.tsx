@@ -82,7 +82,7 @@ const MASTER_TECH_POOL = [
 
 export default function CompleteClientProfilePage() {
   const router = useRouter();
-  const { client, updateClient, updateUsername, addToast } = useProfile();
+  const { client, username: profileUsername, updateClient, updateUsername, addToast } = useProfile();
 
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -101,9 +101,15 @@ export default function CompleteClientProfilePage() {
   const [clientRole, setClientRole] = useState(CLIENT_PERSONAL_ROLES[0]);
   const [industry, setIndustry] = useState(COMPANY_INDUSTRIES[0]);
   const [phone, setPhone] = useState(client.phone || "");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(profileUsername || "");
   const [website, setWebsite] = useState(client.website || "");
   const [aboutBio, setAboutBio] = useState("");
+
+  useEffect(() => {
+    if (profileUsername && !username) {
+      setUsername(profileUsername);
+    }
+  }, [profileUsername]);
 
   // Location (Governorate & City)
   const initialGov = client.location ? client.location.split(" - ")[0] || "القاهرة" : "القاهرة";

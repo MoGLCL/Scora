@@ -304,7 +304,7 @@ const MASTER_TECH_POOL = [
 
 export default function DeveloperOnboardingPage() {
   const router = useRouter();
-  const { developer, updateDeveloper, updateUsername, setUserRole, addToast } = useProfile();
+  const { developer, username: profileUsername, updateDeveloper, updateUsername, setUserRole, addToast } = useProfile();
 
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -313,10 +313,16 @@ export default function DeveloperOnboardingPage() {
   const [fatherName, setFatherName] = useState(developer.fullName.split(" ")[1] || "");
   const [familyName, setFamilyName] = useState(developer.fullName.split(" ")[2] || "");
   const [phone, setPhone] = useState(developer.phone || "");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(profileUsername || "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(developer.avatarUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (profileUsername && !username) {
+      setUsername(profileUsername);
+    }
+  }, [profileUsername]);
 
   const [isStartingAssessment, setIsStartingAssessment] = useState(false);
   const [, setAssessmentError] = useState("");

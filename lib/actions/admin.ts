@@ -183,6 +183,13 @@ export async function decideDeveloperAdmission(input: {
       ]
     );
 
+    if (parsed.data.decision === "approved") {
+      await c.execute(
+        "UPDATE users SET onboarding_completed_at = COALESCE(onboarding_completed_at, CURRENT_TIMESTAMP) WHERE id = ?",
+        [row.user_id]
+      );
+    }
+
     const notifyBody = parsed.data.decision === "approved"
       ? "تهانينا! تم تفعيل واعتماد حسابك كمطور بنجاح. يمكنك الآن تصفح المشاريع والتقديم عليها."
       : `تمت مراجعة طلب الاعتماد: ${finalReason}`;

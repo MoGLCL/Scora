@@ -1377,5 +1377,75 @@ npm run dev                     # تشغيل خادم التطوير المحل�
   </main>
 </div>
 
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const sections = Array.from(document.querySelectorAll('.section-block'));
+    const navItems = document.querySelectorAll('.nav-item');
+
+    function onScroll() {
+      let current = '';
+      const scrollY = window.scrollY;
+
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const sectionTop = section.offsetTop - 120; // Trigger slightly before it hits the top
+        if (scrollY >= sectionTop) {
+          current = section.getAttribute('id');
+        } else {
+          break;
+        }
+      }
+
+      if (!current && sections.length > 0) {
+        current = sections[0].getAttribute('id');
+      }
+
+      navItems.forEach(item => {
+        item.classList.remove('active');
+        const anchor = item.querySelector('a');
+        if (anchor && anchor.getAttribute('href') === `#${current}`) {
+          item.classList.add('active');
+          
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar) {
+            const itemTop = item.offsetTop;
+            const sidebarScroll = sidebar.scrollTop;
+            const sidebarHeight = sidebar.clientHeight;
+            
+            // Auto scroll sidebar if active item is out of view
+            if (itemTop < sidebarScroll || itemTop > sidebarScroll + sidebarHeight - 60) {
+              sidebar.scrollTo({
+                top: itemTop - sidebarHeight / 2 + 30,
+                behavior: 'smooth'
+              });
+            }
+          }
+        }
+      });
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Trigger on load to set correct initial state
+    onScroll();
+
+    // Smooth scroll when clicking sidebar links
+    document.querySelectorAll('.nav-item a').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href');
+        if (!targetId || targetId === '#') return;
+        
+        const targetElement = document.querySelector(targetId);
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 40,
+            behavior: 'smooth'
+          });
+          history.pushState(null, null, targetId);
+        }
+      });
+    });
+  });
+</script>
 </body>
 </html>

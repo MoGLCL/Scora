@@ -41,7 +41,7 @@ export const verifySession = cache(async () => {
     username: user.username || null,
     role: user.role,
     isAdmin: Boolean(user.is_admin),
-    onboardingCompleted: Boolean(user.onboarding_completed_at),
+    onboardingCompleted: Boolean(user.onboarding_completed_at) || (user.role === "developer" && user.approval_status === "approved"),
     developerApprovalStatus: user.role === "developer" ? (user.approval_status ?? "profile_incomplete") : null,
   };
 });

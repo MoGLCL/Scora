@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUserRole, addToast, userRole, isAdmin, developer, client } = useProfile();
+  const { setUserRole, addToast, userRole, isAdmin } = useProfile();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,13 +21,11 @@ export default function LoginPage() {
     if (userRole !== "guest") {
       if (isAdmin) {
         router.replace("/admin");
-      } else if (userRole === "developer") {
-        router.replace((!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard");
-      } else if (userRole === "client") {
-        router.replace(!client.fullName ? "/complete-client-profile" : "/dashboard");
+      } else {
+        router.replace("/dashboard");
       }
     }
-  }, [userRole, isAdmin, developer, client, router]);
+  }, [userRole, isAdmin, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +61,11 @@ export default function LoginPage() {
       } else if (res?.ok && res.role) {
         setUserRole(res.role);
         addToast("تم تسجيل الدخول بنجاح!", "success");
-        router.replace(res.redirectTo || (res.role === "client" && isAdmin ? "/admin" : "/dashboard"));
+        if (res.redirectTo) {
+          window.location.href = res.redirectTo;
+        } else {
+          router.replace(res.role === "client" && isAdmin ? "/admin" : "/dashboard");
+        }
       }
     } catch {
       const err = "حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.";

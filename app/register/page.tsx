@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Code, Briefcase } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Code, Briefcase, Sparkles, AtSign } from "lucide-react";
 import { register } from "@/lib/actions/auth";
 import { useProfile } from "@/components/profile-provider";
 import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUserRole, addToast, userRole, isAdmin, developer, client } = useProfile();
+  const { setUserRole, addToast, userRole, isAdmin } = useProfile();
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"developer" | "client">("developer");
@@ -24,13 +25,25 @@ export default function RegisterPage() {
     if (userRole !== "guest") {
       if (isAdmin) {
         router.replace("/admin");
-      } else if (userRole === "developer") {
-        router.replace((!developer.jobTitle || developer.skills.length === 0) ? "/complete-profile" : "/dashboard");
-      } else if (userRole === "client") {
-        router.replace(!client.fullName ? "/complete-client-profile" : "/dashboard");
+      } else {
+        router.replace("/dashboard");
       }
     }
-  }, [userRole, isAdmin, developer, client, router]);
+  }, [userRole, isAdmin, router]);
+
+  const generateSuggestion = () => {
+    const prefixes = role === "developer" ? ["dev", "coder", "scora", "pro", "tech"] : ["client", "biz", "scora", "partner", "lead"];
+    const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const randomNum = Math.floor(100 + Math.random() * 900);
+    setUsername(`${randomPrefix}_${randomNum}`);
+    setErrorMsg("");
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    setUsername(val);
+    setErrorMsg("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +52,24 @@ export default function RegisterPage() {
 
     // Strict Frontend Validation
     if (!fullName.trim() || fullName.trim().length < 3) {
-      const err = "يرجى أدخل الاسم الكامل (لا يقل عن 3 أحرف)";
+      const err = "يرجى إدخال الاسم الكامل (لا يقل عن 3 أحرف)";
+      setErrorMsg(err);
+      addToast(err, "warn");
+      setLoading(false);
+      return;
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    if (!cleanUsername || cleanUsername.length < 3) {
+      const err = "يرجى إدخال اسم مستخدم فريد (@username) لا يقل عن 3 أحرف";
+      setErrorMsg(err);
+      addToast(err, "warn");
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      const err = "اسم المستخدم يقبل فقط الحروف الإنجليزية الصغيرة والأرقام والشرطة السفلية (_) دون مسافات";
       setErrorMsg(err);
       addToast(err, "warn");
       setLoading(false);
@@ -72,6 +102,7 @@ export default function RegisterPage() {
 
     const formData = new FormData();
     formData.append("fullName", fullName);
+    formData.append("username", cleanUsername);
     formData.append("email", email);
     formData.append("password", password);
     formData.append("role", role);
@@ -90,7 +121,11 @@ export default function RegisterPage() {
       } else if (res?.ok && res.role) {
         setUserRole(res.role);
         addToast("تم إنشاء الحساب بنجاح!", "success");
-        router.replace(res.redirectTo || (res.role === "client" && isAdmin ? "/admin" : "/dashboard"));
+        if (res.redirectTo) {
+          window.location.href = res.redirectTo;
+        } else {
+          router.replace(res.role === "client" && isAdmin ? "/admin" : "/dashboard");
+        }
       }
     } catch {
       const err = "حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.";
@@ -174,6 +209,39 @@ export default function RegisterPage() {
                 />
                 <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               </div>
+            </div>
+
+            {/* Username (@username) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[14px] font-bold text-ink">
+                  اسم المستخدم (@username)
+                </label>
+                <button
+                  type="button"
+                  onClick={generateSuggestion}
+                  className="text-xs text-[#056B38] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>اقتراح اسم</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={handleUsernameChange}
+                  placeholder="username"
+                  required
+                  minLength={3}
+                  maxLength={30}
+                  className="w-full h-12 rounded-2xl border border-neutral-200 bg-neutral-50/50 pr-11 pl-4 text-[14px] font-mono font-bold text-ink placeholder:text-neutral-400 focus:bg-white focus:border-[#056B38] focus:outline-none transition-all dir-ltr text-right"
+                />
+                <AtSign className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              </div>
+              <p className="text-[11px] text-muted mt-1">
+                أحرف إنجليزية صغيرة وأرقام و _ فقط (3-30 حرفاً)
+              </p>
             </div>
 
             {/* Email */}

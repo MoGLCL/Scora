@@ -20,6 +20,13 @@ export interface AuthState {
 
 const RegisterSchema = z.object({
   fullName: z.string().trim().min(2, "الاسم قصير جدًا").max(255),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3, "اسم المستخدم 3 أحرف على الأقل")
+    .max(30, "اسم المستخدم 30 حرفاً كحد أقصى")
+    .regex(/^[a-z0-9_]+$/, "اسم المستخدم يجب أن يحتوي على أحرف إنجليزية وأرقام أو _ فقط"),
   email: z.string().trim().toLowerCase().email("بريد إلكتروني غير صالح"),
   password: z
     .string()
@@ -43,10 +50,15 @@ export async function register(
   _prev: AuthState | undefined,
   formData: FormData
 ): Promise<AuthState> {
-  const registrationSetting=await queryOne<{setting_value:string}>("SELECT setting_value FROM platform_settings WHERE setting_key='quick_registration_enabled'");
-  if(registrationSetting?.setting_value==="false")return{ok:false,error:"التسجيل الجديد متوقف مؤقتًا بواسطة إدارة المنصة"};
+  const registrationSetting = await queryOne<{ setting_value: string }>(
+    "SELECT setting_value FROM platform_settings WHERE setting_key='quick_registration_enabled'"
+  );
+  if (registrationSetting?.setting_value === "false") {
+    return { ok: false, error: "التسجيل الجديد متوقف مؤقتًا بواسطة إدارة المنصة" };
+  }
   const parsed = RegisterSchema.safeParse({
     fullName: formData.get("fullName"),
+    username: formData.get("username"),
     email: formData.get("email"),
     password: formData.get("password"),
     role: formData.get("role") ?? "developer",
@@ -55,14 +67,22 @@ export async function register(
   if (!parsed.success) {
     return { ok: false, fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
-  const { fullName, email, password, role } = parsed.data;
+  const { fullName, username, email, password, role } = parsed.data;
 
-  const existing = await queryOne<{ id: number }>(
+  const existingEmail = await queryOne<{ id: number }>(
     "SELECT id FROM users WHERE email = ?",
     [email]
   );
-  if (existing) {
+  if (existingEmail) {
     return { ok: false, error: "البريد الإلكتروني مسجّل بالفعل" };
+  }
+
+  const existingUsername = await queryOne<{ id: number }>(
+    "SELECT id FROM users WHERE username = ?",
+    [username]
+  );
+  if (existingUsername) {
+    return { ok: false, error: "اسم المستخدم مأخوذ بالفعل، يرجى اختيار اسم مستخدم آخر" };
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -70,8 +90,8 @@ export async function register(
   // The user row and its role-specific profile must both exist or neither.
   const userId = await transaction(async (conn) => {
     const [res] = await conn.execute(
-      "INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
-      [email, passwordHash, fullName, role]
+      "INSERT INTO users (email, password_hash, full_name, username, role) VALUES (?, ?, ?, ?, ?)",
+      [email, passwordHash, fullName, username, role]
     );
     const newId = (res as { insertId: number }).insertId;
 
@@ -89,12 +109,14 @@ export async function register(
     return newId;
   });
 
-  await createSession(userId, role, false, false, role !== "developer", false);
+  await createSession(userId, role, false, false, role !== "developer", true);
+
+  const redirectTo = role === "developer" ? "/complete-profile" : "/complete-client-profile";
 
   return {
     ok: true,
     role,
-    redirectTo: "/choose-username",
+    redirectTo,
   };
 }
 
@@ -147,20 +169,22 @@ export async function login(
   }
 
   const hasUser = Boolean(user.username && user.username.trim().length > 0);
+  const isDeveloperApproved = user.role === "developer" && user.approval_status === "approved";
+  const isOnboardingDone = Boolean(user.onboarding_completed_at) || isDeveloperApproved;
 
   await execute("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
   await createSession(
     user.id,
     user.role,
-    Boolean(user.onboarding_completed_at),
+    isOnboardingDone,
     Boolean(user.is_admin),
-    user.role !== "developer" || user.approval_status === "approved",
+    user.role !== "developer" || isDeveloperApproved,
     hasUser
   );
 
   const redirectTo = !hasUser
     ? "/choose-username"
-    : user.onboarding_completed_at
+    : isOnboardingDone
     ? homeFor(Boolean(user.is_admin))
     : user.role === "developer"
     ? "/complete-profile"
