@@ -153,7 +153,7 @@ export async function requestReassessmentByDeveloper(note?: string) {
   return { ok: true as const };
 }
 
-export async function startDeveloperAssessment() {
+export async function startDeveloperAssessment(input?: { track?: string; skills?: string[] }) {
   const s = await verifySession();
   if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك بالوصول" };
   const dev = await queryOne<{ id: number; approval_status: string; job_title: string | null }>(
@@ -162,21 +162,40 @@ export async function startDeveloperAssessment() {
   );
   if (!dev) return { ok: false as const, error: "ملف المطور غير موجود" };
   if (!s.onboardingCompleted) return { ok: false as const, error: "أكمل بياناتك الشخصية أولًا" };
-  if (!["profile_incomplete", "assessment_in_progress", "reset_approved", "pending"].includes(dev.approval_status)) {
-    return {
-      ok: false as const,
-      error: dev.approval_status === "reset_requested" ? "طلب إعادة الاختبار ما زال قيد مراجعة الإدارة" : "لا يمكنك بدء اختبار جديد قبل موافقة الإدارة",
-    };
+
+  const chosenTrack = input?.track?.trim() || dev.job_title || "Full-Stack Web Developer";
+
+  // If specific skills were provided, register/ensure they are in developer_skills
+  let skillsToUse: string[] = [];
+  if (Array.isArray(input?.skills) && input.skills.length > 0) {
+    skillsToUse = Array.from(new Set(input.skills.map((sk) => sk.trim()).filter(Boolean)));
+    await transaction(async (c) => {
+      if (input?.track) {
+        await c.execute("UPDATE developers SET job_title=? WHERE id=?", [chosenTrack, dev.id]);
+      }
+      for (const name of skillsToUse) {
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "skill";
+        const [rows] = await c.execute("SELECT id FROM skills WHERE slug=? OR name=? LIMIT 1", [slug, name]);
+        let skillId: number;
+        if ((rows as { id: number }[]).length > 0) {
+          skillId = (rows as { id: number }[])[0].id;
+        } else {
+          const [insertRes] = await c.execute("INSERT INTO skills (name, slug, category) VALUES (?, ?, 'general')", [name, slug]);
+          skillId = Number((insertRes as { insertId: number }).insertId);
+        }
+        await c.execute("INSERT IGNORE INTO developer_skills (developer_id, skill_id) VALUES (?, ?)", [dev.id, skillId]);
+      }
+    });
+  } else {
+    skillsToUse = (
+      await query<{ name: string }>(
+        "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
+        [dev.id]
+      )
+    ).map((x) => x.name);
   }
 
-  const skills = (
-    await query<{ name: string }>(
-      "SELECT sk.name FROM developer_skills ds JOIN skills sk ON sk.id=ds.skill_id WHERE ds.developer_id=?",
-      [dev.id]
-    )
-  ).map((x) => x.name);
-
-  if (!skills.length) {
+  if (!skillsToUse.length) {
     return { ok: false as const, error: "أضف مهارة واحدة على الأقل قبل بدء الاختبار" };
   }
 
@@ -190,24 +209,28 @@ export async function startDeveloperAssessment() {
   const publicId = `assess_${randomUUID()}`;
 
   const sessionStart = await transaction(async (c) => {
-    const [developerRows] = await c.execute("SELECT approval_status FROM developers WHERE id=? FOR UPDATE", [dev.id]);
-    const lockedDeveloper = (developerRows as { approval_status: string }[])[0];
-    if (!lockedDeveloper || !["profile_incomplete", "assessment_in_progress", "reset_approved", "pending"].includes(lockedDeveloper.approval_status)) return { denied: true as const };
-    const [activeRows] = await c.execute("SELECT public_id,status FROM developer_assessment_sessions WHERE developer_id=? AND status IN ('generating','in_progress') ORDER BY id DESC LIMIT 1", [dev.id]);
+    // Check if there is an active session currently running
+    const [activeRows] = await c.execute(
+      "SELECT public_id, status FROM developer_assessment_sessions WHERE developer_id=? AND status IN ('generating','in_progress') ORDER BY id DESC LIMIT 1",
+      [dev.id]
+    );
     const active = (activeRows as { public_id: string; status: string }[])[0];
     if (active) return { existing: active };
+
     const [r] = await c.execute(
       "INSERT INTO developer_assessment_sessions(public_id,developer_id,status,duration_seconds) VALUES(?,?,'generating',?)",
       [publicId, dev.id, 3600]
     );
-    await c.execute("UPDATE developers SET approval_status='assessment_in_progress' WHERE id=?", [dev.id]);
+    if (dev.approval_status !== "approved") {
+      await c.execute("UPDATE developers SET approval_status='assessment_in_progress' WHERE id=?", [dev.id]);
+    }
     await c.execute(
       "INSERT INTO notifications(user_id,body) SELECT id,? FROM users WHERE is_admin=1 AND status='active'",
-      [`بدأ مطور جديد طلب الاعتماد، ويجري الآن إنشاء اختباره بالذكاء الاصطناعي (${publicId}).`]
+      [`بدأ المطور #${dev.id} تقييم مهارات جديد (${publicId}).`]
     );
     return { id: Number((r as { insertId: number }).insertId) };
   });
-  if ("denied" in sessionStart) return { ok: false as const, error: "لم تعد إعادة الاختبار متاحة لهذا الحساب" };
+
   if ("existing" in sessionStart && sessionStart.existing) {
     return sessionStart.existing.status === "in_progress"
       ? { ok: true as const, assessmentUrl: `/developer-assessment/${sessionStart.existing.public_id}` }
@@ -217,17 +240,13 @@ export async function startDeveloperAssessment() {
 
   let generated;
   try {
-    generated = await generateAssessment(skills, publicId, previousQuestions, dev.job_title || "Full-Stack Web Developer");
+    generated = await generateAssessment(skillsToUse, publicId, previousQuestions, chosenTrack);
   } catch (error) {
     console.error("[developer-assessment:generation]", error);
     await transaction(async (c) => {
       await c.execute(
         "UPDATE developer_assessment_sessions SET status='generation_failed',last_saved_at=CURRENT_TIMESTAMP WHERE id=? AND status='generating'",
         [assessmentSessionId]
-      );
-      await c.execute(
-        "INSERT INTO notifications(user_id,body) SELECT id,? FROM users WHERE is_admin=1 AND status='active'",
-        [`تعذر إنشاء اختبار المطور (${publicId}). راجع إعدادات OpenRouter وسجل السيرفر.`]
       );
     });
     const code = error instanceof Error ? error.message : "UNKNOWN";
@@ -262,7 +281,7 @@ export async function startDeveloperAssessment() {
     }
     await c.execute(
       "UPDATE developer_assessment_sessions SET status='in_progress',duration_seconds=?,model=?,prompt_json=?,raw_generation_json=?,expires_at=DATE_ADD(CURRENT_TIMESTAMP,INTERVAL ? SECOND),last_saved_at=CURRENT_TIMESTAMP WHERE id=? AND status='generating'",
-      [durationSeconds, generated.model, JSON.stringify({ prompt: generated.prompt, skills }), JSON.stringify(generated.raw), durationSeconds, assessmentSessionId]
+      [durationSeconds, generated.model, JSON.stringify({ prompt: generated.prompt, skills: skillsToUse, track: chosenTrack }), JSON.stringify(generated.raw), durationSeconds, assessmentSessionId]
     );
     await appendTrustEvent(
       {

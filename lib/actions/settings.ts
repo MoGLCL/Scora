@@ -102,7 +102,7 @@ export async function testOpenRouterAiConnection(targetModel?: string) {
 
   const startTime = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), 45000);
 
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -151,4 +151,17 @@ export async function testOpenRouterAiConnection(targetModel?: string) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function setSpPerStarSetting(spPoints: number) {
+  const session = await verifySession();
+  if (!session?.isAdmin) return { ok: false as const, error: "FORBIDDEN" };
+  const val = Math.max(1, Math.min(100, Number(spPoints) || 5));
+  await execute(
+    `INSERT INTO platform_settings(setting_key, setting_value) VALUES('sp_per_project_star', ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+    [String(val)]
+  );
+  revalidatePath("/admin");
+  return { ok: true as const, spPerStar: val };
 }

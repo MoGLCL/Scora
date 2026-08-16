@@ -837,7 +837,7 @@ export function DeveloperAssessmentForm({
             </div>
 
             <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 leading-relaxed space-y-2">
-              <p className="font-bold">⚠️ تنبيه هام:</p>
+              <p className="font-bold">️ تنبيه هام:</p>
               <p>
                 يمكنك إلغاء جلسة الاختبار الحالية والرجوع لتعديل بياناتك لمرة واحدة فقط طوال فترة حسابك.
                 إذا قمت بالإلغاء الآن، ستفقد هذه الميزة ولن تتمكن من إلغاء أي اختبار لاحقاً.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { setOpenRouterSettings, testOpenRouterAiConnection } from "@/lib/actions/settings";
 import {
   Bot,
@@ -14,7 +14,11 @@ import {
   Cpu,
   RefreshCw,
   Sparkles,
-  Check
+  Check,
+  Search,
+  Code2,
+  Brain,
+  Rocket,
 } from "lucide-react";
 
 interface FreeModelItem {
@@ -41,84 +45,84 @@ interface OpenRouterSettingsProps {
 const DEFAULT_FALLBACK_FREE_MODELS: FreeModelItem[] = [
   {
     id: "openrouter/free",
-    name: "Free Models Router (التوجيه التلقائي للموديلات المجانية)",
+    name: "OpenRouter Free Router (التوجيه التلقائي للموديلات المجانية)",
     provider: "OpenRouter",
-    tag: "موصى به دائمًا",
-    speed: "توجيه تلقائي مستقر",
-    context_length: 200000
+    tag: "موصى به دائمًا ",
+    speed: "أعلى استقرار ووصول",
+    context_length: 200000,
+  },
+  {
+    id: "deepseek/deepseek-r1:free",
+    name: "DeepSeek R1 Reasoning (تفكير واستنتاج فائق مجاني)",
+    provider: "DeepSeek",
+    tag: "ذكاء واستنتاج عميق ",
+    speed: "دقيق (~600ms)",
+    context_length: 128000,
+  },
+  {
+    id: "deepseek/deepseek-chat:free",
+    name: "DeepSeek V3 Chat (محادثة وبرمجة ذكية مجاناً)",
+    provider: "DeepSeek",
+    tag: "شائع ومتقدم ",
+    speed: "سريع (~350ms)",
+    context_length: 128000,
+  },
+  {
+    id: "meta-llama/llama-3.3-70b-instruct:free",
+    name: "Meta Llama 3.3 70B Instruct (النموذج العملاق مجاناً)",
+    provider: "Meta AI",
+    tag: "دقة استثنائية ",
+    speed: "سريع (~400ms)",
+    context_length: 131072,
+  },
+  {
+    id: "google/gemini-2.0-flash-exp:free",
+    name: "Google Gemini 2.0 Flash (فائق السرعة من جوجل)",
+    provider: "Google AI",
+    tag: "سرعة فائقة ",
+    speed: "لحظي (~200ms)",
+    context_length: 1048576,
+  },
+  {
+    id: "qwen/qwen-2.5-coder-32b-instruct:free",
+    name: "Qwen 2.5 Coder 32B (متخصص الأكواد البرمجية)",
+    provider: "Alibaba Cloud",
+    tag: "أكواد برمجية ",
+    speed: "عالي الكفاءة (~350ms)",
+    context_length: 131072,
+  },
+  {
+    id: "google/gemma-2-9b-it:free",
+    name: "Google Gemma 2 9B Instruct (خفيف ودقيق)",
+    provider: "Google AI",
+    tag: "مجاني من جوجل",
+    speed: "فائق السرعة (~250ms)",
+    context_length: 8192,
+  },
+  {
+    id: "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    name: "NVIDIA Nemotron 70B (إنفيديا للاستنتاج)",
+    provider: "NVIDIA",
+    tag: "إنفيديا متقدم",
+    speed: "سريع (~450ms)",
+    context_length: 131072,
+  },
+  {
+    id: "mistralai/mistral-7b-instruct:free",
+    name: "Mistral 7B Instruct (خفيف ومتوازن)",
+    provider: "Mistral AI",
+    tag: "خفيف وسريع",
+    speed: "لحظي (~200ms)",
+    context_length: 32768,
   },
   {
     id: "cohere/north-mini-code:free",
-    name: "Cohere North Mini Code (متخصص أكواد مجاني)",
+    name: "Cohere North Mini Code (متخصص كود مجاني)",
     provider: "Cohere",
-    tag: "أكواد برمجية",
-    speed: "سريع (~350ms)",
-    context_length: 256000
+    tag: "كود وتحليل",
+    speed: "سريع (~300ms)",
+    context_length: 256000,
   },
-  {
-    id: "google/gemma-4-26b-a4b-it:free",
-    name: "Google Gemma 4 26B Instruct (مجاني من جوجل)",
-    provider: "Google AI",
-    tag: "مجاني حديث",
-    speed: "عالي الكفاءة (~450ms)",
-    context_length: 262144
-  },
-  {
-    id: "google/gemma-4-31b-it:free",
-    name: "Google Gemma 4 31B (مجاني متقدم)",
-    provider: "Google AI",
-    tag: "أداء متقدم",
-    speed: "دقيق (~550ms)",
-    context_length: 262144
-  },
-  {
-    id: "nvidia/nemotron-3.5-lightning:free",
-    name: "NVIDIA Nemotron 3.5 Lightning (فائق السرعة)",
-    provider: "NVIDIA",
-    tag: "فائق السرعة",
-    speed: "لحظي (~280ms)",
-    context_length: 1000000
-  },
-  {
-    id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    name: "NVIDIA Nemotron 3 Reasoning (تفكير واستنتاج)",
-    provider: "NVIDIA",
-    tag: "استنتاج ذكي",
-    speed: "سريع (~480ms)",
-    context_length: 256000
-  },
-  {
-    id: "openai/gpt-oss-20b:free",
-    name: "OpenAI GPT OSS 20B (مجاني مفتوح)",
-    provider: "OpenAI",
-    tag: "مجاني",
-    speed: "سريع (~400ms)",
-    context_length: 131072
-  },
-  {
-    id: "liquid/lfm-2.5-2.6b:free",
-    name: "LiquidAI LFM 2.5 (خفيف ولحظي)",
-    provider: "LiquidAI",
-    tag: "خفيف",
-    speed: "فائق السرعة (~200ms)",
-    context_length: 128000
-  },
-  {
-    id: "poolside/laguna-s-2.1:free",
-    name: "Poolside Laguna S 2.1 (هندسة وتطوير)",
-    provider: "Poolside",
-    tag: "مجاني",
-    speed: "سريع (~420ms)",
-    context_length: 262144
-  },
-  {
-    id: "dots-studio/dots-3-note-preview:free",
-    name: "Dots Studio 3 Note Preview (سياق ضخم)",
-    provider: "Dots Studio",
-    tag: "سياق عريض",
-    speed: "سريع (~450ms)",
-    context_length: 512000
-  }
 ];
 
 const INITIAL_SETTINGS: OpenRouterSettingsState = {
@@ -133,6 +137,8 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
   const [config, setConfig] = useState(INITIAL_SETTINGS);
   const [freeModels, setFreeModels] = useState<FreeModelItem[]>(DEFAULT_FALLBACK_FREE_MODELS);
   const [isCustomModel, setIsCustomModel] = useState(false);
+  const [searchFilter, setSearchFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "code" | "reasoning" | "speed">("all");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
@@ -150,9 +156,10 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
         if (!active) return;
 
         const loadedModel = data.model || "openrouter/free";
-        const modelsList = Array.isArray(data.availableFreeModels) && data.availableFreeModels.length > 0
-          ? data.availableFreeModels
-          : DEFAULT_FALLBACK_FREE_MODELS;
+        const modelsList =
+          Array.isArray(data.availableFreeModels) && data.availableFreeModels.length > 0
+            ? data.availableFreeModels
+            : DEFAULT_FALLBACK_FREE_MODELS;
 
         setFreeModels(modelsList);
 
@@ -181,6 +188,30 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
     };
   }, []);
 
+  const filteredModels = useMemo(() => {
+    return freeModels.filter((m) => {
+      const matchSearch =
+        !searchFilter ||
+        `${m.id} ${m.name} ${m.provider || ""} ${m.tag || ""}`
+          .toLowerCase()
+          .includes(searchFilter.toLowerCase());
+
+      if (!matchSearch) return false;
+
+      if (categoryFilter === "code") {
+        return m.id.includes("code") || m.id.includes("coder") || (m.tag && m.tag.includes("كود"));
+      }
+      if (categoryFilter === "reasoning") {
+        return m.id.includes("r1") || m.id.includes("reasoning") || (m.tag && m.tag.includes("استنتاج"));
+      }
+      if (categoryFilter === "speed") {
+        return m.id.includes("flash") || m.id.includes("mini") || (m.speed && m.speed.includes("لحظي"));
+      }
+
+      return true;
+    });
+  }, [freeModels, searchFilter, categoryFilter]);
+
   async function save(modelOverride?: string) {
     setSaving(true);
     setMessage(null);
@@ -189,7 +220,7 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
     try {
       const result = await setOpenRouterSettings({
         ...config,
-        model: modelToSave
+        model: modelToSave,
       });
       if (!result.ok) {
         setMessage({ text: result.error, ok: false });
@@ -216,14 +247,14 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
           ok: true,
           model: res.model,
           message: `تم فحص النموذج (${res.model}) بنجاح في ${res.latencyMs}ms! الرد التجريبي: "${res.reply}"`,
-          latency: res.latencyMs
+          latency: res.latencyMs,
         });
         notify(`اتصال ناجح بالنموذج (${res.latencyMs}ms)`, "success");
       } else {
         setTestResult({
           ok: false,
           model: modelId,
-          message: res.error || "فشل الاتصال بالنموذج"
+          message: res.error || "فشل الاتصال بالنموذج",
         });
         notify(res.error, "warn");
       }
@@ -231,7 +262,7 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
       setTestResult({
         ok: false,
         model: modelId,
-        message: err instanceof Error ? err.message : "خطأ غير متوقع أثناء الفحص"
+        message: err instanceof Error ? err.message : "خطأ غير متوقع أثناء الفحص",
       });
     } finally {
       setTesting(false);
@@ -240,8 +271,7 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
   }
 
   return (
-    <section className="rounded-[32px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-7 shadow-xs font-body">
-      
+    <section className="rounded-[32px] border border-[#D1E3D6] bg-white p-6 md:p-8 space-y-7 shadow-xs font-body" dir="rtl">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-5">
         <div className="flex items-center gap-3.5">
@@ -250,42 +280,86 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-[#05291A]">
-                إدارة واختيار نماذج الذكاء الاصطناعي (OpenRouter Free AI)
+              <h2 className="text-xl sm:text-2xl font-black text-[#05291A]">
+                نماذج الذكاء الاصطناعي المجانية (OpenRouter Free AI)
               </h2>
             </div>
             <p className="text-xs text-[#526B5E] mt-1">
-              تحكم كامل للأدمن في تحديد النموذج المجاني المسؤول عن توليد وتصحيح اختبارات المطورين وتشغيل مساعد الموقع.
+              اختر وفعّل نماذج OpenRouter المجانية 100% لتوليد وتصحيح اختبارات وتقييمات المطورين وتشغيل مساعد سكورا الذكي.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 bg-[#E8FAF0] border border-[#D1E3D6] px-4 py-2 rounded-full text-xs font-black text-[#056B38] shadow-2xs">
           <Sparkles className="w-4 h-4 text-[#056B38]" />
-          <span>الموديلات المجانية 100% النشطة (Live Free Tier)</span>
+          <span>نماذج مجانية 100% بدون رصيد (Free Tier)</span>
         </div>
       </div>
 
       {/* Model Selection Grid: 100% Free Interactive Cards */}
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <label className="text-sm font-black text-[#05291A] flex items-center gap-2">
             <Cpu className="w-4.5 h-4.5 text-[#056B38]" />
-            <span>اختر النموذج المعتمد للمنصة من القائمة المجانية النشطة:</span>
+            <span>اختر النموذج المعتمد للمنصة:</span>
           </label>
-          
-          <button
-            type="button"
-            onClick={() => setIsCustomModel(!isCustomModel)}
-            className="text-xs text-[#056B38] font-black underline cursor-pointer hover:text-[#005B27]"
-          >
-            {isCustomModel ? "الرجوع للبطاقات المجانية المجهزة" : "إدخال اسم موديل مخصص يدوياً"}
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCustomModel(!isCustomModel)}
+              className="text-xs text-[#056B38] font-black underline cursor-pointer hover:text-[#005B27]"
+            >
+              {isCustomModel ? "الرجوع لقائمة الموديلات المجانية" : "إدخال اسم موديل مخصص يدوياً"}
+            </button>
+          </div>
         </div>
 
+        {!isCustomModel && (
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-[#F7FAF8] p-3 rounded-2xl border border-[#D1E3D6]">
+            {/* Quick Search in Free Models */}
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-[#526B5E]" />
+              <input
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                placeholder="ابحث في النماذج المجانية (DeepSeek, Llama...)"
+                className="h-8.5 w-full rounded-xl border border-[#D1E3D6] pr-8 pl-3 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] bg-white"
+              />
+            </div>
+
+            {/* Quick Category Filters */}
+            <div className="flex flex-wrap gap-1">
+              {[
+                { key: "all", label: "الكل", icon: Sparkles },
+                { key: "code", label: "أكواد وبرمجة", icon: Code2 },
+                { key: "reasoning", label: "تفكير واستنتاج (R1)", icon: Brain },
+                { key: "speed", label: "فائقة السرعة", icon: Rocket },
+              ].map((c) => {
+                const Icon = c.icon;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setCategoryFilter(c.key as any)}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                      categoryFilter === c.key
+                        ? "bg-[#056B38] text-white shadow-2xs"
+                        : "bg-white text-[#526B5E] hover:bg-[#E8FAF0] border border-[#D1E3D6]"
+                    }`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span>{c.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {!isCustomModel ? (
-          <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-            {freeModels.map((m) => {
+          <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredModels.map((m) => {
               const isSelected = config.model === m.id;
               const isCurrentlyTesting = testing && testingModelId === m.id;
               const isRouter = m.id === "openrouter/free";
@@ -300,17 +374,19 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
                     isSelected
                       ? "border-[#056B38] bg-[#E8FAF0] ring-2 ring-[#056B38]/20 shadow-sm"
                       : "border-[#D1E3D6] bg-white hover:border-[#056B38] hover:bg-[#F7FAF8]"
-                  } ${isRouter ? "sm:col-span-2 lg:col-span-4 bg-linear-to-r from-[#E8FAF0] to-white" : ""}`}
+                  } ${isRouter ? "sm:col-span-2 lg:col-span-3 bg-linear-to-r from-[#E8FAF0] to-white" : ""}`}
                 >
                   <div className="space-y-2">
                     {/* Top Row: Provider + Badge */}
                     <div className="flex items-center justify-between gap-1 text-[11px]">
-                      <span className="font-extrabold text-[#526B5E]">{m.provider || "OpenRouter"}</span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-extrabold border text-[10px] ${
-                        isRouter
-                          ? "bg-[#056B38] text-white border-[#056B38]"
-                          : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      }`}>
+                      <span className="font-extrabold text-[#526B5E]">{m.provider || "OpenRouter Free"}</span>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full font-extrabold border text-[10px] ${
+                          isRouter
+                            ? "bg-[#056B38] text-white border-[#056B38]"
+                            : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        }`}
+                      >
                         {m.tag || "مجاني 100%"}
                       </span>
                     </div>
@@ -323,6 +399,11 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
                         <div className="w-4 h-4 rounded-full border border-neutral-300 shrink-0" />
                       )}
                       <span className="truncate">{m.name}</span>
+                    </div>
+
+                    {/* Slug */}
+                    <div className="font-mono text-[10px] text-[#056B38] bg-white/70 px-2 py-0.5 rounded-md border border-neutral-200 w-fit dir-ltr">
+                      {m.id}
                     </div>
 
                     {/* Description */}
@@ -365,7 +446,7 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
               type="text"
               value={config.model}
               onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
-              placeholder="مثال: openrouter/free أو cohere/north-mini-code:free"
+              placeholder="مثال: deepseek/deepseek-r1:free أو openrouter/free"
               className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-white px-4 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] focus:ring-2 focus:ring-[#056B38]/10 font-mono"
             />
           </div>
@@ -374,7 +455,6 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
 
       {/* Inputs Form */}
       <div className="grid gap-5 md:grid-cols-2 pt-2 border-t border-neutral-100">
-        
         {/* API Key Input */}
         <div className="space-y-2">
           <label className="text-xs font-black text-[#05291A] flex items-center gap-1.5">
@@ -422,7 +502,6 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
             className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-white px-4 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] focus:ring-2 focus:ring-[#056B38]/10 font-mono"
           />
         </div>
-
       </div>
 
       {/* Status Messages */}
@@ -430,10 +509,16 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
         <div
           role="status"
           className={`rounded-2xl p-4 text-xs font-bold flex items-center gap-2 ${
-            message.ok ? "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6]" : "bg-red-50 text-red-800 border border-red-200"
+            message.ok
+              ? "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6]"
+              : "bg-red-50 text-red-800 border border-red-200"
           }`}
         >
-          {message.ok ? <CheckCircle2 className="w-4 h-4 shrink-0 text-[#056B38]" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-red-700" />}
+          {message.ok ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#056B38]" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 shrink-0 text-red-700" />
+          )}
           <span>{message.text}</span>
         </div>
       )}
@@ -442,12 +527,22 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
       {testResult && (
         <div
           className={`rounded-2xl p-4 text-xs font-bold space-y-1 ${
-            testResult.ok ? "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6]" : "bg-red-50 text-red-800 border border-red-200"
+            testResult.ok
+              ? "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6]"
+              : "bg-red-50 text-red-800 border border-red-200"
           }`}
         >
           <div className="flex items-center gap-2 font-black">
-            {testResult.ok ? <Zap className="w-4 h-4 text-amber-500" /> : <AlertTriangle className="w-4 h-4 text-red-600" />}
-            <span>{testResult.ok ? `نجح فحص الاتصال بالنموذج (${testResult.latency}ms)` : "فشل فحص الاتصال بالنموذج"}</span>
+            {testResult.ok ? (
+              <Zap className="w-4 h-4 text-amber-500" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+            )}
+            <span>
+              {testResult.ok
+                ? `نجح فحص الاتصال بالنموذج (${testResult.latency}ms)`
+                : "فشل فحص الاتصال بالنموذج"}
+            </span>
           </div>
           <p className="text-[11px] font-normal leading-relaxed">{testResult.message}</p>
         </div>
@@ -493,7 +588,6 @@ export function OpenRouterSettings({ notify }: OpenRouterSettingsProps) {
           )}
         </button>
       </div>
-
     </section>
   );
 }

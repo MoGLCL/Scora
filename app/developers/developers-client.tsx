@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { Search, SlidersHorizontal, ChevronDown, Check } from "lucide-react";
+import { VerifiedBadge } from "@/components/verified-badge";
+import { AvatarStatusBadge } from "@/components/user-status-indicator";
 
 export interface DeveloperCardData {
   id: string;
@@ -22,6 +24,7 @@ export interface DeveloperCardData {
   availability: string;
   availabilityType: "available" | "busy" | "soon";
   avatarUrl?: string | null;
+  lastSeenAt?: Date | string | null;
 }
 
 export function DevelopersDirectoryClient({
@@ -73,7 +76,6 @@ export function DevelopersDirectoryClient({
       <SiteHeader />
 
       <main className="mx-auto max-w-[1296px] px-6 md:px-8 py-10 md:py-14 w-full flex-1">
-        
         {/* Main Heading Section */}
         <div className="text-right mb-8">
           <div className="text-[13px] font-bold text-[#0E6D3B] mb-1">
@@ -90,7 +92,6 @@ export function DevelopersDirectoryClient({
         {/* Search & Filter Controls Bar */}
         <div className="space-y-4 mb-8">
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            
             {/* Search Input Box */}
             <div className="relative flex-1 w-full">
               <input
@@ -158,15 +159,33 @@ export function DevelopersDirectoryClient({
                 </div>
               )}
             </div>
-
           </div>
 
-          {showFiltersModal && <div className="rounded-[22px] border border-[#D1E3D6] bg-white p-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <label className="space-y-2 text-sm font-bold text-[#05291A]"><span>الحد الأدنى للثقة: {minimumTrust}</span>
-              <input type="range" min="0" max="100" step="5" value={minimumTrust} onChange={(e) => setMinimumTrust(Number(e.target.value))} className="w-full accent-[#056B38]" />
-            </label>
-            <label className="flex items-center gap-3 text-sm font-bold text-[#05291A] cursor-pointer"><input type="checkbox" checked={availabilityOnly} onChange={(e) => setAvailabilityOnly(e.target.checked)} className="h-5 w-5 accent-[#056B38]" /> المتاحون للعمل الآن فقط</label>
-          </div>}
+          {showFiltersModal && (
+            <div className="rounded-[22px] border border-[#D1E3D6] bg-white p-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-bold text-[#05291A]">
+                <span>الحد الأدنى للثقة: {minimumTrust}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={minimumTrust}
+                  onChange={(e) => setMinimumTrust(Number(e.target.value))}
+                  className="w-full accent-[#056B38]"
+                />
+              </label>
+              <label className="flex items-center gap-3 text-sm font-bold text-[#05291A] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={availabilityOnly}
+                  onChange={(e) => setAvailabilityOnly(e.target.checked)}
+                  className="h-5 w-5 accent-[#056B38]"
+                />
+                <span>المتاحون للعمل الآن فقط</span>
+              </label>
+            </div>
+          )}
 
           {/* Quick Filter Tag Pills */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -248,7 +267,7 @@ export function DevelopersDirectoryClient({
         <div className="space-y-4">
           {filteredDevelopers.length === 0 ? (
             <div className="p-12 rounded-[28px] border border-neutral-200 bg-white text-center space-y-3">
-              <div className="text-[18px] font-extrabold text-[#05291A]">مفيش مبرمجين مناسبين دلوقتي 😅</div>
+              <div className="text-[18px] font-extrabold text-[#05291A]">مفيش مبرمجين مناسبين دلوقتي </div>
               <p className="text-[13px] text-[#526B5E]">يا إما الفلاتر شديدة شوية، يا إما المنصة لسه بتصحى من النوم. جرّب تخفف البحث.</p>
             </div>
           ) : (
@@ -257,192 +276,104 @@ export function DevelopersDirectoryClient({
                 key={dev.id}
                 className="rounded-[28px] border border-neutral-200/80 bg-white p-6 transition-all hover:border-[#0E6D3B]/40 hover:shadow-[0_4px_25px_rgb(0,0,0,0.04)]"
               >
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                
-                {/* 1. Developer Avatar & Details (Right side in RTL) */}
-                <div className="flex items-center gap-4 sm:gap-5 w-full sm:w-auto min-w-0">
-                  {/* Avatar Circle */}
-                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBF7EF] border border-[#C5E8D1] font-bold text-[#0E6D3B] text-[20px]">
-                    {dev.initials}
-                  </div>
-
-                  {/* Info */}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-[20px] font-bold text-ink font-heading">
-                        {dev.name}
-                      </h3>
-                      {dev.isVerified && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0E6D3B]">
-                          <Check className="w-3.5 h-3.5" />
-                          <span>موثوق</span>
-                        </span>
-                      )}
-                      {dev.trustBadge && (
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                          dev.trustLevel === "medium" ? "bg-[#FFF8E1] text-[#9A6500]" : "bg-[#FFEBEE] text-[#C62828]"
-                        }`}>
-                          {dev.trustBadge}
-                        </span>
-                      )}
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                  {/* 1. Developer Avatar & Details (Right side in RTL) */}
+                  <div className="flex items-center gap-4 sm:gap-5 w-full sm:w-auto min-w-0">
+                    {/* Avatar Circle */}
+                    <div className="relative shrink-0">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EBF7EF] border border-[#C5E8D1] font-bold text-[#0E6D3B] text-[20px]">
+                        {dev.initials}
+                      </div>
+                      <AvatarStatusBadge lastSeenAt={dev.lastSeenAt} size="md" />
                     </div>
 
-                    <p className="text-[14px] font-semibold text-neutral-600 mt-0.5">
-                      {dev.role}
-                    </p>
-                    <p className="text-[13px] text-muted">
-                      {dev.location} · {dev.experience}
-                    </p>
-                  </div>
-                </div>
+                    {/* Info */}
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-[20px] font-bold text-ink font-heading">
+                          {dev.name}
+                        </h3>
+                        {dev.isVerified && (
+                          <VerifiedBadge type="developer" showLabel />
+                        )}
+                        {dev.trustBadge && (
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                            dev.trustLevel === "medium" ? "bg-[#FFF8E1] text-[#9A6500]" : "bg-[#FFEBEE] text-[#C62828]"
+                          }`}>
+                            {dev.trustBadge}
+                          </span>
+                        )}
+                      </div>
 
-                {/* 2. Metric Badges (Trust & SP) */}
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="rounded-2xl bg-neutral-50 border border-neutral-100 p-3.5 text-center min-w-[100px]">
-                    <div className="text-[11px] text-muted font-medium mb-0.5">نقط المهارة</div>
-                    <div className="text-[18px] font-bold text-ink">{dev.skillPoints} SP</div>
-                  </div>
-
-                  <div className={`rounded-2xl p-3.5 text-center min-w-[100px] border ${
-                    dev.trustLevel === "high"
-                      ? "bg-[#EBF7EF] border-[#C5E8D1] text-[#0E6D3B]"
-                      : dev.trustLevel === "medium"
-                      ? "bg-[#FFF8E1] border-[#FFE082] text-[#9A6500]"
-                      : "bg-[#FFEBEE] border-[#FFCDD2] text-[#C62828]"
-                  }`}>
-                    <div className="text-[11px] font-medium opacity-80 mb-0.5">درجة الثقة</div>
-                    <div className="text-[18px] font-bold">{dev.trustScore} / 100</div>
-                  </div>
-                </div>
-
-                {/* 3. Skills & Availability (Middle) */}
-                <div className="flex flex-col gap-3 min-w-[240px]">
-                  <div>
-                    <div className="text-[11px] font-bold text-muted mb-1.5">المهارات</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {dev.skills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="rounded-full bg-[#EBF7EF] px-3.5 py-1 text-[12px] font-bold text-[#0E6D3B]"
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                      <p className="text-[14px] font-semibold text-neutral-600 mt-0.5">
+                        {dev.role}
+                      </p>
+                      <p className="text-[13px] text-muted">
+                        {dev.location} · {dev.experience}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="inline-flex items-center justify-center rounded-full bg-[#EBF7EF] px-4 py-1.5 text-[12px] font-bold text-[#0E6D3B] self-start">
-                    {dev.availability}
+                  {/* 2. Metric Badges (Trust & SP) */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="rounded-2xl bg-neutral-50 border border-neutral-100 p-3.5 text-center min-w-[100px]">
+                      <div className="text-[11px] text-muted font-medium mb-0.5">نقط المهارة</div>
+                      <div className="text-[18px] font-bold text-ink">{dev.skillPoints} SP</div>
+                    </div>
+
+                    <div className={`rounded-2xl p-3.5 text-center min-w-[100px] border ${
+                      dev.trustLevel === "high"
+                        ? "bg-[#EBF7EF] border-[#C5E8D1] text-[#0E6D3B]"
+                        : dev.trustLevel === "medium"
+                        ? "bg-[#FFF8E1] border-[#FFE082] text-[#9A6500]"
+                        : "bg-[#FFEBEE] border-[#FFCDD2] text-[#C62828]"
+                    }`}>
+                      <div className="text-[11px] font-medium opacity-80 mb-0.5">درجة الثقة</div>
+                      <div className="text-[18px] font-bold">{dev.trustScore} / 100</div>
+                    </div>
+                  </div>
+
+                  {/* 3. Skills & Availability (Middle) */}
+                  <div className="flex flex-col gap-3 min-w-[240px]">
+                    <div>
+                      <div className="text-[11px] font-bold text-muted mb-1.5">المهارات</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {dev.skills.map((skill) => (
+                          <span
+                            key={skill}
+                            className="rounded-full bg-[#EBF7EF] px-3.5 py-1 text-[12px] font-bold text-[#0E6D3B]"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="inline-flex items-center justify-center rounded-full bg-[#EBF7EF] px-4 py-1.5 text-[12px] font-bold text-[#0E6D3B] self-start">
+                      {dev.availability}
+                    </div>
+                  </div>
+
+                  {/* 4. Action Buttons (Left side in RTL) */}
+                  <div className="flex flex-col gap-2 w-full lg:w-auto shrink-0">
+                    <Link
+                      href={`/developers/${dev.id}`}
+                      className="inline-flex h-[44px] items-center justify-center rounded-full bg-[#056B38] hover:bg-[#08592E] px-6 text-[13px] font-bold text-white transition-all shadow-xs cursor-pointer active:scale-95"
+                    >
+                      شوف البروفايل
+                    </Link>
+                    <Link
+                      href={`/chat?with=${dev.userId}`}
+                      className="inline-flex h-[44px] items-center justify-center rounded-full border border-neutral-300 bg-white px-6 text-[13px] font-bold text-ink hover:bg-neutral-50 transition-all cursor-pointer"
+                    >
+                      تواصل وتوظيف
+                    </Link>
                   </div>
                 </div>
-
-                {/* 4. Action Buttons (Left side in RTL) */}
-                <div className="flex flex-col gap-2 w-full lg:w-auto shrink-0">
-                  <Link
-                    href={`/developers/${dev.id}`}
-                    className="inline-flex h-[44px] items-center justify-center rounded-full bg-[#056B38] hover:bg-[#08592E] px-6 text-[13px] font-bold text-white transition-all shadow-xs cursor-pointer active:scale-95"
-                  >
-                    شوف البروفايل
-                  </Link>
-                  <Link
-                    href={`/chat?with=${dev.userId}`}
-                    className="inline-flex h-[44px] items-center justify-center rounded-full border border-neutral-300 bg-white px-6 text-[13px] font-bold text-ink hover:bg-neutral-50 transition-all cursor-pointer"
-                  >
-                    تواصل وتوظيف
-                  </Link>
-                </div>
-
               </div>
-            </div>
-          )))}
+            ))
+          )}
         </div>
-
-        {/* Real navigation loading is handled by app/loading.tsx. */}
-        {false && <div className="hidden" aria-hidden="true">
-          <div className="flex items-center gap-2 text-[13px] font-bold text-[#0E6D3B] mb-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#0E6D3B] animate-ping inline-block" />
-            <span>لسه بنحمّل بيانات مبرمجين كمان...</span>
-          </div>
-
-          {/* Skeleton Card 1 */}
-          <div className="rounded-[28px] border border-neutral-200/80 bg-white p-6 shadow-2xs">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 animate-pulse">
-              
-              {/* Avatar & Text Lines */}
-              <div className="flex items-center gap-5 min-w-[320px]">
-                <div className="h-16 w-16 rounded-full bg-neutral-200/80 shrink-0" />
-                <div className="space-y-2">
-                  <div className="h-5 w-36 bg-neutral-200/90 rounded-md" />
-                  <div className="h-4 w-28 bg-neutral-200/60 rounded-md" />
-                  <div className="h-3 w-20 bg-neutral-200/40 rounded-md" />
-                </div>
-              </div>
-
-              {/* Metric Boxes */}
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="h-[64px] w-[104px] rounded-2xl bg-neutral-100 border border-neutral-200/60" />
-                <div className="h-[64px] w-[104px] rounded-2xl bg-[#EBF7EF] border border-[#C5E8D1]" />
-              </div>
-
-              {/* Skill Tag Pills */}
-              <div className="flex flex-col gap-2.5 min-w-[240px]">
-                <div className="flex gap-2">
-                  <div className="h-7 w-16 bg-[#EBF7EF] rounded-full" />
-                  <div className="h-7 w-20 bg-[#EBF7EF] rounded-full" />
-                  <div className="h-7 w-14 bg-[#EBF7EF] rounded-full" />
-                </div>
-                <div className="h-7 w-28 bg-[#EBF7EF] rounded-full" />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-2 w-full lg:w-auto shrink-0">
-                <div className="h-[44px] w-[130px] rounded-full bg-[#0E6D3B]/20" />
-                <div className="h-[44px] w-[130px] rounded-full bg-neutral-200/60" />
-              </div>
-
-            </div>
-          </div>
-
-          {/* Skeleton Card 2 */}
-          <div className="rounded-[28px] border border-neutral-200/80 bg-white p-6 shadow-2xs opacity-80">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 animate-pulse">
-              
-              {/* Avatar & Text Lines */}
-              <div className="flex items-center gap-5 min-w-[320px]">
-                <div className="h-16 w-16 rounded-full bg-neutral-200/80 shrink-0" />
-                <div className="space-y-2">
-                  <div className="h-5 w-40 bg-neutral-200/90 rounded-md" />
-                  <div className="h-4 w-32 bg-neutral-200/60 rounded-md" />
-                  <div className="h-3 w-24 bg-neutral-200/40 rounded-md" />
-                </div>
-              </div>
-
-              {/* Metric Boxes */}
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="h-[64px] w-[104px] rounded-2xl bg-neutral-100 border border-neutral-200/60" />
-                <div className="h-[64px] w-[104px] rounded-2xl bg-[#EBF7EF] border border-[#C5E8D1]" />
-              </div>
-
-              {/* Skill Tag Pills */}
-              <div className="flex flex-col gap-2.5 min-w-[240px]">
-                <div className="flex gap-2">
-                  <div className="h-7 w-16 bg-[#EBF7EF] rounded-full" />
-                  <div className="h-7 w-16 bg-[#EBF7EF] rounded-full" />
-                  <div className="h-7 w-20 bg-[#EBF7EF] rounded-full" />
-                </div>
-                <div className="h-7 w-32 bg-[#EBF7EF] rounded-full" />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-2 w-full lg:w-auto shrink-0">
-                <div className="h-[44px] w-[130px] rounded-full bg-[#0E6D3B]/20" />
-                <div className="h-[44px] w-[130px] rounded-full bg-neutral-200/60" />
-              </div>
-
-            </div>
-          </div>
-        </div>}
-
       </main>
     </div>
   );

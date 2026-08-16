@@ -41,7 +41,7 @@ export async function syncUserSessionWithDb(): Promise<UserDbSessionResult> {
 
     // Query MySQL Database directly for current user row
     const user = await queryOne<UserRow>(
-      "SELECT id, email, full_name, phone, role, is_admin, status, onboarding_completed_at FROM users WHERE id = ?",
+      "SELECT id, username, email, full_name, phone, role, is_admin, status, onboarding_completed_at FROM users WHERE id = ?",
       [session.userId]
     );
 
@@ -51,10 +51,24 @@ export async function syncUserSessionWithDb(): Promise<UserDbSessionResult> {
     }
     if (user.status !== "active") return { authenticated: false, role: "guest", status: user.status };
 
-    // Refresh session cookie if role changed in DB (e.g. promoted to admin)
-    if (user.role !== session.role || Boolean(user.is_admin) !== Boolean(session.isAdmin) || Boolean(user.onboarding_completed_at) !== Boolean(session.onboardingCompleted)) {
+    const hasUser = Boolean(user.username && user.username.trim().length > 0);
+
+    // Refresh session cookie if role or username changed in DB
+    if (
+      user.role !== session.role ||
+      Boolean(user.is_admin) !== Boolean(session.isAdmin) ||
+      Boolean(user.onboarding_completed_at) !== Boolean(session.onboardingCompleted) ||
+      hasUser !== Boolean(session.hasUsername)
+    ) {
       try {
-        await createSession(user.id, user.role as AppRole, Boolean(user.onboarding_completed_at), Boolean(user.is_admin));
+        await createSession(
+          user.id,
+          user.role as AppRole,
+          Boolean(user.onboarding_completed_at),
+          Boolean(user.is_admin),
+          session.developerApproved,
+          hasUser
+        );
       } catch {
         // Cookie refresh is best-effort
       }

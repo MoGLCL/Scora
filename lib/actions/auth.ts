@@ -91,12 +91,12 @@ export async function register(
     return newId;
   });
 
-  await createSession(userId, role, false);
+  await createSession(userId, role, false, false, role !== "developer", false);
 
   return {
     ok: true,
     role,
-    redirectTo: role === "developer" ? "/complete-profile" : "/complete-client-profile",
+    redirectTo: "/choose-username",
   };
 }
 
@@ -114,7 +114,7 @@ export async function login(
   const { email, password } = parsed.data;
 
   const user = await queryOne<UserRow & { approval_status: string | null }>(
-    "SELECT u.id, u.email, u.password_hash, u.role, u.is_admin, u.status, u.suspended_until, u.onboarding_completed_at, d.approval_status FROM users u LEFT JOIN developers d ON d.user_id=u.id WHERE u.email = ?",
+    "SELECT u.id, u.username, u.email, u.password_hash, u.role, u.is_admin, u.status, u.suspended_until, u.onboarding_completed_at, d.approval_status FROM users u LEFT JOIN developers d ON d.user_id=u.id WHERE u.email = ?",
     [email]
   );
 
@@ -148,12 +148,25 @@ export async function login(
     );
   }
 
-  await execute("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
-  await createSession(user.id, user.role, Boolean(user.onboarding_completed_at), Boolean(user.is_admin), user.role!=="developer"||user.approval_status==="approved");
+  const hasUser = Boolean(user.username && user.username.trim().length > 0);
 
-  const redirectTo = user.onboarding_completed_at
+  await execute("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
+  await createSession(
+    user.id,
+    user.role,
+    Boolean(user.onboarding_completed_at),
+    Boolean(user.is_admin),
+    user.role !== "developer" || user.approval_status === "approved",
+    hasUser
+  );
+
+  const redirectTo = !hasUser
+    ? "/choose-username"
+    : user.onboarding_completed_at
     ? homeFor(Boolean(user.is_admin))
-    : user.role === "developer" ? "/complete-profile" : "/complete-client-profile";
+    : user.role === "developer"
+    ? "/complete-profile"
+    : "/complete-client-profile";
   return { ok: true, role: user.role, redirectTo };
 }
 

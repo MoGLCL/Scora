@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getDeveloperById } from "@/lib/dal";
+import { getDeveloperById, verifySession } from "@/lib/dal";
 import { DeveloperProfileClient } from "./profile-client";
 
 export default async function DeveloperPage({ params }: { params: Promise<{ id: string }> }) {
@@ -7,5 +7,6 @@ export default async function DeveloperPage({ params }: { params: Promise<{ id: 
   if (!Number.isInteger(id) || id <= 0) notFound();
   const developer = await getDeveloperById(id);
   if (!developer) notFound();
-  return <DeveloperProfileClient developer={developer} />;
+  const session = await verifySession();
+  return <DeveloperProfileClient developer={developer} isOwner={session?.userId === developer.user_id} />;
 }

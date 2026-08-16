@@ -41,6 +41,52 @@ export default function CreateProjectOfferPage() {
   const [isPublished, setIsPublished] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
   const [formError, setFormError] = useState("");
+  const [isFilledByAi, setIsFilledByAi] = useState(false);
+
+  // Read AI Agent Project Draft from sessionStorage or URL query params on mount
+  React.useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("scora_ai_project_draft");
+      if (stored) {
+        const draft = JSON.parse(stored);
+        if (draft.title) setTitle(draft.title);
+        if (draft.category) setCategory(draft.category);
+        if (draft.budgetFrom) setBudgetFrom(String(draft.budgetFrom));
+        if (draft.budgetTo) setBudgetTo(String(draft.budgetTo));
+        if (draft.deadlineDays) setDeadline(String(draft.deadlineDays));
+        if (draft.description) setDescription(draft.description);
+        if (Array.isArray(draft.skills) && draft.skills.length > 0) setSelectedSkills(draft.skills);
+        if (Array.isArray(draft.deliverables) && draft.deliverables.length > 0) setDeliverables(draft.deliverables);
+        setIsFilledByAi(true);
+        sessionStorage.removeItem("scora_ai_project_draft");
+        addToast("تمت تعبئة بيانات المشروع بواسطة مساعد SSD الذكي ", "info");
+      }
+    } catch {
+      // silent
+    }
+  }, [addToast]);
+
+  // Keep a sanitized snapshot available to SSD while the form is still unsaved.
+  // The server validates and bounds this data before it reaches the model.
+  React.useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        "scora_ai_page_context",
+        JSON.stringify({
+          title,
+          category,
+          description,
+          budgetFrom: budgetFrom ? Number(budgetFrom) : undefined,
+          budgetTo: budgetTo ? Number(budgetTo) : undefined,
+          deadlineDays: deadline ? Number(deadline) : undefined,
+          skills: selectedSkills,
+          deliverables,
+        })
+      );
+    } catch {
+      // Storage can be disabled by a browser privacy policy.
+    }
+  }, [title, category, description, budgetFrom, budgetTo, deadline, selectedSkills, deliverables]);
 
   const exampleCategories = [
     "تطوير مواقع الويب (Full-Stack)",
@@ -178,6 +224,33 @@ export default function CreateProjectOfferPage() {
               أدخل متطلبات مشروعك وميزانيتك بوضوح لاستقبال عروض المطورين أصحاب الجواز الرقمي الموثق وتقييمات الثقة (Trust Score). يرجى الالتزام بالشروط والضوابط الموضحة لضمان حماية حقوقك.
             </p>
           </div>
+
+          {/* AI Fill Banner */}
+          {isFilledByAi && (
+            <div className="rounded-2xl bg-[#E8FAF0] border-2 border-[#056B38]/30 p-4 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-[#056B38] text-white flex items-center justify-center font-bold">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black text-[#05291A]">
+                    تمت تعبئة بيانات هذا المشروع تلقائياً بواسطة مساعد SSD الذكي 
+                  </h3>
+                  <p className="text-[11px] text-[#526B5E]">
+                    يمكنك الآن مراجعة العنوان، النطاق، الميزانية والمخرجات وتعديل أي حقل تريده قبل الضغط على نشر.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsFilledByAi(false)}
+                className="text-xs text-[#056B38] font-bold hover:underline"
+              >
+                إخفاء التنبيه
+              </button>
+            </div>
+          )}
         </div>
 
         {/* MAIN TWO-COLUMN CONTENT */}

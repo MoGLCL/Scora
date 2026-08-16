@@ -112,6 +112,77 @@
   font-weight: 800;
 }
 
+/* ─── SCORA Global Select Input System ──────────────────────── */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23056B38' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 0.9rem center;
+  background-size: 1rem 1rem;
+  padding-left: 2.5rem;
+  padding-right: 1rem;
+  border-radius: 16px;
+  border: 1.5px solid #D1E3D6;
+  background-color: #F7FAF8;
+  color: #05291A;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(5, 41, 26, 0.03);
+}
+
+[dir="ltr"] select {
+  background-position: right 0.9rem center;
+  padding-right: 2.5rem;
+  padding-left: 1rem;
+}
+
+select:hover {
+  border-color: #056B38;
+  background-color: #FFFFFF;
+}
+
+select:focus {
+  outline: none;
+  border-color: #056B38;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3.5px rgba(5, 107, 56, 0.14);
+}
+
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: #F2F7F4;
+  border-color: #D1E3D6;
+}
+
+select option {
+  background-color: #FFFFFF;
+  color: #05291A;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.8125rem;
+}
+
+select option:checked {
+  background-color: #E8FAF0;
+  color: #056B38;
+  font-weight: 800;
+}
+
+select.bg-transparent {
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+  background-color: transparent !important;
+}
+
 @keyframes ssdChatPopIn {
   0% {
     opacity: 0;
@@ -123,120 +194,3 @@
   }
 }
 
-@keyframes ssdChatPopOut {
-  0% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.85) translateY(20px);
-  }
-}
-
-@keyframes ssdOrbitCloudLoop {
-  0% {
-    transform: rotate(0deg) translateY(-28px) scale(0.6);
-    opacity: 0.5;
-    filter: blur(2px);
-  }
-  25% {
-    transform: rotate(90deg) translateY(-32px) scale(1.2);
-    opacity: 0.9;
-  }
-  50% {
-    transform: rotate(180deg) translateY(-36px) scale(1.5);
-    opacity: 1;
-    filter: blur(1px);
-  }
-  75% {
-    transform: rotate(270deg) translateY(-32px) scale(1.2);
-    opacity: 0.9;
-  }
-  100% {
-    transform: rotate(360deg) translateY(-28px) scale(2);
-    opacity: 1;
-    filter: blur(6px);
-  }
-}
-
-@keyframes ssdCloudToWindowMorph {
-  0% {
-    opacity: 0;
-    transform: scale(0.12) translateY(50px);
-    border-radius: 9999px;
-    filter: blur(10px);
-    box-shadow: 0 0 50px rgba(52, 211, 153, 0.9);
-  }
-  65% {
-    opacity: 1;
-    transform: scale(1.03) translateY(-6px);
-    border-radius: 36px;
-    filter: blur(0px);
-    box-shadow: 0 10px 30px rgba(5, 107, 56, 0.3);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-    border-radius: 28px;
-    filter: blur(0px);
-  }
-}
-
-/* REVERSE CLOSING ANIMATION SEQUENCE */
-@keyframes ssdWindowToCloudMorph {
-  0% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-    border-radius: 28px;
-    filter: blur(0px);
-  }
-  65% {
-    opacity: 0.8;
-    transform: scale(0.3) translateY(30px);
-    border-radius: 9999px;
-    filter: blur(6px);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.1) translateY(50px);
-    border-radius: 9999px;
-    filter: blur(12px);
-  }
-}
-
-@keyframes ssdOrbitCloudReverse {
-  0% {
-    transform: rotate(360deg) translateY(-28px) scale(2);
-    opacity: 1;
-    filter: blur(6px);
-  }
-  50% {
-    transform: rotate(180deg) translateY(-36px) scale(1.4);
-    opacity: 0.9;
-    filter: blur(2px);
-  }
-  100% {
-    transform: rotate(0deg) translateY(-28px) scale(0.5);
-    opacity: 0;
-    filter: blur(0px);
-  }
-}
-
-.animate-ssd-orbit-cloud {
-  animation: ssdOrbitCloudLoop 0.45s ease-in-out forwards;
-}
-
-.animate-ssd-orbit-cloud-reverse {
-  animation: ssdOrbitCloudReverse 0.45s ease-in-out forwards;
-}
-
-.animate-ssd-morph-window {
-  animation: ssdCloudToWindowMorph 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transform-origin: bottom right;
-}
-
-.animate-ssd-morph-window-close {
-  animation: ssdWindowToCloudMorph 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
-  transform-origin: bottom right;
-}

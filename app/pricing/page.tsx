@@ -407,7 +407,7 @@ export default function PricingPage() {
               المقارنة هنا تخص العميل الفردي فقط: Free وPro.
             </p>
             <p className="text-[12px] font-bold text-[#526B5E] pt-1">
-              ✓ Included   ·   محدود Limited   ·   — غير متاح   ·   Custom حسب الاتفاق
+               Included · محدود Limited · — غير متاح · Custom حسب الاتفاق
             </p>
           </div>
 
@@ -431,38 +431,38 @@ export default function PricingPage() {
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Browse Developers</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Developer Search</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Search Filters</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Skill Filters</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Experience Filters</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Trust Score Filter</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Skill Points Filter</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
                 {/* Subsection 2 */}
@@ -473,18 +473,18 @@ export default function PricingPage() {
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">View Developer Passport</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">View Verified Skills</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Developer Comparison</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Save Developers</td>
@@ -494,7 +494,7 @@ export default function PricingPage() {
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Shortlists</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
                 {/* Subsection 3 */}
@@ -521,27 +521,27 @@ export default function PricingPage() {
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">AI Developer Matching</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Developer Recommendations</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Hiring History</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Messaging</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Project Reviews</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
               </tbody>
@@ -562,7 +562,7 @@ export default function PricingPage() {
               المقارنة هنا تخص فرق التوظيف: Startup، Business، Enterprise.
             </p>
             <p className="text-[12px] font-bold text-[#526B5E] pt-1">
-              ✓ Included   ·   محدود Limited   ·   — غير متاح   ·   Custom حسب الاتفاق
+               Included · محدود Limited · — غير متاح · Custom حسب الاتفاق
             </p>
           </div>
 
@@ -587,9 +587,9 @@ export default function PricingPage() {
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Company Profile</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Team Members</td>
@@ -599,39 +599,39 @@ export default function PricingPage() {
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Developer Search</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Advanced Search</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Skill + Trust Filters</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Candidate Shortlisting</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Hiring Pipeline</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Candidate Comparison</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
                 {/* Category 2 */}
@@ -650,7 +650,7 @@ export default function PricingPage() {
                   <td className="p-3 px-5 font-bold text-[#05291A]">Custom Assessments</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Technical Interviews</td>
@@ -661,8 +661,8 @@ export default function PricingPage() {
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Interview Evaluation</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
                 {/* Category 3 */}
@@ -674,26 +674,26 @@ export default function PricingPage() {
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">AI Candidate Matching</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Candidate Analytics</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Team Collaboration</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Hiring Analytics</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
                 {/* Category 4 */}
@@ -706,25 +706,25 @@ export default function PricingPage() {
                   <td className="p-3 px-5 font-bold text-[#05291A]">API Access</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Developer Passport Verification API</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Recruitment API + Webhooks</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">ATS / Custom Integrations</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
                 {/* Category 5 */}
@@ -737,37 +737,37 @@ export default function PricingPage() {
                   <td className="p-3 px-5 font-bold text-[#05291A]">SSO</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Role-Based Access Control</td>
                   <td className="p-3 text-center text-[#B8700F] font-bold">محدود</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Audit Logs</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Dedicated Support</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="p-3 px-5 font-bold text-[#05291A]">SLA</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
                 <tr className="bg-[#FBFEFC]">
                   <td className="p-3 px-5 font-bold text-[#05291A]">Custom Branding</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
                   <td className="p-3 text-center text-[#526B5E]">—</td>
-                  <td className="p-3 text-center text-[#056B38] font-bold">✓</td>
+                  <td className="p-3 text-center text-[#056B38] font-bold"></td>
                 </tr>
 
               </tbody>

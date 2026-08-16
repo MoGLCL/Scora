@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
 
 export default function DashboardPage() {
-  const { userRole, developer, client } = useProfile();
+  const { userRole, username, developer, client } = useProfile();
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   useEffect(() => {
     const load = () => fetch("/api/dashboard", { cache: "no-store" }).then((r) => r.ok ? r.json() : null)
@@ -18,6 +18,7 @@ export default function DashboardPage() {
     return () => window.clearInterval(timer);
   }, []);
   const isDeveloper = userRole === "developer";
+  const displayName = (isDeveloper ? developer.fullName : client.fullName) || developer.fullName || client.fullName || (username ? `@${username}` : "المستخدم");
   const cards = isDeveloper ? [
     { label: "التقييمات المجتازة", value: stats?.assessments ?? 0, icon: Code },
     { label: "نقاط الثقة", value: `${stats?.trustScore ?? 0}%`, icon: ShieldCheck },
@@ -33,7 +34,7 @@ export default function DashboardPage() {
     <SiteHeader />
     <main className="mx-auto w-full max-w-[1296px] flex-1 px-6 py-10 space-y-8">
       <section className="rounded-[28px] border border-[#D1E3D6] bg-gradient-to-b from-[#E8FAF0] to-white p-8">
-        <h1 className="text-3xl font-extrabold text-[#05291A]">مرحباً، {isDeveloper ? developer.fullName : client.fullName}</h1>
+        <h1 className="text-3xl font-extrabold text-[#05291A]">مرحباً، {displayName}</h1>
         <p className="mt-2 text-[#526B5E]">البيانات هنا مباشرة من قاعدة البيانات وتتحدث تلقائياً.</p>
       </section>
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -44,10 +45,10 @@ export default function DashboardPage() {
       </section>
       <section className="rounded-[24px] border border-[#D1E3D6] bg-white p-8 text-center">
         <h2 className="text-xl font-extrabold text-[#05291A]">لا توجد أنشطة حديثة مسجلة</h2>
-        <p className="mt-2 text-sm text-[#526B5E]">أول ما يحصل نشاط حقيقي في حسابك هيظهر هنا؛ مش هنألف أحداث عشان الصفحة تبان مشغولة 😄</p>
+        <p className="mt-2 text-sm text-[#526B5E]">أول ما يحصل نشاط حقيقي في حسابك هيظهر هنا؛ مش هنألف أحداث عشان الصفحة تبان مشغولة </p>
         <div className="mt-5 flex justify-center gap-3">
           <Link href={isDeveloper ? "/projects" : "/projects/new"} className="rounded-full bg-[#056B38] px-6 py-3 text-sm font-bold text-white">{isDeveloper ? "تصفح المشاريع" : "إنشاء مشروع"}</Link>
-          <Link href={isDeveloper ? "/profile/edit" : "/client-profile/edit"} className="rounded-full border border-[#D1E3D6] px-6 py-3 text-sm font-bold text-[#05291A]">تعديل الملف</Link>
+          <Link href="/settings?tab=profile" className="rounded-full border border-[#D1E3D6] px-6 py-3 text-sm font-bold text-[#05291A]">تعديل الملف</Link>
         </div>
       </section>
     </main><SiteFooter />

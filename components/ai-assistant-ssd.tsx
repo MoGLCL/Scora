@@ -1,142 +1,347 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useProfile } from "@/components/profile-provider";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import {
   Send,
   X,
+  Sparkles,
+  Bot,
+  Minimize2,
   DollarSign,
-  Briefcase,
   Users,
   ArrowLeft,
   Zap,
-  Minimize2,
-  Sparkles,
-  Cloud
+  RotateCcw,
+  User,
+  Loader2,
+  ExternalLink,
+  BrainCircuit,
+  Code2,
 } from "lucide-react";
+
+interface ProjectDraft {
+  title: string;
+  description: string;
+  category?: string;
+  budgetFrom?: number;
+  budgetTo?: number;
+  deadlineDays?: number;
+  skills?: string[];
+  deliverables?: string[];
+  target?: "client_project" | "developer_portfolio";
+  executionTime?: string | null;
+  startDate?: string | null;
+  isOpenSource?: boolean | null;
+  projectStatus?: "completed" | "in_progress" | null;
+  previewUrl?: string | null;
+  githubUrl?: string | null;
+}
 
 interface ChatMessage {
   id: string;
   sender: "ssd" | "user";
   text: string;
   time: string;
+  projectDraft?: ProjectDraft;
+  resultCards?: AssistantResultCard[];
+  adminReport?: AssistantAdminReport | null;
+  pendingAdminAction?: PendingAdminAction | null;
+  pendingAdminStatus?: "pending" | "running" | "success" | "error" | "cancelled";
   actions?: Array<{ label: string; action: () => void }>;
 }
 
+type AgentActionType =
+  | "create_project"
+  | "create_portfolio_project"
+  | "search_developers"
+  | "estimate_pricing"
+  | "browse_projects"
+  | "navigate";
+
+interface AgentActionResponse {
+  type: AgentActionType;
+  label: string;
+  url?: string | null;
+  projectDraft?: ProjectDraft | null;
+}
+
+interface AssistantApiResponse {
+  answer?: string;
+  error?: string;
+  projectDraft?: ProjectDraft | null;
+  actions?: AgentActionResponse[] | null;
+  resultCards?: AssistantResultCard[];
+  adminReport?: AssistantAdminReport | null;
+  pendingAdminAction?: PendingAdminAction | null;
+}
+
+interface AssistantDeveloperCard {
+  kind: "developer";
+  userId: number;
+  name: string;
+  username: string;
+  role: string;
+  trustScore: number;
+  skillPoints: number;
+  skills: string[];
+  profileUrl: string;
+}
+
+interface AssistantProjectCard {
+  kind: "project";
+  id: number;
+  title: string;
+  description: string;
+  budgetFrom: number;
+  budgetTo: number;
+  deadlineDays: number | null;
+  skills: string[];
+  projectUrl: string;
+}
+
+type AssistantResultCard = AssistantDeveloperCard | AssistantProjectCard;
+
+interface AssistantAdminReport {
+  kind: "admin_report";
+  today: Record<string, number>;
+  yesterday: Record<string, number>;
+  differences: Record<string, number>;
+  recentAudit: Array<{ action: string; status: string; createdAt: string }>;
+}
+
+interface PendingAdminAction {
+  type: "adjust_skill_points";
+  token: string;
+  target: { userId: number; name: string; username: string; currentSkillPoints: number };
+  delta: number;
+  nextSkillPoints: number;
+  expiresAt: number;
+}
+
+const THINKING_MESSAGES = [
+  "بفكر في طلبك وبحدد أفضل اتجاه",
+  "برتب الفكرة والتفاصيل المهمة",
+  "بجهز لك رد كامل وخطوات واضحة",
+] as const;
+
 export function AiAssistantSsd() {
   const router = useRouter();
-  const { userRole, isAdmin, developer, client, systemSettings, showSsdAssistant, setShowSsdAssistant, addToast } = useProfile();
+  const pathname = usePathname();
+  const {
+    userRole,
+    isAdmin,
+    developer,
+    client,
+    systemSettings,
+    showSsdAssistant,
+    setShowSsdAssistant,
+    addToast,
+  } = useProfile();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [isMorphing, setIsMorphing] = useState(false);
-  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [inputText, setInputText] = useState("");
-  const [eyeState, setEyeState] = useState<"normal" | "happy" | "wink" | "excited">("normal");
+  const [isTyping, setIsTyping] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState(0);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Prompts for speech bubble
-  const developerPrompts = [
-    "محتاج تظبط ملفك الشخصي والجواز الرقمي؟",
-    "محتار في تحديد سعر عادل لمشروعك ورصيد الـ SP؟",
-    "عايز مساعدة في اجتياز التقييمات البرمجية؟",
-    "محتاج استكشاف أحدث عروض العمل المناسبة لمهاراتك؟",
-  ];
+  // Floating Button Drag & Edge-Snap Positioning State
+  const [position, setPosition] = useState<{ side: "left" | "right"; top: number }>({
+    side: "left",
+    top: 550,
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const dragStartPos = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
+  const [currentDragCoords, setCurrentDragCoords] = useState<{ x: number; y: number } | null>(null);
 
-  const clientPrompts = [
-    "بتدور على مطور معين بمواصفات خاصة؟",
-    "عايز مساعدة في تحديد ميزانية وسعر طلبك؟",
-    "محتاج تنشر مشروع جديد ومحتار في تحديد نطاق العمل؟",
-    "عايز تقييم تلقائي لطلبات التوظيف المتقدمة؟",
-  ];
-
-  const guestPrompts = [
-    "مرحباً بك! أنا SSD مساعدك الذكي في Scora",
-    "بتدور على ايه النهاردة في المنصة؟",
-    "عايز استكشاف المطورين الموثقين أو إنشاء حساب جديد؟",
-  ];
-
-  const adminPrompts = [
-    "عايز مقارنة بين عدد المطورين والعملاء؟",
-    "اسألني عن المستخدمين المحظورين أو الموقوفين.",
-    "محتاج ملخص سريع عن حالة المنصة؟",
-    "عايز تقارن بين المطورين حسب الثقة ونقاط SP؟",
-  ];
-
-  const activePrompts =
-    isAdmin
-      ? adminPrompts
-      : userRole === "developer"
-      ? developerPrompts
-      : userRole === "client"
-      ? clientPrompts
-      : guestPrompts;
-
-  // Cycle prompts & robot eye expressions automatically
+  // Load saved position from localStorage
   useEffect(() => {
-    const timer = setInterval(() => {
-      const expressions: Array<"normal" | "happy" | "wink" | "excited"> = ["normal", "happy", "wink", "excited"];
-      setCurrentPromptIndex((current) => {
-        const next = (current + 1) % activePrompts.length;
-        setEyeState(expressions[next % expressions.length]);
-        return next;
-      });
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [activePrompts.length]);
+    try {
+      const saved = localStorage.getItem("scora_ssd_agent_pos");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.side && typeof parsed.top === "number") {
+          const maxTop = Math.max(100, window.innerHeight - 90);
+          setPosition({
+            side: parsed.side === "right" ? "right" : "left",
+            top: Math.max(70, Math.min(maxTop, parsed.top)),
+          });
+        }
+      } else {
+        // Default bottom-left
+        setPosition({ side: "left", top: Math.max(100, window.innerHeight - 100) });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  // Initial Messages
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    dragStartPos.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    setCurrentDragCoords({ x: rect.left, y: rect.top });
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || !dragOffset) return;
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    setCurrentDragCoords({ x: newX, y: newY });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    setDragOffset(null);
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    const dist = Math.hypot(
+      e.clientX - dragStartPos.current.x,
+      e.clientY - dragStartPos.current.y
+    );
+    const duration = Date.now() - dragStartPos.current.time;
+
+    // Quick tap / click
+    if (dist < 8 && duration < 500) {
+      setCurrentDragCoords(null);
+      handleOpenChat();
+      return;
+    }
+
+    // Dragged: snap to nearest side (left or right)
+    const midX = window.innerWidth / 2;
+    const snappedSide: "left" | "right" = e.clientX < midX ? "left" : "right";
+    const maxTop = Math.max(100, window.innerHeight - 90);
+    const snappedTop = Math.max(70, Math.min(maxTop, e.clientY - 25));
+
+    const newPos = { side: snappedSide, top: snappedTop };
+    setPosition(newPos);
+    setCurrentDragCoords(null);
+
+    try {
+      localStorage.setItem("scora_ssd_agent_pos", JSON.stringify(newPos));
+    } catch {}
+  };
+
+  // Initial Welcome Message
+  const getInitialMessage = (): string => {
+    if (isAdmin) {
+      return "مرحباً يا مدير النظام! أنا SSD وكيل الذكاء الاصطناعي في سكورا. أستطيع تنفيذ المهام الإدارية، تحليل المنصة، أو صياغة مشاريع ومراجعات كاملة لك.";
+    }
+    if (userRole === "developer") {
+      return `أهلاً بك يا ${developer.fullName || "بطل البرمجة"}! أنا SSD وكيلك الذكي في سكورا، أستطيع صياغة مقترحات تقنية لك، تسعير عروضك بالـ SP، ومساعدتك في العثور على أنسب المشاريع لمهاراتك.`;
+    }
+    if (userRole === "client") {
+      return `مرحباً بك يا ${client.fullName || "صاحب العمل"}! أنا SSD وكيل الذكاء الاصطناعي، اطلب مني صياغة أي مشروع وسأقوم بتعبئة كافة تفاصيله وميزانيته ونقلك لصفحة النشر فوراً!`;
+    }
+    return "مرحباً بك! أنا SSD الوكيل والمساعد الذكي في منصة سكورا. كيف أساعدك اليوم؟ (يمكنك أن تطلب مني صياغة مشروع كامل، تقدير الميزانية، أو البحث عن مطورين).";
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "init",
       sender: "ssd",
-      text:
-        userRole === "developer"
-          ? `أهلاً بك يا ${developer.fullName}! أنا SSD المساعد الذكي. أستطيع مساعدتك في تحديد سعر عادل لعروضك وتوثيق مهاراتك.`
-          : userRole === "client"
-          ? `أهلاً بك يا ${client.fullName}! أنا SSD مساعدك الذكي. أستطيع البحث لك عن أفضل المطورين الموثقين ومساعدتك في تقدير الميزانية.`
-          : "مرحباً بك! أنا SSD المساعد الذكي في منصة سكورا. كيف يمكنني مساعدتك؟",
+      text: getInitialMessage(),
       time: "الآن",
     },
   ]);
 
-  // Handle Morphing Open Transition Sequence: Antenna spark turns to orbiting REAL CLOUD -> window morphs open
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isOpen, isTyping]);
+
+  useEffect(() => {
+    if (!isTyping) return;
+
+    const timer = window.setInterval(() => {
+      setThinkingStep((current) => (current + 1) % THINKING_MESSAGES.length);
+    }, 1_800);
+
+    return () => window.clearInterval(timer);
+  }, [isTyping]);
+
+  // Fast Instant Open / Close
   const handleOpenChat = () => {
-    setIsMorphing(true);
-    /* Legacy local-response logic is intentionally unreachable; live AI errors are surfaced above without fake replies. */
-    setTimeout(() => {
-      setIsOpen(true);
-      setIsMorphing(false);
-    }, 380);
+    setIsOpen(true);
   };
 
-  // Handle Morphing Close Transition Sequence: Window morphs down -> reverse orbiting cloud condenses to antenna spark
   const handleCloseChat = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setIsOpen(false);
-      setIsClosing(false);
-    }, 320);
+    setIsOpen(false);
   };
 
-  // AI Actions
-  const handleSearchDevelopers = () => {
-    addToast("جاري التوجيه لدليل المطورين والبحث الذكي...", "info");
-    router.push("/developers");
+  const handleResetChat = () => {
+    setMessages([
+      {
+        id: Date.now().toString(),
+        sender: "ssd",
+        text: getInitialMessage(),
+        time: "الآن",
+      },
+    ]);
+  };
+
+  // Agent Actions
+  const handleApplyDraftAndNavigate = (draft: ProjectDraft) => {
+    try {
+      sessionStorage.setItem("scora_ai_project_draft", JSON.stringify(draft));
+      addToast("جاري فتح صفحة نشر المشروع مع تعبئة كافة التفاصيل تلقائياً...", "info");
+      router.push("/projects/new");
+      handleCloseChat();
+    } catch {
+      router.push("/projects/new");
+      handleCloseChat();
+    }
+  };
+
+  const handleApplyPortfolioDraftAndNavigate = (draft: ProjectDraft) => {
+    try {
+      sessionStorage.setItem("scora_ai_portfolio_draft", JSON.stringify(draft));
+      addToast("جاري فتح صفحة إضافة المشروع لمعرض الأعمال وتعبئة تفاصيله تلقائياً...", "info");
+      router.push("/portfolio/new");
+      handleCloseChat();
+    } catch {
+      router.push("/portfolio/new");
+      handleCloseChat();
+    }
+  };
+
+  const handleSearchDevelopers = (skill?: string) => {
+    addToast("جاري الانتقال لدليل المطورين الموثقين...", "info");
+    router.push(skill ? `/developers?skill=${encodeURIComponent(skill)}` : "/developers");
     handleCloseChat();
   };
 
-  const handleCreateProject = () => {
-    addToast("جاري فتح نموذج نشر مشروع جديد مع تقدير الميزانية...", "info");
-    router.push("/projects/new");
-    handleCloseChat();
+  const handleCreateProjectPrompt = (promptText: string) => {
+    setInputText(promptText);
   };
 
   const handleEstimateDeveloperPrice = () => {
-    setEyeState("happy");
-    const estimated = Math.round((developer.skillPoints * 25) + 10000);
-    const textMsg = `بناءً على رصيد مهاراتك (${developer.skillPoints} SP) ونسبة ثقتك (${developer.trustScore}%)، أنصحك بتقديم سعر عادل في حدود ${estimated.toLocaleString("ar-EG")} ج.م للمشاريع المتوسطة.`;
-    
+    const estimated = Math.round((developer.skillPoints || 0) * 25 + 10000);
+    const textMsg = `بناءً على رصيد مهاراتك (${developer.skillPoints || 0} SP) ونسبة ثقتك (${
+      developer.trustScore || 0
+    }%)، السعر التنافسي العادل المقترح لعروضك هو بين ${estimated.toLocaleString(
+      "ar-EG"
+    )} ج.م و ${(estimated + 8000).toLocaleString("ar-EG")} ج.م للمشاريع المتوسطة.`;
+
     setMessages((prev) => [
       ...prev,
       {
@@ -145,34 +350,44 @@ export function AiAssistantSsd() {
         text: textMsg,
         time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
         actions: [
-          { label: "تصفح المشاريع والتقديم", action: () => { router.push("/projects"); handleCloseChat(); } }
-        ]
+          {
+            label: "تصفح المشاريع والتقديم",
+            action: () => {
+              router.push("/projects");
+              handleCloseChat();
+            },
+          },
+        ],
       },
     ]);
   };
 
-  const handleEstimateClientBudget = () => {
-    setEyeState("excited");
-    const textMsg = "للمشاريع البرمجية المتكاملة (Full-Stack Web / SaaS Dashboard)، الميزانية التقديرية المنطقية في سوق المطورين الموثقين هي بين 20,000 ج.م و 35,000 ج.م بمهلة تسليم 14 يوماً.";
-    
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        sender: "ssd",
-        text: textMsg,
-        time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
-        actions: [
-          { label: "نشر المشروع بالأسعار المقترحة", action: handleCreateProject }
-        ]
-      },
-    ]);
+  const updatePendingAdminStatus = (messageId: string, status: ChatMessage["pendingAdminStatus"]) => {
+    setMessages((current) => current.map((message) => message.id === messageId ? { ...message, pendingAdminStatus: status } : message));
   };
 
-  // Chat Logic
+  const handleConfirmAdminAction = async (messageId: string, action: PendingAdminAction) => {
+    updatePendingAdminStatus(messageId, "running");
+    try {
+      const response = await fetch("/api/ai/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: action.token }),
+      });
+      const data = await response.json() as { error?: string; result?: { next: number } };
+      if (!response.ok) throw new Error(data.error || "ACTION_FAILED");
+      updatePendingAdminStatus(messageId, "success");
+      addToast(`تم تحديث نقاط ${action.target.name} إلى ${data.result?.next ?? action.nextSkillPoints} SP وتسجيل العملية.`, "success");
+    } catch (error) {
+      updatePendingAdminStatus(messageId, "error");
+      addToast(error instanceof Error ? error.message : "تعذر تنفيذ الإجراء الإداري", "warn");
+    }
+  };
+
+  // Send message
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isTyping) return;
 
     const userMsgText = inputText.trim();
     const userMsg: ChatMessage = {
@@ -184,306 +399,446 @@ export function AiAssistantSsd() {
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText("");
-    setEyeState("excited");
+    setThinkingStep(0);
+    setIsTyping(true);
 
     try {
-      const response=await fetch("/api/ai/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:userMsgText})});
-      const data=await response.json();
-      if(!response.ok) throw new Error(data.error||"AI_UNAVAILABLE");
-      setMessages((prev)=>[...prev,{id:(Date.now()+1).toString(),sender:"ssd",text:data.answer,time:new Date().toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})}]);
-      setEyeState("happy");
-      return;
-    } catch {
-      setMessages((prev)=>[...prev,{id:(Date.now()+1).toString(),sender:"ssd",text:"خدمة المساعد غير متاحة حاليًا. لم يتم إنشاء رد بديل أو بيانات وهمية.",time:new Date().toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})}]);
-      setEyeState("normal");
-      return;
-    }
-    setTimeout(() => {
-      let responseText = "أنا هنا لمساعدتك! اختر إحدى التوصيات الذكية أدناه للتحكم في المنصة.";
-      let actions: Array<{ label: string; action: () => void }> | undefined = undefined;
-
-      const lower = userMsgText.toLowerCase();
-      if (isAdmin) {
-        if (lower.includes("مقارنة") || lower.includes("مقارنه") || lower.includes("قارن")) {
-          responseText = "أقدر أقارن لك بين المطورين والعملاء، الحسابات النشطة والمحظورة، أو المطورين حسب Trust Score وSP. البيانات تتحدث تلقائيًا من قاعدة البيانات.";
-          actions = [{ label: "فتح إدارة المستخدمين", action: () => { router.push("/admin"); handleCloseChat(); } }];
-        } else if (lower.includes("محظور") || lower.includes("موقوف") || lower.includes("حظر")) {
-          responseText = "راجع الحسابات المحظورة والموقوفة في إدارة المستخدمين. كل تعديل للحالة يتحقق منه السيرفر ويحفظ في قاعدة البيانات.";
-          actions = [{ label: "مراجعة حالات الحسابات", action: () => { router.push("/admin"); handleCloseChat(); } }];
-        } else if (lower.includes("ملخص") || lower.includes("إحص") || lower.includes("احص") || lower.includes("حالة المنصة")) {
-          responseText = "يمكنني مساعدتك في تلخيص المستخدمين، مقارنة الأدوار، مراجعة الحظر، وفحص إعدادات المنصة والـ AI.";
-          actions = [{ label: "فتح لوحة الإدارة", action: () => { router.push("/admin"); handleCloseChat(); } }];
-        }
+      let latestPageContext: Record<string, unknown> | undefined;
+      try {
+        const raw = sessionStorage.getItem("scora_ai_page_context");
+        latestPageContext = raw ? JSON.parse(raw) : undefined;
+      } catch {
       }
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsgText, pathname, pageContext: latestPageContext }),
+      });
+      const data = (await response.json()) as AssistantApiResponse;
+      if (!response.ok) throw new Error(data.error || "AI_UNAVAILABLE");
 
-      if (lower.includes("مطور") || lower.includes("ابحث") || lower.includes("بحث")) {
-        responseText = "يمكنني نقلك فوراً لدليل المطورين الموثقين وفلترتهم بحسب المهارات ونقاط الثقة.";
-        actions = [{ label: "الانتقال لدليل المطورين", action: handleSearchDevelopers }];
-      } else if (lower.includes("سعر") || lower.includes("ميزانية") || lower.includes("فلوس") || lower.includes("بكام")) {
-        if (userRole === "developer") {
-          responseText = `حسب نقاطك (${developer.skillPoints} SP) وجوازك الموثق، السعر المقترح لعروضك هو بين 15,000 و 25,000 ج.م.`;
-        } else {
-          responseText = "أنصحك بوضع ميزانية منطقية من 20,000 إلى 35,000 ج.م للمشاريع البرمجية المتكاملة لضمان استجابة كبار المطورين.";
-        }
-      } else if (lower.includes("مشروع") || lower.includes("شغل") || lower.includes("وظيفة")) {
-        responseText = "يمكننا فتح صفحة المشاريع فوراً أو إنشاء عرض مشروع جديد لتوظيف المطورين.";
-        actions = [
-          { label: "استكشاف المشاريع", action: () => { router.push("/projects"); handleCloseChat(); } },
-          { label: "+ نشر عرض جديد", action: handleCreateProject },
-        ];
-      }
+      const draft = data.projectDraft ?? undefined;
+      const actions = data.actions
+        ? data.actions.map((act) => ({
+            label: act.label,
+            action: () => {
+              if (act.type === "create_portfolio_project" || (act.projectDraft?.target === "developer_portfolio") || (draft?.target === "developer_portfolio")) {
+                handleApplyPortfolioDraftAndNavigate(act.projectDraft || draft!);
+              } else if (act.type === "create_project" && (act.projectDraft || draft)) {
+                handleApplyDraftAndNavigate(act.projectDraft || draft!);
+              } else if (act.type === "search_developers") {
+                handleSearchDevelopers();
+              } else if (act.type === "browse_projects") {
+                router.push("/projects");
+                handleCloseChat();
+              }
+            },
+          }))
+        : draft
+        ? [
+            {
+              label: draft.target === "developer_portfolio" ? "تعبئة ونشر المشروع في معرض أعمالي 🚀" : "تعبئة مسودة المشروع والتعديل عليها ✍️",
+              action: () => {
+                if (draft.target === "developer_portfolio") {
+                  handleApplyPortfolioDraftAndNavigate(draft);
+                } else {
+                  handleApplyDraftAndNavigate(draft);
+                }
+              },
+            },
+          ]
+        : undefined;
 
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           sender: "ssd",
-          text: responseText,
+          text: data.answer || "تعذر تجهيز الرد الكامل. حاول مرة أخرى من فضلك.",
+          projectDraft: draft,
+          resultCards: data.resultCards,
+          adminReport: data.adminReport,
+          pendingAdminAction: data.pendingAdminAction,
+          pendingAdminStatus: data.pendingAdminAction ? "pending" : undefined,
           time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
           actions,
         },
       ]);
-    }, 700);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: "ssd",
+          text: "⚠️ نعتذر، هناك مشكلة في الاتصال بنماذج الذكاء الاصطناعي (OpenRouter) حالياً. إدارة المنصة على علم بالأمر وسيقوم الأدمن بحلها قريباً جداً!",
+          time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isTyping]);
 
   if (!systemSettings.isAiAssistantEnabled || !showSsdAssistant) return null;
 
   return (
-    <div className="fixed bottom-20 lg:bottom-6 right-3 sm:right-4 lg:right-6 z-50 font-body dir-rtl" dir="rtl">
-      
-      {/* 1. ORIGINAL 3D ROBOT MASCOT BUTTON & FLOATING SPEECH BUBBLE */}
+    <>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 1. DRAGGABLE & SNAPPABLE FLOATING AGENT TRIGGER BUTTON */}
+      {/* ───────────────────────────────────────────────────────────── */}
       {!isOpen && (
-        <div className="relative flex flex-col items-start gap-2 animate-bounce cursor-pointer group">
-          
-          {/* FLOATING SPEECH BUBBLE TOOLTIP (DESKTOP ONLY WHEN CLOSED) */}
-          {!isMorphing && !isClosing && (
-            <div className="hidden sm:block w-72 rounded-[22px] bg-[#05291A] text-white p-4 shadow-2xl border-2 border-[#339E61] animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto relative">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#056B38] text-white flex items-center justify-center font-extrabold text-[11px] shrink-0 border border-emerald-400">
-                  SSD
-                </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#339E61]">SSD AI Assistant</span>
-                    <span className="text-[9px] bg-[#056B38] text-[#D4F5E0] px-2 py-0.5 rounded-full font-bold">
-                      متصل
-                    </span>
-                  </div>
-                  <p className="text-[12px] text-white font-medium leading-relaxed">
-                    {activePrompts[currentPromptIndex]}
-                  </p>
-                </div>
-              </div>
-              <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#05291A] border-b-2 border-r-2 border-[#339E61] rotate-45" />
-            </div>
-          )}
-
+        <div
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          style={{
+            left: currentDragCoords ? `${currentDragCoords.x}px` : (position.side === "left" ? "20px" : undefined),
+            right: currentDragCoords ? undefined : (position.side === "right" ? "20px" : undefined),
+            top: currentDragCoords ? `${currentDragCoords.y}px` : `${position.top}px`,
+            position: "fixed",
+            zIndex: 9999,
+            transition: isDragging ? "none" : "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            cursor: isDragging ? "grabbing" : "grab",
+            touchAction: "none",
+            userSelect: "none",
+          }}
+          className={`flex items-center gap-2 group select-none ${
+            position.side === "right" ? "flex-row-reverse" : "flex-row"
+          }`}
+        >
+          {/* Dismiss Button */}
           <button
             type="button"
-            onClick={handleOpenChat}
-            className="relative transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-            title="افتح المساعد الذكي SSD"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSsdAssistant(false);
+            }}
+            className="h-6 w-6 rounded-full bg-neutral-900/60 hover:bg-neutral-900 text-white flex items-center justify-center text-xs shadow-md transition-all cursor-pointer opacity-0 group-hover:opacity-100 shrink-0"
+            title="إخفاء زر المساعد الذكي"
           >
-            {/* 3D ANIMATED ROBOT MASCOT HEAD */}
-            <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-[#04331B] via-[#056B38] to-[#128648] p-1.5 shadow-2xl border-2 border-emerald-400 flex items-center justify-center ${
-              isMorphing ? "scale-125 transition-transform duration-300" : ""
-            }`}>
-            
-            {/* REAL ORGANIC PUFF CLOUD (ORBITS AROUND MASCOT HEAD ON OPEN/CLOSE) */}
-            <div className="absolute -top-3.5 sm:-top-4 left-1/2 -translate-x-1/2 flex flex-col items-center z-40">
-              {isMorphing || isClosing ? (
-                <div className={isClosing ? "animate-ssd-orbit-cloud-reverse" : "animate-ssd-orbit-cloud"}>
-                  <div className="px-2 py-1 rounded-full bg-gradient-to-r from-emerald-300 via-green-300 to-emerald-400 shadow-[0_0_30px_#34d399] flex items-center justify-center border border-white/80 gap-1 backdrop-blur-xs">
-                    <Cloud className="w-5 h-5 text-white fill-white animate-pulse" />
-                    <Sparkles className="w-3.5 h-3.5 text-white animate-spin" />
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="w-1.5 h-3 sm:h-4 bg-gradient-to-b from-emerald-400 to-[#056B38] rounded-full" />
-                </>
-              )}
+            <X className="w-3 h-3" />
+          </button>
+
+          {/* Main Floating Trigger Pill */}
+          <div
+            title="شلني يعمو"
+            className={`group relative flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-[#056B38] to-[#08592E] p-2 sm:p-3 text-white shadow-xl transition-all border border-emerald-400/30 ${
+              isDragging
+                ? "scale-105 shadow-2xl ring-4 ring-[#056B38]/30"
+                : "hover:scale-105 hover:shadow-2xl"
+            }`}
+          >
+            {/* Playful Floating Tooltip on Hover */}
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#05291A] text-emerald-200 text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-emerald-500/30">
+              شلني يعمو
             </div>
 
-            {/* Metallic Robot Visor Head */}
-            <div className="w-full h-full rounded-full bg-[#05291A] flex flex-col items-center justify-center p-1.5 sm:p-2 relative overflow-hidden border border-emerald-400/50 shadow-inner">
-              
-              {/* Robot Visor Glass Effect */}
-              <div className="w-11 h-6 sm:w-14 sm:h-8 rounded-full bg-gradient-to-b from-[#021A10] to-[#053D22] border border-emerald-400/60 flex items-center justify-center relative overflow-hidden shadow-inner">
-                
-                {/* Glowing Laser Scanline */}
-                <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-400/40 animate-pulse" />
+            <span className="relative flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-white/20 shrink-0">
+              <Bot className={`h-5 w-5 ${isDragging ? "" : "animate-pulse"}`} />
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border border-white" />
+            </span>
 
-                {/* Animated Eyes inside Visor */}
-                <div className="flex items-center gap-1.5 sm:gap-2 z-10">
-                  {eyeState === "normal" && (
-                    <>
-                      <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]" />
-                      <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]" />
-                    </>
-                  )}
-                  {eyeState === "happy" && (
-                    <>
-                      <span className="text-[12px] sm:text-[14px] font-bold text-emerald-400">^</span>
-                      <span className="text-[12px] sm:text-[14px] font-bold text-emerald-400">^</span>
-                    </>
-                  )}
-                  {eyeState === "wink" && (
-                    <>
-                      <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-                      <span className="text-[10px] sm:text-[12px] font-bold text-emerald-400">;</span>
-                    </>
-                  )}
-                  {eyeState === "excited" && (
-                    <>
-                      <span className="text-[10px] sm:text-[12px] font-bold text-amber-400">&gt;</span>
-                      <span className="text-[10px] sm:text-[12px] font-bold text-amber-400">&lt;</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Robot Core Badge - CENTERED DIRECTLY UNDER EYES */}
-              <div className="mt-0.5 sm:mt-1 flex items-center justify-center w-full">
-                <span className="text-[8px] sm:text-[9px] font-extrabold text-emerald-300 font-mono tracking-wider text-center block">
-                  SSD-AI
-                </span>
-              </div>
-
+            {/* Text details - Hidden on mobile, visible on desktop */}
+            <div className="hidden sm:flex flex-col text-right pl-2 pr-0.5">
+              <span className="text-xs font-black leading-tight tracking-wide">SSD Agent</span>
+              <span className="text-[9px] text-emerald-200 leading-tight">وكيل سكورا الذكي</span>
             </div>
-
           </div>
-        </button>
-      </div>
+        </div>
       )}
 
-      {!isOpen && (
-        <button type="button" onClick={() => setShowSsdAssistant(false)}
-          className="absolute -top-2 -left-2 z-20 rounded-full bg-white border border-[#D1E3D6] p-1.5 text-[#526B5E] shadow-md hover:text-red-600"
-          aria-label="إخفاء مساعد الذكاء الاصطناعي">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      )}
-
-      {/* 2. CHAT RECTANGLE WINDOW WITH SYMMETRIC OPEN/CLOSE MORPHING ANIMATIONS */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 2. CHAT AGENT WINDOW */}
+      {/* ───────────────────────────────────────────────────────────── */}
       {isOpen && (
-        <div className={`w-[calc(100vw-2rem)] sm:w-[400px] h-[75vh] max-h-[550px] rounded-[28px] border-2 border-[#056B38] bg-white shadow-2xl flex flex-col overflow-hidden ${
-          isClosing ? "animate-ssd-morph-window-close" : "animate-ssd-morph-window"
-        }`}>
-          
-          {/* Header */}
-          <div className="bg-[#05291A] text-[#ffffff] p-3.5 sm:p-4 flex items-center justify-between shadow-xs shrink-0">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#04331B] to-[#056B38] border-2 border-emerald-400 p-0.5 sm:p-1 flex items-center justify-center shrink-0">
-                <div className="w-full h-full rounded-full bg-[#05291A] flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400" />
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400" />
-                  </div>
-                  <span className="text-[6px] sm:text-[7px] font-bold text-emerald-300 font-mono mt-0.5">SSD</span>
-                </div>
+        <div
+          dir="rtl"
+          style={{
+            left: position.side === "left" ? "16px" : undefined,
+            right: position.side === "right" ? "16px" : undefined,
+          }}
+          className="fixed bottom-[76px] sm:bottom-6 z-50 flex flex-col w-[calc(100vw-32px)] sm:w-[420px] h-[540px] max-h-[78vh] rounded-[28px] border border-[#D1E3D6] bg-white shadow-2xl overflow-hidden font-body animate-in slide-in-from-bottom-5 duration-200"
+        >
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#056B38] to-[#04552D] text-white shadow-xs shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="relative h-9 w-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
+                <BrainCircuit className="w-5 h-5 text-emerald-300" />
+                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-[#056B38]" />
               </div>
-
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-[14px] sm:text-[15px] font-extrabold text-white font-heading">SSD Assistant</h3>
-                  <span className="text-[9px] sm:text-[10px] font-bold bg-[#056B38] text-[#D4F5E0] px-2 py-0.5 rounded-full">
-                    مساعد ذكي
+                  <h3 className="text-sm font-black text-white">SSD AI Agent</h3>
+                  <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.2 rounded-full font-mono">
+                    PRO
                   </span>
                 </div>
-                <div className="text-[10px] sm:text-[11px] text-[#D4F5E0] flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>متصل للتحكم بالموقع</span>
-                </div>
+                <p className="text-[11px] text-emerald-100/80">المساعد والوكيل المستقل لمنصة سكورا</p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCloseChat}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-              title="تصغير الشات"
-            >
-              <Minimize2 className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleResetChat}
+                className="h-8 w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="محادثة جديدة"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseChat}
+                className="h-8 w-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="إغلاق"
+              >
+                <Minimize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          {/* Quick Action Chips Bar */}
-          <div className="p-2.5 sm:p-3 bg-[#E8FAF0] border-b border-[#D1E3D6] flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
-            {userRole === "developer" ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleEstimateDeveloperPrice}
-                  className="px-3 py-1.5 rounded-full bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                >
-                  <DollarSign className="w-3 h-3" />
-                  <span>تسعير العرض الفني</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { router.push("/projects"); handleCloseChat(); }}
-                  className="px-3 py-1.5 rounded-full bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                >
-                  <Briefcase className="w-3 h-3" />
-                  <span>استكشاف المشاريع</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleSearchDevelopers}
-                  className="px-3 py-1.5 rounded-full bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                >
-                  <Users className="w-3 h-3" />
-                  <span>البحث عن مطور</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEstimateClientBudget}
-                  className="px-3 py-1.5 rounded-full bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                >
-                  <DollarSign className="w-3 h-3" />
-                  <span>تقدير الميزانية</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreateProject}
-                  className="px-3 py-1.5 rounded-full bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                >
-                  <Zap className="w-3 h-3" />
-                  <span>+ نشر مشروع</span>
-                </button>
-              </>
+          <div className="p-2 bg-[#F7FAF8] border-b border-[#D1E3D6] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+            {userRole === "developer" && (
+              <button
+                type="button"
+                onClick={() => handleCreateProjectPrompt("ساعدني في نشر مشروع متكامل لمعرض أعمالي مع وصف احترافي بالـ Markdown")}
+                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+              >
+                <Code2 className="w-3 h-3" />
+                <span>مشروع بالمعرض (MD)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => handleCreateProjectPrompt("اعملي مشروع متجر إلكتروني متكامل")}
+              className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+            >
+              <Zap className="w-3 h-3" />
+              <span>مشروع متجر</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCreateProjectPrompt("اعملي مشروع تطبيق موبايل للخدمات")}
+              className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+            >
+              <Zap className="w-3 h-3" />
+              <span>مشروع موبايل</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSearchDevelopers()}
+              className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+            >
+              <Users className="w-3 h-3" />
+              <span>بحث مطورين</span>
+            </button>
+            {userRole === "developer" && (
+              <button
+                type="button"
+                onClick={handleEstimateDeveloperPrice}
+                className="px-2.5 py-1 rounded-xl bg-white border border-[#D1E3D6] text-[11px] font-bold text-[#056B38] hover:bg-[#056B38] hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+              >
+                <DollarSign className="w-3 h-3" />
+                <span>تسعير عروضي</span>
+              </button>
             )}
           </div>
 
-          {/* Messages Feed */}
-          <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto space-y-3 bg-[#F7FAF8]">
+          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-[#F7FAF8]">
             {messages.map((msg) => {
               const isSSD = msg.sender === "ssd";
               return (
-                <div key={msg.id} className={`flex flex-col animate-in fade-in-0 slide-in-from-bottom-2 duration-250 ${isSSD ? "items-start" : "items-end"}`}>
+                <div
+                  key={msg.id}
+                  className={`flex items-start gap-2.5 ${isSSD ? "flex-row" : "flex-row-reverse"}`}
+                >
                   <div
-                    className={`max-w-[88%] p-3 sm:p-3.5 rounded-[18px] text-[12px] leading-relaxed shadow-2xs ${
-                      isSSD
-                        ? "bg-white border border-[#D1E3D6] text-[#05291A] rounded-tr-none"
-                        : "bg-[#056B38] text-white rounded-tl-none font-medium"
+                    className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-black shadow-2xs ${
+                      isSSD ? "bg-[#056B38] text-white" : "bg-neutral-200 text-[#05291A]"
                     }`}
                   >
-                    {msg.text}
+                    {isSSD ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                  </div>
 
-                    {/* Action Buttons */}
-                    {msg.actions && (
-                      <div className="mt-3 pt-2 border-t border-neutral-100 flex flex-wrap gap-2">
+                  <div
+                    className={`max-w-[85%] rounded-[20px] p-3.5 text-xs leading-relaxed shadow-xs ${
+                      isSSD
+                        ? "bg-white border border-[#D1E3D6] text-[#05291A] rounded-tr-xs"
+                        : "bg-[#056B38] text-white rounded-tl-xs font-bold"
+                    }`}
+                  >
+                    {isSSD ? (
+                      <MarkdownRenderer content={msg.text} />
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                    )}
+
+                    {msg.projectDraft && (
+                      <div className="mt-3 p-3 rounded-2xl bg-[#E8FAF0]/80 border-2 border-[#056B38]/30 space-y-2.5 text-right shadow-2xs">
+                        <div className="flex items-center justify-between border-b border-[#D1E3D6] pb-2">
+                          <span className="font-black text-[#05291A] text-xs flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#056B38]" />
+                            <span>
+                              {msg.projectDraft.target === "developer_portfolio" ? "مسودة مشروع معرض الأعمال (MD)" : "مسودة المشروع المقترحة"}
+                            </span>
+                          </span>
+                          <span className="rounded-full bg-[#056B38] text-white text-[9px] font-black px-2 py-0.5">
+                            جاهز للنقل
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="font-extrabold text-[#05291A] text-xs">
+                            {msg.projectDraft.title}
+                          </div>
+                          <p className="text-[11px] text-[#526B5E] line-clamp-2">
+                            {msg.projectDraft.description}
+                          </p>
+                        </div>
+
+                        {msg.projectDraft.target === "developer_portfolio" ? (
+                          <div className="flex flex-wrap gap-2 text-[10px] text-[#526B5E] font-bold">
+                            {msg.projectDraft.executionTime && (
+                              <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6]">
+                                ⏱️ {msg.projectDraft.executionTime}
+                              </span>
+                            )}
+                            <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6]">
+                              {msg.projectDraft.isOpenSource ? "مفتوح المصدر" : "مغلق / تجاري"}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2 text-[10px] text-[#526B5E] font-bold">
+                            <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6]">
+                              {msg.projectDraft.budgetFrom?.toLocaleString("ar-EG")} -{" "}
+                              {msg.projectDraft.budgetTo?.toLocaleString("ar-EG")} ج.م
+                            </span>
+                            <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6]">
+                              {msg.projectDraft.deadlineDays} يوم
+                            </span>
+                          </div>
+                        )}
+
+                        {msg.projectDraft.skills && msg.projectDraft.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {msg.projectDraft.skills.map((sk, idx) => (
+                              <span
+                                key={idx}
+                                className="text-[9px] font-black text-[#056B38] bg-white px-1.5 py-0.2 rounded border border-[#D1E3D6]"
+                              >
+                                {sk}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (msg.projectDraft?.target === "developer_portfolio") {
+                              handleApplyPortfolioDraftAndNavigate(msg.projectDraft);
+                            } else {
+                              handleApplyDraftAndNavigate(msg.projectDraft!);
+                            }
+                          }}
+                          className="w-full h-9 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>
+                            {msg.projectDraft.target === "developer_portfolio" ? "تعبئة ونشر المشروع في معرض أعمالي" : "فتح وتعبئة مسودة المشروع الآن"}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+
+                    {msg.resultCards && msg.resultCards.length > 0 && (
+                      <div className="mt-3 space-y-2 text-right">
+                        <div className="flex items-center gap-1.5 text-[11px] font-black text-[#056B38]">
+                          <Users className="h-3.5 w-3.5" />
+                          <span>{msg.resultCards.some((card) => card.kind === "developer") ? "أفضل النتائج المطابقة" : "مشاريع متاحة لك"}</span>
+                        </div>
+                        {msg.resultCards.slice(0, 6).map((card) => card.kind === "developer" ? (
+                          <a
+                            key={`developer-${card.userId}`}
+                            href={card.profileUrl}
+                            className="block rounded-xl border border-[#D1E3D6] bg-[#F7FAF8] p-2.5 transition-colors hover:border-[#056B38] hover:bg-[#E8FAF0]"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="truncate text-[11px] font-black text-[#05291A]">{card.name}</div>
+                                <div className="truncate text-[10px] text-[#526B5E]">{card.role} · @{card.username}</div>
+                              </div>
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#056B38]" />
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-bold text-[#056B38]">
+                              <span className="rounded bg-white px-1.5 py-0.5">Trust {card.trustScore}%</span>
+                              <span className="rounded bg-white px-1.5 py-0.5">{card.skillPoints} SP</span>
+                              {card.skills.slice(0, 3).map((skill) => <span key={skill} className="rounded bg-white px-1.5 py-0.5">{skill}</span>)}
+                            </div>
+                          </a>
+                        ) : (
+                          <a
+                            key={`project-${card.id}`}
+                            href={card.projectUrl}
+                            className="block rounded-xl border border-[#D1E3D6] bg-[#F7FAF8] p-2.5 transition-colors hover:border-[#056B38] hover:bg-[#E8FAF0]"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="truncate text-[11px] font-black text-[#05291A]">{card.title}</div>
+                                <p className="mt-0.5 line-clamp-2 text-[10px] text-[#526B5E]">{card.description}</p>
+                              </div>
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#056B38]" />
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-bold text-[#056B38]">
+                              <span className="rounded bg-white px-1.5 py-0.5">{card.budgetFrom.toLocaleString("ar-EG")} - {card.budgetTo.toLocaleString("ar-EG")} ج.م</span>
+                              {card.deadlineDays && <span className="rounded bg-white px-1.5 py-0.5">{card.deadlineDays} يوم</span>}
+                              {card.skills.slice(0, 3).map((skill) => <span key={skill} className="rounded bg-white px-1.5 py-0.5">{skill}</span>)}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {msg.adminReport && (
+                      <div className="mt-3 rounded-2xl border-2 border-[#056B38]/25 bg-[#E8FAF0]/70 p-3 text-[10px] text-[#05291A]">
+                        <div className="mb-2 flex items-center justify-between border-b border-[#D1E3D6] pb-2">
+                          <span className="font-black">تقرير اليوم مقارنة بالأمس</span>
+                          <span className="text-[9px] text-[#526B5E]">بيانات مباشرة</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {Object.entries(msg.adminReport.today).map(([key, value]) => {
+                            const diff = msg.adminReport!.differences[key] ?? 0;
+                            return <div key={key} className="rounded-lg bg-white px-2 py-1.5"><div className="text-[#526B5E]">{key}</div><div className="font-black">{value} <span className={diff >= 0 ? "text-[#056B38]" : "text-red-600"}>({diff >= 0 ? "+" : ""}{diff})</span></div></div>;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.pendingAdminAction && (
+                      <div className="mt-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 text-[10px] text-[#3b2a08]">
+                        <div className="font-black">تأكيد تعديل نقاط المهارة</div>
+                        <p className="mt-1 leading-relaxed">سيتم {msg.pendingAdminAction.delta < 0 ? "خفض" : "زيادة"} نقاط <strong>{msg.pendingAdminAction.target.name}</strong> من {msg.pendingAdminAction.target.currentSkillPoints} إلى {msg.pendingAdminAction.nextSkillPoints} SP. لن يتم التنفيذ إلا بعد التأكيد.</p>
+                        {msg.pendingAdminStatus === "pending" && <div className="mt-2 flex gap-1.5"><button type="button" onClick={() => handleConfirmAdminAction(msg.id, msg.pendingAdminAction!)} className="flex-1 rounded-lg bg-[#056B38] px-2 py-1.5 font-black text-white">تأكيد التنفيذ</button><button type="button" onClick={() => updatePendingAdminStatus(msg.id, "cancelled")} className="rounded-lg border border-amber-300 px-2 py-1.5 font-black">إلغاء</button></div>}
+                        {msg.pendingAdminStatus === "running" && <div className="mt-2 font-bold text-[#056B38]">جاري التنفيذ والتحقق من الصلاحية...</div>}
+                        {msg.pendingAdminStatus === "success" && <div className="mt-2 font-bold text-[#056B38]">تم التنفيذ وتسجيله في سجل الإدارة.</div>}
+                        {msg.pendingAdminStatus === "error" && <div className="mt-2 font-bold text-red-600">فشل التنفيذ. لم يتم تغيير النقاط.</div>}
+                        {msg.pendingAdminStatus === "cancelled" && <div className="mt-2 font-bold text-[#526B5E]">تم إلغاء الطلب.</div>}
+                      </div>
+                    )}
+
+                    {/* Action Chips */}
+                    {msg.actions && msg.actions.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-neutral-100 flex flex-wrap gap-1.5">
                         {msg.actions.map((act, i) => (
                           <button
                             key={i}
                             type="button"
                             onClick={act.action}
-                            className="px-3 py-1 rounded-full bg-[#056B38] text-white text-[11px] font-bold hover:bg-[#08592E] transition-all cursor-pointer flex items-center gap-1"
+                            className="px-3 py-1.5 rounded-xl bg-[#056B38] hover:bg-[#005B27] text-white text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                           >
                             <span>{act.label}</span>
                             <ArrowLeft className="w-3 h-3" />
@@ -491,33 +846,69 @@ export function AiAssistantSsd() {
                         ))}
                       </div>
                     )}
+
+                    <div
+                      className={`text-[9px] mt-1 text-left ${
+                        isSSD ? "text-[#526B5E]" : "text-emerald-200"
+                      }`}
+                    >
+                      {msg.time}
+                    </div>
                   </div>
-                  <span className="text-[9px] text-[#526B5E] mt-1 px-1">{msg.time}</span>
                 </div>
               );
             })}
+
+            {/* Typing Indicator */}
+            {isTyping && (
+              <div
+                className="flex items-start gap-2.5"
+                role="status"
+                aria-live="polite"
+                aria-label={THINKING_MESSAGES[thinkingStep]}
+              >
+                <div className="h-7 w-7 rounded-xl bg-[#056B38] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <BrainCircuit className="w-4 h-4 motion-safe:animate-pulse" />
+                </div>
+                <div className="min-h-12 min-w-[230px] max-w-[85%] rounded-[20px] rounded-tr-xs border border-[#D1E3D6] bg-white px-3.5 py-3 shadow-xs">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#056B38]">
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 motion-safe:animate-spin" />
+                    <span>{THINKING_MESSAGES[thinkingStep]}</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1 pr-5" aria-hidden="true">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#056B38]/70 motion-safe:animate-bounce" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#056B38]/50 motion-safe:animate-bounce [animation-delay:150ms]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#056B38]/30 motion-safe:animate-bounce [animation-delay:300ms]" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Input Form */}
-          <form onSubmit={handleSend} className="p-2.5 sm:p-3 bg-white border-t border-[#D1E3D6] flex items-center gap-2 shrink-0">
+          {/* Chat Input */}
+          <form
+            onSubmit={handleSend}
+            className="p-3 bg-white border-t border-[#D1E3D6] flex items-center gap-2 shrink-0"
+          >
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="اطلب أي شيء من SSD..."
-              className="flex-1 h-[40px] sm:h-[42px] rounded-full border border-[#D1E3D6] bg-white px-3.5 text-[12px] text-[#05291A] outline-none focus:border-[#056B38]"
+              placeholder="اطلب من SSD: اعملي مشروع كذا أو اقترح فكرة..."
+              className="flex-1 h-10 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-3.5 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] focus:bg-white transition-all"
             />
             <button
               type="submit"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#056B38] hover:bg-[#08592E] text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer shadow-xs"
+              disabled={!inputText.trim() || isTyping}
+              className="h-10 w-10 rounded-2xl bg-[#056B38] hover:bg-[#005B27] text-white flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
             >
               <Send className="w-4 h-4 rotate-180" />
             </button>
           </form>
-
         </div>
       )}
-
-    </div>
+    </>
   );
 }

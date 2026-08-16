@@ -131,9 +131,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             }`}
           >
             {session.status === "approved"
-              ? "معتمد وموثق ✓"
+              ? "معتمد وموثق "
               : session.status === "rejected"
-              ? "مرفوض ❌"
+              ? "مرفوض "
               : "بانتظار قرار الأدمن (Admin Review)"}
           </span>
         </div>
@@ -264,7 +264,19 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </div>
 
       {/* 5. Authoritative Human Review Decision Form (Layer 10) */}
-      <AdmissionDecisionForm assessmentPublicId={session.public_id} />
+      {(() => {
+        const totalMaxScore = questions.reduce((sum, q) => sum + (Number(q.max_score) || 0), 0);
+        const totalAnswerScore = questions.reduce((sum, q) => sum + (Number(q.score) || 0), 0);
+        const calculatedTrustScore = totalMaxScore > 0 ? Math.round((totalAnswerScore / totalMaxScore) * 100) : (initialReport?.trustScore ?? 0);
+        const calculatedSkillPoints = Math.round(calculatedTrustScore * 10);
+        return (
+          <AdmissionDecisionForm
+            assessmentPublicId={session.public_id}
+            initialTrustScore={calculatedTrustScore}
+            initialSkillPoints={calculatedSkillPoints}
+          />
+        );
+      })()}
 
     </main>
   );

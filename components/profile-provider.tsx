@@ -68,6 +68,7 @@ export interface DeveloperProfileData {
   trustScore: number;
   skillPoints: number;
   status: string;
+  isVerified?: boolean;
   github: string;
   linkedin: string;
   website: string;
@@ -98,6 +99,7 @@ export interface ClientProfileData {
   location: string;
   avatarUrl: string | null;
   website: string;
+  isVerified?: boolean;
   stats: {
     completed: number;
     closed: number;
@@ -164,6 +166,7 @@ const defaultDeveloper: DeveloperProfileData = {
   trustScore: 0,
   skillPoints: 0,
   status: "جديد",
+  isVerified: false,
   github: "",
   linkedin: "",
   website: "",
@@ -182,6 +185,7 @@ const defaultClient: ClientProfileData = {
   location: "",
   avatarUrl: null,
   website: "",
+  isVerified: false,
   stats: {
     completed: 0,
     closed: 0,

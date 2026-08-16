@@ -90,6 +90,46 @@ export async function uploadAvatar(formData: FormData): Promise<UploadResult> {
   return { ok: true, url };
 }
 
+export async function uploadChatImage(formData: FormData): Promise<UploadResult> {
+  const session = await verifySession();
+  if (!session) return { ok: false, error: "غير مصرح لك" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "لم يتم اختيار ملف" };
+  }
+  if (file.size > MAX_BYTES) {
+    return {
+      ok: false,
+      error: `حجم الصورة أكبر من الحد المسموح (${Math.round(MAX_BYTES / 1024 / 1024)} ميجابايت)`,
+    };
+  }
+
+  const ext = ALLOWED.get(file.type);
+  if (!ext) {
+    return { ok: false, error: "صيغة غير مدعومة. استخدم JPG أو PNG أو WebP أو GIF." };
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const sniffed = sniffImageType(bytes);
+  if (sniffed !== file.type) {
+    return { ok: false, error: "محتوى الملف لا يطابق صيغته" };
+  }
+
+  await mkdir(UPLOAD_DIR, { recursive: true });
+  const filename = `chat_${randomUUID()}.${ext}`;
+  await writeFile(path.join(UPLOAD_DIR, filename), bytes);
+  const url = `/uploads/${filename}`;
+
+  await execute(
+    `INSERT INTO media (owner_type, owner_id, mime_type, size_bytes, url)
+     VALUES (?, ?, ?, ?, ?)`,
+    ["chat", session.userId, file.type, file.size, url]
+  );
+
+  return { ok: true, url };
+}
+
 export async function removeAvatar(): Promise<UploadResult> {
   const session = await verifySession();
   if (!session) return { ok: false, error: "غير مصرح لك" };

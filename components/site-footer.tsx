@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScoraLogo } from "@/components/scora-logo";
 
 const footerLinks = [
   { label: "إزاي بتشتغل", href: "/how-it-works" },
@@ -13,14 +14,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-[1296px] flex-col gap-6 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           {/* Logo */}
-          <Link
-            href="/"
-            className="inline-flex items-baseline font-heading text-[22px] font-extrabold text-[#056B38] select-none cursor-pointer"
-            dir="ltr"
-          >
-            <span className="w-1 h-1 rounded-full bg-[#04331B] inline-block self-end mb-[3px] mr-[0.5px] shrink-0" />
-            <span>Scora</span>
-          </Link>
+          <ScoraLogo href="/" size="sm" variant="full" />
           <span className="hidden sm:inline text-neutral-300">|</span>
           <p className="text-[12px] text-muted font-medium">
             منصة التقييم والتوظيف التقني الموثوقة · بواسطة <span className="font-bold text-[#056B38]">CodeLuck</span>
@@ -40,7 +34,7 @@ export function SiteFooter() {
             ))}
           </nav>
           <div className="text-[12px] font-semibold text-neutral-500 flex items-center gap-1 select-none" dir="ltr">
-            <span>© 2026</span>
+            <span> 2026</span>
             <span className="font-extrabold text-[#05291A]">Scora</span>
             <span className="text-neutral-400">by</span>
             <span className="font-extrabold text-[#056B38]">CodeLuck</span>

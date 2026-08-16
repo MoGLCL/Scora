@@ -18,6 +18,7 @@ export interface SessionPayload {
   isAdmin?: boolean;
   onboardingCompleted?: boolean;
   developerApproved?: boolean;
+  hasUsername?: boolean;
   [key: string]: unknown;
 }
 
@@ -58,7 +59,14 @@ export async function decrypt(token?: string): Promise<SessionPayload | null> {
     const role = payload.role;
     if (!Number.isInteger(userId) || userId <= 0) return null;
     if (role !== "developer" && role !== "client") return null;
-    return { userId, role, isAdmin: payload.isAdmin === true, onboardingCompleted: payload.onboardingCompleted === true, developerApproved:payload.developerApproved===true };
+    return {
+      userId,
+      role,
+      isAdmin: payload.isAdmin === true,
+      onboardingCompleted: payload.onboardingCompleted === true,
+      developerApproved: payload.developerApproved === true,
+      hasUsername: payload.hasUsername !== false,
+    };
   } catch {
     return null;
   }

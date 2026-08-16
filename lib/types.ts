@@ -19,6 +19,7 @@ export interface UserRow {
   phone: string | null;
   phone_verified: 0 | 1;
   role: AppRole;
+  is_verified: 0 | 1;
   is_admin: 0 | 1;
   status: AccountStatus;
   suspended_until: Date | null;
@@ -63,6 +64,7 @@ export interface ClientRow {
   phone: string | null;
   location: string | null;
   avatar_url: string | null;
+  is_verified: 0 | 1;
 }
 
 export interface ProjectRow {
@@ -108,6 +110,7 @@ export interface DeveloperCard {
   availability: string;
   availabilityType: Availability;
   avatarUrl: string | null;
+  lastSeenAt?: Date | string | null;
 }
 
 /** Project shaped for the listing cards in app/projects/page.tsx. */

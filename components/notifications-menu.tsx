@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Bell,
   CheckCheck,
@@ -25,12 +24,52 @@ type NotificationItem = {
   created_at: string;
 };
 
-export function NotificationsMenu() {
-  const router = useRouter();
+export function NotificationsMenu({
+  isOpen,
+  onToggle,
+  onClose,
+}: {
+  isOpen?: boolean;
+  onToggle?: () => void;
+  onClose?: () => void;
+} = {}) {
   const [items, setItems] = useState<NotificationItem[]>([]);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isFirstLoad = useRef(true);
   const knownNotificationIds = useRef<Set<number>>(new Set());
+
+  const isControlled = typeof isOpen === "boolean";
+  const open = isControlled ? isOpen : internalOpen;
+
+  const handleToggle = () => {
+    void requestBrowserNotificationPermission();
+    if (isControlled) {
+      if (onToggle) onToggle();
+    } else {
+      setInternalOpen((prev) => !prev);
+    }
+  };
+
+  const handleClose = () => {
+    if (isControlled) {
+      if (onClose) onClose();
+    } else {
+      setInternalOpen(false);
+    }
+  };
+
+  // Close on click outside when uncontrolled
+  useEffect(() => {
+    if (isControlled) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        handleClose();
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isControlled]);
 
   // Request browser desktop notification permission
   useEffect(() => {
@@ -64,7 +103,7 @@ export function NotificationsMenu() {
         if (!(isOnChatPage && isChatNotification)) {
           soundFX.playNotification();
           sendBrowserNotification(
-            "إشعار جديد في سكورا 🔔",
+            "إشعار جديد في سكورا ",
             newestUnreadItem.body,
             newestUnreadItem.link_url || "/dashboard"
           );
@@ -83,8 +122,10 @@ export function NotificationsMenu() {
     let t: ReturnType<typeof setTimeout> | undefined;
 
     const poll = async () => {
-      await load();
-      if (active) t = setTimeout(poll, 3500); // 3.5s live polling
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        await load();
+      }
+      if (active) t = setTimeout(poll, 15000);
     };
 
     void poll();
@@ -109,18 +150,15 @@ export function NotificationsMenu() {
     }
   };
 
-  const handleItemClick = async (n: NotificationItem) => {
-    setOpen(false);
-    try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: n.id })
-      });
-      setItems((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: 1 } : item)));
-    } catch {
-      // Ignore
-    }
+  const handleItemClick = (n: NotificationItem) => {
+    handleClose();
+    void fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: n.id })
+    }).catch(() => {});
+
+    setItems((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: 1 } : item)));
 
     // Determine target URL
     let targetUrl = n.link_url;
@@ -131,8 +169,7 @@ export function NotificationsMenu() {
       else if (n.body.includes("اختبار") || n.body.includes("مراجعة")) targetUrl = "/admin";
       else targetUrl = "/dashboard";
     }
-
-    router.push(targetUrl);
+    window.location.href = targetUrl;
   };
 
   const getIcon = (body: string) => {
@@ -143,13 +180,10 @@ export function NotificationsMenu() {
   };
 
   return (
-    <div className="relative font-body" dir="rtl">
+    <div className="relative font-body" dir="rtl" ref={menuRef}>
       <button
         aria-label="الإشعارات"
-        onClick={() => {
-          void requestBrowserNotificationPermission();
-          setOpen(!open);
-        }}
+        onClick={handleToggle}
         className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#D1E3D6] bg-white hover:bg-[#E8FAF0] transition-colors cursor-pointer shadow-2xs active:scale-95"
       >
         <Bell className="h-5 w-5 text-[#05291A]" />

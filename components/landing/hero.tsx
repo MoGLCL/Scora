@@ -15,7 +15,7 @@ function PassportCard() {
         </div>
         <div className="min-w-0">
           <p className="font-heading text-[25px] font-bold text-white">
-            محمد وائل الغنام ✓
+            محمد وائل الغنام 
           </p>
           <p className="mt-1 text-[13px] text-green-100">
             مهندس برمجيات · القاهرة
@@ -84,7 +84,7 @@ export function Hero() {
                 بروفايل مبرمج / شغال
               </p>
               <span className="rounded-full bg-green-100 px-4 py-1.5 text-[11px] font-bold text-primary">
-                ✓ متوثّق من SCORA
+                 متوثّق من SCORA
               </span>
             </div>
 

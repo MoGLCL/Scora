@@ -39,6 +39,7 @@ import {
   RotateCcw,
   UserCheck
 } from "lucide-react";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export interface ProposalComment {
   id: string;
@@ -51,6 +52,7 @@ export interface ProposalComment {
   role: string;
   trustScore: number;
   status?: string;
+  isVerified?: boolean;
   proposedPrice: string;
   deliveryDays: string;
   deliverablesText: string;
@@ -72,6 +74,7 @@ export interface ProjectDetail {
   clientName: string;
   clientLocation: string;
   clientRating: string;
+  isClientVerified?: boolean;
   clientProjectsCount: number;
   budgetRange: string;
   postedDate: string;
@@ -97,6 +100,8 @@ export function ProjectDetailClient({
   const [projectStatus, setProjectStatus] = useState<string>(project.status || "open");
   const [isManagingProject, setIsManagingProject] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showUnhireModal, setShowUnhireModal] = useState(false);
 
   // Proposal Form State
   const [proposedPrice, setProposedPrice] = useState("");
@@ -152,7 +157,6 @@ export function ProjectDetailClient({
 
   // Cancel project
   const handleCancelProject = async () => {
-    if (!window.confirm("هل أنت متأكد من رغبتك في إلغاء هذا المشروع؟")) return;
     setIsManagingProject(true);
     try {
       const res = await cancelProject(Number(project.id));
@@ -161,6 +165,7 @@ export function ProjectDetailClient({
         return;
       }
       setProjectStatus("closed");
+      setShowCancelModal(false);
       addToast("تم إلغاء المشروع وإغلاق استقبال العروض", "info");
     } finally {
       setIsManagingProject(false);
@@ -428,8 +433,9 @@ export function ProjectDetailClient({
                     </span>
                   </span>
 
-                  <span className="text-[12px] font-bold text-[#526B5E] bg-white/80 px-3 py-1 rounded-full border border-[#D1E3D6]">
-                    {project.clientName}
+                  <span className="text-[12px] font-bold text-[#526B5E] bg-white/80 px-3 py-1 rounded-full border border-[#D1E3D6] inline-flex items-center gap-1.5">
+                    <span>{project.clientName}</span>
+                    {project.isClientVerified && <VerifiedBadge type="client" size="sm" />}
                   </span>
                 </div>
 
@@ -836,14 +842,18 @@ export function ProjectDetailClient({
                                 {prop.devName.slice(0, 2).toUpperCase()}
                               </div>
                             )}
-                            <div>
-                              <div className="flex items-center gap-1.5 font-bold text-[#05291A] text-[15px] group-hover:text-[#056B38] transition-colors">
-                                <span>{prop.devName}</span>
-                                <span className="text-[12px] text-[#526B5E] font-normal">(@{prop.devUsername})</span>
-                                <ShieldCheck className="w-4 h-4 text-[#056B38]" />
+                              <div>
+                                <div className="flex items-center gap-1.5 font-bold text-[#05291A] text-[15px] group-hover:text-[#056B38] transition-colors">
+                                  <span>{prop.devName}</span>
+                                  <span className="text-[12px] text-[#526B5E] font-normal">(@{prop.devUsername})</span>
+                                  {prop.isVerified ? (
+                                    <VerifiedBadge type="developer" size="sm" />
+                                  ) : (
+                                    <ShieldCheck className="w-4 h-4 text-[#056B38]" />
+                                  )}
+                                </div>
+                                <div className="text-[12px] text-[#526B5E]">{prop.role}</div>
                               </div>
-                              <div className="text-[12px] text-[#526B5E]">{prop.role}</div>
-                            </div>
                           </Link>
 
                           {/* Badges: Trust Score + Status + Time */}
@@ -1009,7 +1019,10 @@ export function ProjectDetailClient({
                   {project.clientName.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <div className="font-bold text-[#05291A] text-[15px]">{project.clientName}</div>
+                  <div className="font-bold text-[#05291A] text-[15px] flex items-center gap-1.5">
+                    <span>{project.clientName}</span>
+                    {project.isClientVerified && <VerifiedBadge type="client" size="sm" />}
+                  </div>
                   <div className="text-[12px] text-[#526B5E]">{project.clientLocation || "مصر"}</div>
                 </div>
               </div>
@@ -1073,7 +1086,7 @@ export function ProjectDetailClient({
                     <button
                       type="button"
                       disabled={isManagingProject}
-                      onClick={handleCancelProject}
+                      onClick={() => setShowCancelModal(true)}
                       className="w-full h-[42px] rounded-xl border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-[#05291A] text-[13px] font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       <XCircle className="w-4 h-4 text-neutral-600" />
@@ -1112,9 +1125,89 @@ export function ProjectDetailClient({
 
       </main>
 
+      {/* CANCEL CONFIRMATION MODAL */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
+          <div className="w-full max-w-md rounded-[28px] bg-white p-6 md:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-100">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
+                هل أنت متأكد من إلغاء المشروع؟
+              </h3>
+              <p className="text-[13px] text-[#526B5E] leading-relaxed">
+                سيتم إغلاق استقبال العروض وإلغاء هذا المشروع. يمكنك دائماً إنشاء مشاريع جديدة في أي وقت.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isManagingProject}
+                onClick={handleCancelProject}
+                className="flex-1 h-[46px] rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[14px] font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50 active:scale-95"
+              >
+                <span>{isManagingProject ? "جاري الإلغاء..." : "نعم، إلغاء المشروع"}</span>
+              </button>
+              
+              <button
+                type="button"
+                disabled={isManagingProject}
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 h-[46px] rounded-full border border-[#D1E3D6] bg-white hover:bg-neutral-50 text-[#05291A] text-[14px] font-bold transition-all cursor-pointer"
+              >
+                رجوع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UNHIRE CONFIRMATION MODAL */}
+      {showUnhireModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
+          <div className="w-full max-w-md rounded-[28px] bg-white p-6 md:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-100">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-[20px] font-extrabold text-[#05291A] font-heading">
+                إلغاء توظيف المطور
+              </h3>
+              <p className="text-[13px] text-[#526B5E] leading-relaxed">
+                هل أنت متأكد من رغبتك في إلغاء توظيف المطور الحالي وإعادة فتح المشروع لاختيار عروض أخرى؟
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isManagingProject}
+                onClick={handleUnhireDeveloper}
+                className="flex-1 h-[46px] rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[14px] font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50 active:scale-95"
+              >
+                <span>{isManagingProject ? "جاري الإلغاء..." : "تأكيد إلغاء التوظيف"}</span>
+              </button>
+              
+              <button
+                type="button"
+                disabled={isManagingProject}
+                onClick={() => setShowUnhireModal(false)}
+                className="flex-1 h-[46px] rounded-full border border-[#D1E3D6] bg-white hover:bg-neutral-50 text-[#05291A] text-[14px] font-bold transition-all cursor-pointer"
+              >
+                رجوع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DELETE CONFIRMATION MODAL */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
           <div className="w-full max-w-md rounded-[28px] bg-white p-6 md:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-100">
               <AlertTriangle className="w-7 h-7" />

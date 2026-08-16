@@ -164,3 +164,19 @@ export const EGYPTIAN_GOVERNORATES = [
 export const EGYPT_GOVERNORATES_AND_CITIES: Record<string, string[]> = Object.fromEntries(
   EGYPTIAN_GOVERNORATES.map(({ nameAr, cities }) => [nameAr, cities])
 );
+
+export const COMPANY_INDUSTRIES = [
+  "البرمجيات وتكنولوجيا المعلومات (SaaS / Tech)",
+  "التجارة الإلكترونية والبيع بالتجزئة (E-Commerce)",
+  "التكنولوجيا المالية والمدفوعات (FinTech)",
+  "الذكاء الاصطناعي وتعلم الآلة (AI / LLMs)",
+  "الرعاية الصحية والتكنولوجيا الطبية (HealthTech)",
+  "التكنولوجيا التعليمية (EdTech)",
+  "التطوير العقاري ومنصات العقارات (PropTech)",
+  "الخدمات اللوجستية والشحن (Logistics)",
+  "الإعلام والتسويق الرقمي (Media & Marketing)",
+  "السياحة وحجوزات السفر (TravelTech)",
+  "الاستشارات والخدمات المهنية (Consulting)",
+  "الزراعة والتكنولوجيا الزراعية (AgriTech)",
+  "مجال آخر / مشروع ناشئ"
+];

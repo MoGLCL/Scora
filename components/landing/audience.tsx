@@ -49,7 +49,7 @@ export function Audience() {
                   className="text-[13px] font-bold text-ink"
                 >
                   <span aria-hidden className="text-primary">
-                    ✓
+                    
                   </span>{" "}
                   {bullet}
                 </li>

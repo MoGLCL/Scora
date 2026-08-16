@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Cairo, Tajawal, Outfit, JetBrains_Mono } from "next/font/google";
 import { ProfileProvider } from "@/components/profile-provider";
+import { FloatingChatProvider } from "@/components/floating-chat-provider";
+import { FloatingChatContainer } from "@/components/floating-chat-container";
 import { AiAssistantSsd } from "@/components/ai-assistant-ssd";
 import { MobileBottomTabs } from "@/components/mobile-bottom-tabs";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { UserHeartbeat } from "@/components/user-heartbeat";
 import { getCurrentClient, getCurrentDeveloper, getCurrentUser, verifySession } from "@/lib/dal";
 import { query, queryOne } from "@/lib/db";
 import "./globals.css";
@@ -39,9 +42,15 @@ export const metadata: Metadata = {
   description:
     "وظّف مبرمجين فاهمين شغلهم، مش بس حافظين كلام. سكورا بيجمع التقييمات، جودة الكود، والإنترفيو في بروفايل واحد.",
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
     shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
@@ -63,25 +72,39 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     [session.userId]
   ) : null;
   const initialProfile = {
-    role: session?.role ?? "guest" as const,
+    role: (session?.role ?? "guest") as "developer" | "client" | "guest",
     isAdmin: session?.isAdmin ?? false,
     username: user?.username ?? "",
     isAiAssistantEnabled: aiSetting?.setting_value !== "false",
     showSsdAssistant: userAiSetting?.setting_value !== "false",
-    developer: developer && user ? {
-      fullName: developer.display_name, email: user.email, phone: developer.phone ?? user.phone ?? "",
-      jobTitle: developer.job_title ?? "", location: developer.location ?? "", bio: developer.bio ?? "",
-      trustScore: developer.trust_score, skillPoints: developer.skill_points,
-      github: developer.github_url ?? "", linkedin: developer.linkedin_url ?? "", website: developer.portfolio_url ?? "",
-      availability: developer.availability === "busy" ? "busy" as const : "available" as const,
-      avatarUrl: developer.avatar_url,
+    developer: user ? {
+      fullName: developer?.display_name || user.full_name || "مطور",
+      email: user.email,
+      phone: developer?.phone ?? user.phone ?? "",
+      jobTitle: developer?.job_title ?? "",
+      location: developer?.location ?? "",
+      bio: developer?.bio ?? "",
+      trustScore: developer?.trust_score ?? 50,
+      skillPoints: developer?.skill_points ?? 0,
+      github: developer?.github_url ?? "",
+      linkedin: developer?.linkedin_url ?? "",
+      website: developer?.portfolio_url ?? "",
+      availability: developer?.availability === "busy" ? ("busy" as const) : ("available" as const),
+      avatarUrl: developer?.avatar_url ?? null,
+      isVerified: Boolean(developer?.is_verified || user.is_verified),
       skills: developerSkills.map((skill) => skill.name),
     } : undefined,
-    client: client && user ? {
-      accountType: client.account_type,
-      fullName: client.display_name, email: user.email, phone: client.phone ?? user.phone ?? "",
-      companyName: client.company_name ?? "", industry: client.industry ?? "", location: client.location ?? "", website: client.website ?? "",
-      avatarUrl: client.avatar_url,
+    client: user ? {
+      accountType: client?.account_type ?? "personal",
+      fullName: client?.display_name || user.full_name || "عميل",
+      email: user.email,
+      phone: client?.phone ?? user.phone ?? "",
+      companyName: client?.company_name ?? "",
+      industry: client?.industry ?? "",
+      location: client?.location ?? "",
+      website: client?.website ?? "",
+      avatarUrl: client?.avatar_url ?? null,
+      isVerified: Boolean(client?.is_verified || user.is_verified),
     } : undefined,
   };
   return (
@@ -93,10 +116,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col pb-20 lg:pb-0">
         <ProfileProvider key={`${session?.userId ?? "guest"}:${session?.isAdmin ?? false}`} initialProfile={initialProfile}>
-          {children}
-          <AiAssistantSsd />
-          <MobileBottomTabs />
-          <AnalyticsTracker />
+          <FloatingChatProvider>
+            {children}
+            <FloatingChatContainer />
+            <AiAssistantSsd />
+            <MobileBottomTabs />
+            <AnalyticsTracker />
+            <UserHeartbeat />
+          </FloatingChatProvider>
         </ProfileProvider>
       </body>
     </html>

@@ -1,4 +1,4 @@
-"use theoretical"; // eslint-disable-line
+"use theoretical";
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -16,7 +16,7 @@ const Question = z.object({
 });
 
 const Assessment = z.object({
-  questions: z.array(Question).min(5).max(20),
+  questions: z.array(Question).min(4).max(20),
   durationMinutes: z.number().int().min(15).max(180).optional()
 });
 
@@ -64,19 +64,24 @@ const OpenRouterResponse = z.object({
 
 const DEFAULT_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const configuredJsonMaxTokens = Number(process.env.OPENROUTER_MAX_TOKENS);
+const DEFAULT_JSON_MAX_TOKENS = Number.isInteger(configuredJsonMaxTokens)
+  ? Math.min(2_000, Math.max(128, configuredJsonMaxTokens))
+  : 400;
+const configuredAssistantMaxTokens = Number(process.env.OPENROUTER_ASSISTANT_MAX_TOKENS);
+const ASSISTANT_MAX_TOKENS = Number.isInteger(configuredAssistantMaxTokens)
+  ? Math.min(4_000, Math.max(800, configuredAssistantMaxTokens))
+  : 2_000;
+const MIN_AFFORDABLE_COMPLETION_TOKENS = 64;
 
-// Active 100% Free models fallback pipeline
+// Keep the fallback pipeline free-only. Paid slugs make a zero-credit OpenRouter
+// account fail before it can reach the free router.
 const AI_MODEL_PIPELINE = [
   "openrouter/free",
-  "cohere/north-mini-code:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "google/gemma-4-31b-it:free",
-  "nvidia/nemotron-3.5-lightning:free",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  "openai/gpt-oss-20b:free",
-  "liquid/lfm-2.5-2.6b:free",
-  "poolside/laguna-s-2.1:free",
-  "dots-studio/dots-3-note-preview:free"
+  "nvidia/nemotron-nano-9b-v2:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemma-3-27b-it:free",
+  "qwen/qwen3-coder:free"
 ];
 
 // ─── AES-256-GCM Encryption / Decryption Helpers ──────────────
@@ -283,7 +288,7 @@ function createFallbackAssessment(skills: string[], jobTitle?: string) {
   };
 }
 
-// ─── OpenRouter HTTP Request Executor ─────────────────────────
+// ─── OpenRouter HTTP Request Executor with Resilient Timeout ──
 
 async function requestModelJson(input: {
   apiKey: string;
@@ -332,22 +337,51 @@ async function requestModelJson(input: {
       if (response.status === 400 && input.useJsonFormat !== false) {
         return requestModelJson({ ...input, useJsonFormat: false });
       }
+      if (response.status === 402) {
+        const errorBody = await response.text().catch(() => "");
+        const match = errorBody.match(/can only afford (\d+)/i);
+        const affordableTokens = match?.[1] ? Number.parseInt(match[1], 10) : 0;
+        const retryMaxTokens = affordableTokens - 16;
+
+        if (
+          retryMaxTokens >= MIN_AFFORDABLE_COMPLETION_TOKENS &&
+          retryMaxTokens < input.maxTokens
+        ) {
+          return requestModelJson({ ...input, maxTokens: retryMaxTokens });
+        }
+
+        throw new Error("OPENROUTER_CREDITS_INSUFFICIENT");
+      }
+      if (response.status === 401) throw new Error("OPENROUTER_INVALID_API_KEY");
+      if (response.status === 403) throw new Error("OPENROUTER_FORBIDDEN");
+      if (response.status === 429) throw new Error("OPENROUTER_RATE_LIMITED");
       throw new Error(`OPENROUTER_HTTP_${response.status}`);
     }
 
     const parsedResponse = OpenRouterResponse.parse(await response.json());
     return parseModelJson(parsedResponse.choices[0].message.content);
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
+      throw new Error(`OPENROUTER_TIMEOUT_${input.timeoutMs}MS`);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function completeJson<T>(schema: z.ZodType<T>, system: string, prompt: string) {
+export async function completeJson<T>(
+  schema: z.ZodType<T>,
+  system: string,
+  prompt: string,
+  options: { maxTokens?: number; timeoutMs?: number } = {}
+) {
   const config = await openRouterConfig();
   const apiKey = config.apiKey;
   if (!apiKey) throw new Error("OPENROUTER_NOT_CONFIGURED");
 
   const modelsToTry = Array.from(new Set([config.model, ...AI_MODEL_PIPELINE]));
+  const failures: string[] = [];
 
   for (const modelCandidate of modelsToTry) {
     try {
@@ -358,16 +392,25 @@ async function completeJson<T>(schema: z.ZodType<T>, system: string, prompt: str
         siteTitle: config.siteTitle,
         system,
         prompt,
-        maxTokens: 3000,
+        maxTokens: options.maxTokens ?? DEFAULT_JSON_MAX_TOKENS,
         temperature: 0.2,
-        timeoutMs: 12_000
+        timeoutMs: options.timeoutMs ?? 12_000
       });
       return { value: schema.parse(value), model: modelCandidate };
-    } catch {
-      // Try next candidate
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+      failures.push(`${modelCandidate}:${code}`);
+
+      if (code === "OPENROUTER_INVALID_API_KEY" || code === "OPENROUTER_FORBIDDEN") {
+        break;
+      }
     }
   }
-  throw new Error("OPENROUTER_ALL_MODELS_FAILED");
+
+  const diagnosticFailures = failures.length > 3
+    ? [failures[0], ...failures.slice(-2)]
+    : failures;
+  throw new Error(`OPENROUTER_ALL_MODELS_FAILED (${diagnosticFailures.join(", ")})`);
 }
 
 // ─── Public AI Actions ─────────────────────────────────────────
@@ -390,18 +433,18 @@ export async function generateAssessment(
     ? `Forbidden previous questions: ${JSON.stringify(previousQuestions.slice(0, 15))}`
     : "No previous questions exist.";
 
-  const prompt = `Generate a 100% unique Arabic AI technical assessment for a candidate in the specialty "${track}" claiming the following skills: ${cleanSkills.join(
+  const prompt = `Generate a concise Arabic AI technical assessment for candidate in "${track}" claiming skills: ${cleanSkills.join(
     ", "
   )}.
 REQUIREMENTS:
-1. Cover ALL claimed skills across the assessment.
-2. Include 1 practical coding task in the primary skill (${primarySkill}).
-3. Include ${Math.max(3, cleanSkills.length)} Multiple Choice Questions (MCQs) with 4 options each, distributing the questions to test EACH of the candidate's skills: ${cleanSkills.join(", ")}.
-4. Include 2 in-depth architectural interview questions covering the candidate's skills.
-5. All text, questions, and options MUST be in formal Arabic.
-6. Return a valid JSON object with:
-   - "durationMinutes": realistic test duration (e.g. 45, 60)
-   - "questions": array of question objects with "kind" ("code"|"mcq"|"interview"), "skill" (the specific skill being tested), "question" (Arabic text), "options" (array of 4 strings for MCQs), "expectedAnswer" (string), and "maxScore" (number).
+1. Cover ALL claimed skills.
+2. 1 practical coding task in primary skill (${primarySkill}).
+3. ${Math.min(4, Math.max(3, cleanSkills.length))} MCQs with 4 options each across skills: ${cleanSkills.join(", ")}.
+4. 2 short architectural interview questions for ${cleanSkills.join(", ")}.
+5. All text in formal Arabic.
+6. Return JSON with:
+   - "durationMinutes": 45
+   - "questions": array of { "kind": "code"|"mcq"|"interview", "skill": string, "question": string, "options": string[] (for mcq), "expectedAnswer": string, "maxScore": number }
 Variation seed: ${variationSeed}. ${exclusions}.`;
 
   if (apiKey) {
@@ -416,17 +459,19 @@ Variation seed: ${variationSeed}. ${exclusions}.`;
           siteTitle: config.siteTitle,
           system: "You are SCORA AI Technical Examiner. Output valid JSON only.",
           prompt,
-          maxTokens: 4000,
-          temperature: 0.8,
-          timeoutMs: 14_000
+          maxTokens: 2500,
+          temperature: 0.7,
+          timeoutMs: 90_000
         });
         return { assessment: normalizeAssessment(raw, cleanSkills), model: modelCandidate, prompt, raw };
       } catch (err) {
-        console.warn(`[generateAssessment] Model ${modelCandidate} failed, trying next AI model...`, err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[generateAssessment] Model ${modelCandidate} failed (${msg}), trying next AI model...`);
       }
     }
   }
 
+  // Gracefully provide dynamic multi-skill assessment if all remote APIs time out or fail
   return createFallbackAssessment(cleanSkills, track);
 }
 
@@ -462,16 +507,341 @@ export async function gradeAssessmentAnswer(input: {
   }
 }
 
-export async function askAssistant(input: { message: string; role: string; isAdmin: boolean; context: Record<string, unknown> }) {
+const ProjectDraftSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  category: z.string().default("تطوير مواقع الويب (Full-Stack)"),
+  budgetFrom: z.number().default(15000),
+  budgetTo: z.number().default(25000),
+  deadlineDays: z.number().default(14),
+  skills: z.array(z.string()).default(["React.js", "Next.js", "Node.js"]),
+  deliverables: z.array(z.string()).default(["واجهة مستخدم متجاوبة", "قاعدة بيانات ولوحة تحكم"]),
+  target: z.enum(["client_project", "developer_portfolio"]).default("client_project"),
+  executionTime: z.string().nullish(),
+  startDate: z.string().nullish(),
+  isOpenSource: z.boolean().nullish(),
+  projectStatus: z.enum(["completed", "in_progress"]).nullish(),
+  previewUrl: z.string().nullish(),
+  githubUrl: z.string().nullish(),
+});
+
+const AgentActionSchema = z.object({
+  type: z.enum(["create_project", "create_portfolio_project", "search_developers", "estimate_pricing", "browse_projects", "navigate"]),
+  label: z.string(),
+  url: z.string().nullish(),
+  projectDraft: ProjectDraftSchema.nullish(),
+});
+
+function extractAssistantText(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+
+  const record = value as Record<string, unknown>;
+  for (const key of ["answer", "response", "content", "text", "message"]) {
+    const candidate = record[key];
+    if (typeof candidate === "string") return candidate;
+  }
+
+  return undefined;
+}
+
+const AssistantResponseSchema = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+
+    const record = value as Record<string, unknown>;
+    const nestedMessage =
+      record.message && typeof record.message === "object"
+        ? (record.message as Record<string, unknown>)
+        : null;
+    const nestedAnswer =
+      record.answer && typeof record.answer === "object" && !Array.isArray(record.answer)
+        ? (record.answer as Record<string, unknown>)
+        : null;
+    const answer =
+      extractAssistantText(record.answer) ??
+      extractAssistantText(record.response) ??
+      extractAssistantText(record.content) ??
+      extractAssistantText(nestedMessage) ??
+      extractAssistantText(record.message);
+
+    return {
+      ...nestedAnswer,
+      ...record,
+      answer,
+      suggestedAction: record.suggestedAction ?? nestedAnswer?.suggestedAction,
+      projectDraft: record.projectDraft ?? nestedAnswer?.projectDraft,
+      actions: record.actions ?? nestedAnswer?.actions,
+    };
+  },
+  z.object({
+    answer: z.string().trim().min(1).max(4000),
+    suggestedAction: z.string().nullish(),
+    projectDraft: ProjectDraftSchema.nullish(),
+    actions: z.array(AgentActionSchema).nullish(),
+  })
+);
+
+function buildSmartAssistantFallback(input: {
+  message: string;
+  role: string;
+  isAdmin: boolean;
+  context: Record<string, unknown>;
+}) {
+  const msg = input.message.toLowerCase().trim();
+
+  // 1. Developer asks SSD to submit a proposal/offer on an open project -> REFUSE AND ROAST!
+  const isAskingToSubmitProposal =
+    (msg.includes("عرض") || msg.includes("proposal") || msg.includes("قدم") || msg.includes("قدملي") || msg.includes("تقديم") || msg.includes("بروبوزال")) &&
+    (msg.includes("مشروع") || msg.includes("مشاريع") || msg.includes("مفتوح") || msg.includes("مفتوحة") || msg.includes("مناقصة") || msg.includes("فرصة")) &&
+    !msg.includes("معرض") &&
+    !msg.includes("portfolio");
+
+  if (isAskingToSubmitProposal) {
+    return {
+      answer: `## يا باشمهندس عاوزني أنا اللي أقدملك العرض كمان؟!
+
+أومال أنت مسمي نفسك سنيور ومطور محترف بناءً على إيه؟ على شرب القهوة وقعدة اللينكد إن وتجميع الـ SP؟! 
+
+خش بنفسك على المشروع، اقرأ الـ Scope كويس، وافهم متطلبات العميل واكتب عرضك بمجهودك وبصمتك التقنية يا نجم.. ده أنت ناقص تقولي تعال حل مكاني الكودينج تشالنج واعمل الإنترفيو واقبض الفلوس وحطها في جيبك!
+
+ادخل على صفحة المشاريع واكتب عرضك بنفسك يا باشا.`,
+      actions: [
+        {
+          type: "browse_projects" as const,
+          label: "تصفح المشاريع واكتب عرضك بنفسك يا هندسة",
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 2. Specific Portfolio Project vs Open Job Project:
+  const isPortfolioShowcase =
+    msg.includes("معرض") ||
+    msg.includes("بورتفوليو") ||
+    msg.includes("portfolio") ||
+    msg.includes("معرضي") ||
+    msg.includes("أعمالي") ||
+    msg.includes("اعمالي") ||
+    (msg.includes("مشروع") && (msg.includes("في المعرض") || msg.includes("ف المعرض") || msg.includes("بالمعرض") || msg.includes("بالـ md") || msg.includes("بال md")));
+
+  if (isPortfolioShowcase) {
+    // Developer Portfolio Project Draft (Markdown)
+    const projectDraft = {
+      title: "منصة تجارة إلكترونية متطورة بنظام Microservices وبوابات دفع ذكية",
+      description: `## نظرة عامة على المشروع
+
+منصة تجارة إلكترونية عالية الكفاءة مبنية لتتحمل أكثر من **10,000 مستخدم متزامن** مع نظام دفع إلكتروني متعدد ومزامنة فورية للمخزون.
+
+### الميزات التقنية الرئيسية:
+- **معمارية عالية الأداء**: فصل الخدمات (Services) مع دعم Redis Caching.
+- **إدارة المخزون الفورية**: WebSockets لمتابعة الكميات وحجوزات السلة لحظة بلحظة.
+- **تأمين المعاملات**: تشفير بيانات الدفع وتطبيق معايير OWASP للسيبراني.
+
+\`\`\`typescript
+// مثال على معالجة طلب الدفع الآمن
+export async function processOrderCheckout(orderId: string, amount: number) {
+  const transaction = await db.transaction(async (tx) => {
+    const inventoryLocked = await tx.inventory.lock(orderId);
+    if (!inventoryLocked) throw new Error("INSUFFICIENT_STOCK");
+    return await paymentGateway.charge({ orderId, amount });
+  });
+  return transaction;
+}
+\`\`\`
+
+### التحديات التي تم حلها:
+1. حل مشكلة الـ Concurrency أثناء فترات التخفيضات الكبرى.
+2. تحسين سرعة تحميل الصفحات (LCP < 0.8s) باستخدام Next.js SSR.`,
+      category: "تطوير مواقع الويب (Full-Stack)",
+      budgetFrom: 20000,
+      budgetTo: 35000,
+      deadlineDays: 25,
+      skills: ["Next.js", "TypeScript", "Tailwind CSS", "Redis", "Prisma", "PostgreSQL"],
+      deliverables: ["كود نظيف موثق", "واجهات متجاوبة", "بوابات دفع جاهزة"],
+      target: "developer_portfolio" as const,
+      executionTime: "3 أسابيع",
+      startDate: "يناير 2026",
+      isOpenSource: true,
+      projectStatus: "completed" as const,
+    };
+
+    return {
+      answer: `## تم تجهيز مسودة مشروعك بالـ Markdown لمعرض الأعمال 🚀
+
+كتبت لك وصفاً تقنياً احترافياً بأسلوب **Markdown** يبرز مهاراتك الهندسية، مع معمارية النظام ومثال للكود والتحديات التي تغلبت عليها.
+
+اضغط على الزر أدناه لتعبئة البيانات في صفحة نشر المشروع بضغطة واحدة!`,
+      projectDraft,
+      actions: [
+        {
+          type: "create_portfolio_project" as const,
+          label: "تعبئة ونشر المشروع في معرض أعمالي 🚀",
+          projectDraft,
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 3. User asks to add / create an OPEN JOB PROJECT (for developers to apply)
+  if (
+    msg.includes("مشروع") ||
+    msg.includes("انشر") ||
+    msg.includes("ضفلي مشروع") ||
+    msg.includes("اعملي مشروع") ||
+    msg.includes("سويلي مشروع") ||
+    msg.includes("طلب مشروع") ||
+    msg.includes("مشروع جديد")
+  ) {
+    const projectDraft = {
+      title: "تطوير تطبيق ويب متكامل لإدارة الأعمال مع بوابات دفع ولوحة تحكم",
+      description: `## تفاصيل المشروع المطلوب
+
+نبحث عن مطور محترف لبناء نظام متكامل يتميز بالأداء العالي والأمان وسهولة الاستخدام.
+
+### المتطلبات والمهام الأساسية:
+- تصميم وبناء واجهة مستخدم متجاوبة وحديثة وتدعم اللغة العربية والإنجليزية.
+- بناء واجهات برمجة التطبيقات (RESTful / GraphQL APIs) وقاعدة بيانات سريعة وآمنة.
+- نظام مصادقة وصلاحيات متقدم للمستخدمين والإدارة.
+- ربط بوابات الدفع الإلكتروني وتكامل الإشعارات الفورية.
+
+### الشروط:
+- الالتزام بتسليم كود نظيف وموثق بالكامل.
+- خبرة سابقة في مشاريع مشابهة وسرعة في الإنجاز.`,
+      category: "تطوير مواقع الويب (Full-Stack)",
+      budgetFrom: 18000,
+      budgetTo: 30000,
+      deadlineDays: 21,
+      skills: ["Next.js", "TypeScript", "Node.js", "PostgreSQL"],
+      deliverables: ["الكود المصدري كاملاً", "لوحة التحكم", "دليل التشغيل والـ API Docs"],
+      target: "client_project" as const,
+    };
+
+    return {
+      answer: `## مسودة المشروع المفتوح جاهزة للنشر للمطورين 🚀
+
+قمت بتجهيز مسودة متكاملة للمشروع مع المتطلبات والميزانية والمهارات المقترحة.
+
+يمكنك مراجعة المسودة وتعديل أي تفاصيل ثم نشرها مباشرة في منصة سكورا ليتمكن المطورون من التقديم عليها فوراً!`,
+      projectDraft,
+      actions: [
+        {
+          type: "create_project" as const,
+          label: "تعبئة مسودة المشروع ونشره للمطورين ✍️",
+          projectDraft,
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 4. Pricing / SP questions
+  if (msg.includes("سعر") || msg.includes("فلوس") || msg.includes("تكلفة") || msg.includes("sp") || msg.includes("نقاط")) {
+    return {
+      answer: `## تقدير الأسعار ونقاط المهارة (SP) 💰
+
+في منصة **سكورا**، يتم تسعير المشاريع بناءً على:
+1. **درجة الثقة (Trust Score)** والـ SP المعتمدة للمطور.
+2. **تعقيد التقنيات المطلوبة** (Full-Stack / AI / Mobile).
+3. **المدة الزمنية** ومخرجات المشروع.
+
+💡 **نصيحة تقنية**: المطورين الحاصلين على أعلى من 70% في التقييمات يحصلون على أسعار تنافسية تتراوح بين **15,000 إلى 40,000 ج.م** للمشاريع المتوسطة.`,
+      actions: [
+        {
+          type: "browse_projects" as const,
+          label: "تصفح المشاريع المتاحة للتقديم",
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 5. Search / Find developers
+  if (msg.includes("مطور") || msg.includes("مبرمج") || msg.includes("توظيف") || msg.includes("ابحث") || msg.includes("freelancer")) {
+    return {
+      answer: `## استكشاف المطورين المعتمدين 👨‍💻
+
+يمكنك تصفح نخبة من أفضل المطورين الذين اجتازوا اختبارات الكود والإنترفيو التقني في سكورا.
+
+تفضل بتصفح قائمة المطورين أو استخدم فلتر المهارات للعثور على المطور المناسب لمشروعك فوراً.`,
+      actions: [
+        {
+          type: "search_developers" as const,
+          label: "تصفح قائمة المطورين المعتمدين",
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 6. Default helpful Arabic response
+  return {
+    answer: `## مرحباً بك! أنا SSD وكيل سكورا الذكي 🤖
+
+أنا هنا لمساعدتك في كل ما يتعلق بالمنصة:
+- ✍️ **صياغة مشاريع معرض أعمالك بالـ Markdown** ونشرها فوراً في بروفايلك عند قول "ضفلي مشروع في المعرض".
+- 🚀 **إنشاء مشاريع جديدة للمنصة** ليقدم عليها المطورون عند قول "ضفلي مشروع".
+- 💼 **تقدير الأسعار وتفاصيل المشاريع** بدقة وواقعية.
+- 🎯 **اقتراح أفكار تقنية** وحلول للمعمارية البرمجية.
+
+كيف يمكنني مساعدتك اليوم؟`,
+    actions: [
+      {
+        type: "browse_projects" as const,
+        label: "تصفح المشاريع المتاحة",
+      },
+    ],
+    model: "ssd-smart-engine",
+  };
+}
+
+export async function askAssistant(input: {
+  message: string;
+  role: string;
+  isAdmin: boolean;
+  context: Record<string, unknown>;
+}) {
+  const prompt = `You are SSD, SCORA's Autonomous AI Agent and Copilot.
+User Role: ${input.role} (isAdmin: ${input.isAdmin}).
+Live Platform Context: ${JSON.stringify(input.context)}.
+User Message: "${input.message}".
+
+INSTRUCTIONS:
+1. Respond in friendly, professional Arabic as "SSD" (مساعد سكورا الذكي). Format your responses in clean, structured Markdown (using headings ##, bullet points, bold/italic, and code blocks \`\`\`lang ... \`\`\`).
+2. CRITICAL RULE FOR SUBMITTING PROPOSALS / OFFERS:
+   - If the user asks you to submit, apply, or write an offer / proposal on an open project on their behalf (e.g. "ضفلي عرض على مشروع", "قدملي على مشروع", "اعملي proposal على مشروع مفتوح"):
+   - YOU MUST REFUSE AND ROAST THE DEVELOPER with witty Egyptian tech developer humor! (e.g. "يا باشمهندس عاوزني أنا اللي أكتب وأقدملك العرض على المشروع كمان؟! أومال أنت مسمي نفسك سنيور وتعبان في الـ SP بناءً على إيه؟ على شرب القهوة وقعدة اللينكد إن؟! خش بنفسك اقرأ الـ Scope واكتب عرضك بمجهودك يا نجم، ده أنت ناقص تقولي تعال اعمل الإنترفيو واقبض مكانك وأديك الكاش في جيبك!").
+   - Populate actions with type "browse_projects" and label "تصفح المشاريع واكتب عرضك بنفسك يا هندسة". Do NOT generate any projectDraft.
+3. CRITICAL RULE FOR PROJECTS (PORTFOLIO SHOWCASE vs OPEN JOB PROJECT):
+   - If the user explicitly asks to add/draft a project for their PORTFOLIO / SHOWCASE / PROFILE (e.g. "ضفلي مشروع في المعرض", "مشروع لمعرض أعمالي", "مشروع بالـ MD لمعرضي"):
+     * Formulate a high-impact Markdown project description with architectural breakdown, core features, code snippet example, and technical challenges solved.
+     * Populate "projectDraft" with target: "developer_portfolio", title, description (Markdown), skills, executionTime, startDate, isOpenSource, projectStatus.
+     * Add action with type "create_portfolio_project" and label "تعبئة ونشر المشروع في معرض أعمالي 🚀".
+   - If the user simply asks to create/post a PROJECT (e.g. "ضفلي مشروع", "انشر مشروع", "اعملي مشروع والناس تقدم") without specifying the portfolio:
+     * Populate "projectDraft" with target: "client_project", title, description, budgetFrom, budgetTo, deadlineDays, skills, deliverables.
+     * Add action with type "create_project" and label "تعبئة مسودة المشروع ونشره للمطورين ✍️".
+4. If the user asks to search for developers, estimate pricing, or browse projects: include appropriate advice and matching actions.
+5. Treat Live Platform Context as the source of truth for page data and platform results.
+6. Output one complete valid JSON object matching the schema. Never truncate the JSON or omit "answer".`;
+
   try {
     const out = await completeJson(
-      z.object({ answer: z.string().min(1).max(4000) }),
-      "You are SSD, SCORA's Arabic assistant. Answer only from supplied live context. Return JSON only.",
-      `Role=${input.role}; admin=${input.isAdmin}; liveContext=${JSON.stringify(input.context)}; message=${input.message}`
+      AssistantResponseSchema,
+      "You are SSD, SCORA's Autonomous Arabic AI Agent and Copilot. Return valid JSON only.",
+      prompt,
+      { maxTokens: ASSISTANT_MAX_TOKENS, timeoutMs: 12_000 }
     );
-    return { answer: out.value.answer, model: out.model };
-  } catch {
-    return { answer: "أهلاً بك! أنا مساعد SCORA الذكي. كيف يمكنني مساعدتك اليوم؟", model: "scora-assistant" };
+    return {
+      answer: out.value.answer,
+      projectDraft: out.value.projectDraft,
+      actions: out.value.actions,
+      model: out.model,
+    };
+  } catch (err) {
+    console.warn("[askAssistant] OpenRouter unavailable or timed out, using smart fallback:", err);
+    return buildSmartAssistantFallback(input);
   }
 }
 

@@ -38,8 +38,14 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
   const isGuestOnlyRoute = GUEST_ONLY_ROUTES.some((r) => pathname === r);
   const onboardingRoute = session?.role === "developer" ? "/complete-profile" : "/complete-client-profile";
-  const onboardingAllowed = pathname.startsWith(onboardingRoute) || pathname.startsWith("/laws") || pathname.startsWith("/privacy");
-  const developerAdmissionAllowed = pathname.startsWith("/developer-assessment") || onboardingAllowed || pathname.startsWith("/api/auth/logout") || (session?.isAdmin && pathname.startsWith("/admin"));
+  const onboardingAllowed = pathname.startsWith(onboardingRoute) || pathname.startsWith("/laws") || pathname.startsWith("/privacy") || pathname.startsWith("/support");
+  const developerAdmissionAllowed =
+    pathname.startsWith("/developer-assessment") ||
+    onboardingAllowed ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/api/auth/logout") ||
+    (session?.isAdmin && pathname.startsWith("/admin"));
 
   // A cookie that fails verification is worse than no cookie: clear it so the
   // browser stops sending a token the server will keep rejecting.
@@ -67,11 +73,22 @@ export async function proxy(request: NextRequest) {
   // Otherwise the onboarding redirect traps the user with an orphaned session.
   if (pathname.startsWith("/api/auth/logout")) return NextResponse.next();
 
+  // Mandatory Username Gate: any user without a username must set one first!
+  if (session && session.hasUsername === false && pathname !== "/choose-username" && !pathname.startsWith("/api/")) {
+    return NextResponse.redirect(new URL("/choose-username", request.url));
+  }
+
+  if (session && session.hasUsername !== false && pathname === "/choose-username") {
+    return NextResponse.redirect(
+      new URL(session.isAdmin && session.onboardingCompleted ? "/admin" : session.onboardingCompleted ? "/dashboard" : onboardingRoute, request.url)
+    );
+  }
+
   if (session && !session.onboardingCompleted && !onboardingAllowed) {
     return NextResponse.redirect(new URL(onboardingRoute, request.url));
   }
 
-  if (session?.role === "developer" && session.onboardingCompleted && !session.developerApproved && !developerAdmissionAllowed) {
+  if (session?.role === "developer" && !session.isAdmin && session.onboardingCompleted && !session.developerApproved && !developerAdmissionAllowed) {
     return NextResponse.redirect(new URL("/developer-assessment/pending", request.url));
   }
 

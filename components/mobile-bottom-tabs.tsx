@@ -14,8 +14,11 @@ import {
   Settings,
   X,
   ChevronUp,
-  Users
+  Users,
+  Crown,
+  LogOut,
 } from "lucide-react";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export function MobileBottomTabs() {
   const pathname = usePathname();
@@ -55,9 +58,17 @@ export function MobileBottomTabs() {
   const isProfileActive = pathname.startsWith("/profile") || pathname.startsWith("/client-profile") || pathname.startsWith("/admin");
   const safeActiveIndex = isProfileActive ? 4 : (activeIndex >= 0 ? activeIndex : 0);
 
-  const currentUserName = userRole === "developer" ? developer.fullName : userRole === "client" ? client.fullName : "حساب مدير الإدارة";
-  const currentUserEmail = userRole === "developer" ? developer.email : userRole === "client" ? client.email : "";
-  const roleBadgeLabel = userRole === "developer" ? "مطور برمجيات" : userRole === "client" ? "عميل" : "مدير النظام";
+  const currentUserName =
+    (userRole === "developer" ? developer.fullName : client.fullName) ||
+    developer.fullName ||
+    client.fullName ||
+    (username ? `@${username}` : "المستخدم");
+  const currentUserEmail =
+    (userRole === "developer" ? developer.email : client.email) ||
+    developer.email ||
+    client.email ||
+    "";
+  const roleBadgeLabel = userRole === "developer" ? "حساب مطور" : userRole === "client" ? "حساب عميل (Client)" : "مدير النظام";
 
   if(userRole === "guest") return <div className="fixed bottom-0 left-0 right-0 z-40 flex gap-3 border-t bg-white p-3 min-[950px]:hidden"><Link href="/login" className="flex-1 rounded-full border border-[#056B38] py-3 text-center font-bold text-[#056B38]">تسجيل الدخول</Link><Link href="/register" className="flex-1 rounded-full bg-[#056B38] py-3 text-center font-bold text-white">إنشاء حساب</Link></div>;
   return (
@@ -73,39 +84,55 @@ export function MobileBottomTabs() {
 
       {/* SLIDING DROP-UP POPOVER MENU (EXPANDS UPWARDS FROM BOTTOM BAR) */}
       {isDropUpOpen && (
-        <div className="absolute bottom-20 left-4 right-4 z-40 bg-white rounded-[28px] border-2 border-[#056B38] p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-6 duration-250">
+        <div className="absolute bottom-20 left-4 right-4 z-40 bg-white rounded-[24px] border border-[#D1E3D6] p-4 shadow-2xl space-y-2 animate-in slide-in-from-bottom-6 duration-250">
           
-          {/* Header User Info */}
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-[#056B38] text-white flex items-center justify-center font-extrabold text-[15px] border-2 border-emerald-400 shrink-0">
-                {currentUserName.charAt(0)}
-              </div>
-              <div className="space-y-0.5">
-                <div className="font-extrabold text-[#05291A] text-[14px]">{currentUserName}</div>
-                <div className="text-[11px] text-[#526B5E]">{currentUserEmail}</div>
-                <span className="inline-block px-2 py-0.5 rounded-full bg-[#056B38] text-white text-[9px] font-bold">
-                  {roleBadgeLabel}
-                </span>
-              </div>
-            </div>
-
+          {/* Dropdown Header User Info */}
+          <div className="p-3 bg-[#E8FAF0] rounded-[16px] border border-[#D1E3D6] space-y-1 text-right relative">
             <button
               type="button"
               onClick={() => setIsDropUpOpen(false)}
-              className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 text-[#05291A] flex items-center justify-center cursor-pointer"
+              className="absolute left-2.5 top-2.5 w-7 h-7 rounded-full bg-white/80 hover:bg-white text-[#05291A] flex items-center justify-center cursor-pointer border border-[#D1E3D6] shadow-2xs"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
+
+            <div className="text-[14px] font-extrabold text-[#05291A] flex items-center gap-2 pl-8">
+              <span className="truncate">{currentUserName}</span>
+              {(userRole === "developer" ? developer.isVerified : client.isVerified) && (
+                <VerifiedBadge type={userRole === "developer" ? "developer" : "client"} size="sm" showLabel />
+              )}
+            </div>
+            {username && (
+              <div className="text-xs font-mono font-bold text-[#056B38] flex items-center gap-1">
+                <span>@{username}</span>
+              </div>
+            )}
+            {currentUserEmail && <div className="text-[11px] text-[#526B5E] truncate">{currentUserEmail}</div>}
+            <div className="inline-block text-[10px] font-black bg-[#056B38] text-white px-2.5 py-0.5 rounded-full mt-0.5">
+              {roleBadgeLabel}
+            </div>
           </div>
 
-          {/* Quick Menu Links */}
-          <div className="space-y-1">
+          {/* Upgrade to Pro Button */}
+          <Link
+            href="/pricing"
+            onClick={() => setIsDropUpOpen(false)}
+            className="flex items-center justify-between px-3 py-2.5 rounded-[12px] text-[13px] font-extrabold bg-gradient-to-l from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 transition-all shadow-2xs"
+          >
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-amber-100" />
+              <span>ترقية الحساب (Upgrade)</span>
+            </div>
+            <span className="text-[10px] bg-white/25 px-2 py-0.5 rounded-full font-bold">PRO</span>
+          </Link>
+
+          {/* Main Links */}
+          <div className="space-y-1 pt-1">
             {isAdmin && (
               <Link
                 href="/admin"
                 onClick={() => setIsDropUpOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-[14px] bg-[#E8FAF0] text-[#056B38] font-bold text-[13px] border border-[#D1E3D6]"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold bg-[#E8FAF0] text-[#056B38] hover:bg-[#D4F5E0] transition-colors border border-[#D1E3D6]"
               >
                 <ShieldCheck className="w-4 h-4 text-[#056B38]" />
                 <span>لوحة الإدارة (Admin Panel)</span>
@@ -113,42 +140,51 @@ export function MobileBottomTabs() {
             )}
 
             <Link
-              href={`/profile/${username}`}
+              href="/dashboard"
               onClick={() => setIsDropUpOpen(false)}
-              className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
+            >
+              <LayoutDashboard className="w-4 h-4 text-[#056B38]" />
+              <span>لوحة التحكم (Dashboard)</span>
+            </Link>
+
+            <Link
+              href="/chat"
+              onClick={() => setIsDropUpOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
+            >
+              <MessageSquare className="w-4 h-4 text-[#056B38]" />
+              <span>المحادثات</span>
+            </Link>
+
+            <Link
+              href={username ? `/profile/${username}` : "/complete-profile"}
+              onClick={() => setIsDropUpOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
             >
               <User className="w-4 h-4 text-[#056B38]" />
               <span>عرض الملف الشخصي</span>
             </Link>
 
             <Link
-              href="/dashboard"
+              href="/settings"
               onClick={() => setIsDropUpOpen(false)}
-              className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
-            >
-              <LayoutDashboard className="w-4 h-4 text-[#056B38]" />
-              <span>لوحة التحكم (Dashboard)</span>
-            </Link>
-
-            <Link href="/chat" onClick={() => setIsDropUpOpen(false)} className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"><MessageSquare className="w-4 h-4 text-[#056B38]"/><span>المحادثات</span></Link>
-
-            <Link
-              href={`/profile/${username}/edit`}
-              onClick={() => setIsDropUpOpen(false)}
-              className="flex items-center gap-3 p-2.5 rounded-[12px] text-[#05291A] font-bold text-[13px] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-[#05291A] hover:bg-[#E8FAF0] hover:text-[#056B38] transition-colors"
             >
               <Settings className="w-4 h-4 text-[#056B38]" />
-              <span>تعديل البيانات والملف</span>
+              <span>إعدادات الحساب والأمان</span>
             </Link>
           </div>
 
-          {/* Logout Action */}
-          <div className="pt-3 border-t border-gray-100">
+          {/* Logout Button */}
+          <div className="pt-2 border-t border-neutral-100">
             <a
               href="/api/auth/logout"
-              className="w-full py-2.5 rounded-[12px] bg-red-50 hover:bg-red-100 text-red-600 font-bold text-[13px] transition-colors cursor-pointer"
+              onClick={() => setIsDropUpOpen(false)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
             >
-              تسجيل الخروج
+              <LogOut className="w-4 h-4 text-red-500" />
+              <span>تسجيل الخروج</span>
             </a>
           </div>
 

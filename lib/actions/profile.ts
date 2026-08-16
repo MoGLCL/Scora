@@ -222,13 +222,20 @@ export async function createProject(
 ): Promise<ActionState> {
   const session = await verifySession();
   if (!session) return { error: "غير مصرح لك" };
-  if (session.role !== "client") return { error: "نشر المشاريع متاح للعملاء فقط" };
 
-  const client = await queryOne<{ id: number }>(
+  let client = await queryOne<{ id: number }>(
     "SELECT id FROM clients WHERE user_id = ?",
     [session.userId]
   );
-  if (!client) return { error: "الملف الشخصي غير موجود" };
+  if (!client) {
+    const user = await queryOne<{ full_name: string }>("SELECT full_name FROM users WHERE id = ?", [session.userId]);
+    const insertRes = await execute(
+      "INSERT INTO clients (user_id, display_name, account_type) VALUES (?, ?, 'personal')",
+      [session.userId, user?.full_name || "صاحب مشروع"]
+    );
+    const newClientId = (insertRes as unknown as { insertId: number }).insertId;
+    client = { id: newClientId };
+  }
 
   const rawSkills = formData.getAll("skills").map(String).filter(Boolean);
   const parsed = CreateProjectSchema.safeParse({
@@ -453,7 +460,7 @@ export async function submitProposal(input: {
       developerUserId: session.userId,
       devName: dev.display_name,
       role: dev.job_title ?? "Full-Stack Developer",
-      trustScore: Number(dev.trust_score ?? 85),
+      trustScore: Number(dev.trust_score ?? 0),
       proposedPrice: `${amount.toLocaleString("ar-EG")} ج.م`,
       deliveryDays: `${deliveryDays} يوم`,
       deliverablesText: coverLetter,

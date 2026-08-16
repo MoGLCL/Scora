@@ -9,6 +9,7 @@ import { useProfile } from "@/components/profile-provider";
 import { updateClientProfile } from "@/lib/actions/profile";
 import { uploadAvatar } from "@/lib/actions/upload";
 import { EGYPT_GOVERNORATES_AND_CITIES } from "@/lib/egyptian-locations";
+import { CustomSelect } from "@/components/custom-select";
 import {
   Building2,
   MapPin,
@@ -654,31 +655,29 @@ export default function CompleteClientProfilePage() {
                       <label className="block text-[13px] font-extrabold text-[#05291A]">
                         مجال نشاط الشركة
                       </label>
-                      <select
+                      <CustomSelect
                         value={industry}
-                        onChange={(e) => setIndustry(e.target.value)}
-                        className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] focus:bg-white transition-all"
-                      >
-                        {COMPANY_INDUSTRIES.map((ind) => (
-                          <option key={ind} value={ind}>{ind}</option>
-                        ))}
-                      </select>
+                        onChange={(val) => setIndustry(val)}
+                        size="lg"
+                        options={COMPANY_INDUSTRIES}
+                      />
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="block text-[13px] font-extrabold text-[#05291A]">
                         حجم فريق العمل
                       </label>
-                      <select
+                      <CustomSelect
                         value={companySize}
-                        onChange={(e) => setCompanySize(e.target.value)}
-                        className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] focus:bg-white transition-all"
-                      >
-                        <option value="1-10">1 - 10 موظفين</option>
-                        <option value="11-50">11 - 50 موظف</option>
-                        <option value="51-200">51 - 200 موظف</option>
-                        <option value="200+">أكثر من 200 موظف</option>
-                      </select>
+                        onChange={(val) => setCompanySize(val)}
+                        size="lg"
+                        options={[
+                          { value: "1-10", label: "1 - 10 موظفين" },
+                          { value: "11-50", label: "11 - 50 موظف" },
+                          { value: "51-200", label: "51 - 200 موظف" },
+                          { value: "200+", label: "أكثر من 200 موظف" },
+                        ]}
+                      />
                     </div>
                   </div>
 
@@ -706,15 +705,12 @@ export default function CompleteClientProfilePage() {
                     <label className="block text-[13px] font-extrabold text-[#05291A]">
                       المسمى أو الدور الريادي
                     </label>
-                    <select
+                    <CustomSelect
                       value={clientRole}
-                      onChange={(e) => setClientRole(e.target.value)}
-                      className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-[#F7FAF8] px-4 text-[13px] text-[#05291A] outline-none focus:border-[#056B38] focus:bg-white transition-all"
-                    >
-                      {CLIENT_PERSONAL_ROLES.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setClientRole(val)}
+                      size="lg"
+                      options={CLIENT_PERSONAL_ROLES}
+                    />
                   </div>
                 </div>
               )}

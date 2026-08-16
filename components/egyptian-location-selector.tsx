@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { EGYPTIAN_GOVERNORATES } from "@/lib/egyptian-locations";
-import { MapPin, ChevronDown, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { EGYPTIAN_GOVERNORATES, EGYPT_GOVERNORATES_AND_CITIES } from "@/lib/egyptian-locations";
+import { CustomSelect } from "@/components/custom-select";
+import { MapPin, Building2 } from "lucide-react";
 
 interface EgyptianLocationSelectorProps {
   value: string;
@@ -13,98 +14,95 @@ interface EgyptianLocationSelectorProps {
 export function EgyptianLocationSelector({
   value,
   onChange,
-  label = "المحافظة والمدينة *",
+  label = "المحافظة والمدينة المصرية *",
 }: EgyptianLocationSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedGovId, setSelectedGovId] = useState(EGYPTIAN_GOVERNORATES[0].id);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Parse incoming value (e.g. "القاهرة - مدينة نصر" or "مدينة نصر، القاهرة" or "القاهرة")
+  const parseLocation = (val: string) => {
+    if (!val) return { gov: "", city: "" };
+    if (val.includes(" - ")) {
+      const [g, c] = val.split(" - ");
+      return { gov: g.trim(), city: c ? c.trim() : "" };
+    }
+    if (val.includes("،")) {
+      const [c, g] = val.split("،");
+      return { gov: g ? g.trim() : "", city: c ? c.trim() : "" };
+    }
+    if (EGYPT_GOVERNORATES_AND_CITIES[val]) {
+      return { gov: val, city: "" };
+    }
+    return { gov: "", city: "" };
+  };
+
+  const initial = parseLocation(value);
+  const [selectedGov, setSelectedGov] = useState(initial.gov);
+  const [selectedCity, setSelectedCity] = useState(initial.city);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    const parsed = parseLocation(value);
+    setSelectedGov(parsed.gov);
+    setSelectedCity(parsed.city);
+  }, [value]);
 
-  const activeGov = EGYPTIAN_GOVERNORATES.find((g) => g.id === selectedGovId) ?? EGYPTIAN_GOVERNORATES[0];
+  const handleGovChange = (newGov: string) => {
+    setSelectedGov(newGov);
+    const availableCities = EGYPT_GOVERNORATES_AND_CITIES[newGov] || [];
+    const newCity = availableCities[0] || "";
+    setSelectedCity(newCity);
+    onChange(newCity ? `${newGov} - ${newCity}` : newGov);
+  };
+
+  const handleCityChange = (newCity: string) => {
+    setSelectedCity(newCity);
+    onChange(selectedGov ? `${selectedGov} - ${newCity}` : newCity);
+  };
+
+  const governorateOptions = EGYPTIAN_GOVERNORATES.map((g) => ({
+    value: g.nameAr,
+    label: g.nameAr,
+  }));
+
+  const availableCities = selectedGov ? EGYPT_GOVERNORATES_AND_CITIES[selectedGov] || [] : [];
+  const cityOptions = availableCities.map((c) => ({
+    value: c,
+    label: c,
+  }));
 
   return (
-    <div className="space-y-1.5 relative w-full" ref={dropdownRef}>
-      {label && <label className="block text-[13px] font-bold text-[#05291A]">{label}</label>}
+    <div className="space-y-2 w-full font-body">
+      {label && <label className="block text-xs font-black text-[#05291A]">{label}</label>}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-[48px] rounded-[12px] border border-[#D1E3D6] bg-white px-4 flex items-center justify-between text-[13px] text-[#05291A] font-bold outline-none hover:border-[#056B38] transition-all cursor-pointer shadow-2xs"
-      >
-        <div className="flex items-center gap-2 truncate">
-          <MapPin className="w-4 h-4 text-[#056B38] shrink-0" />
-          <span>{value || "اختر المحافظة والمدينة..."}</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Field 1: Governorate */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-bold text-[#526B5E] flex items-center gap-1">
+            <MapPin className="w-3.5 h-3.5 text-[#056B38]" />
+            <span>المحافظة:</span>
+          </span>
+          <CustomSelect
+            value={selectedGov}
+            onChange={handleGovChange}
+            options={governorateOptions}
+            placeholder="اختر المحافظة..."
+            size="lg"
+          />
         </div>
-        <ChevronDown className={`w-4 h-4 text-[#526B5E] transition-transform duration-200 ${isOpen ? "rotate-180 text-[#056B38]" : ""}`} />
-      </button>
 
-      {isOpen && (
-        <div className="absolute top-full mt-1.5 right-0 left-0 z-50 rounded-[18px] border border-[#D1E3D6] bg-white p-3 shadow-xl space-y-3 animate-in fade-in duration-150">
-          
-          {/* Governorates Tabs */}
-          <div>
-            <div className="text-[11px] font-bold text-[#526B5E] mb-1.5">اختر المحافظة:</div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar scrollbar-thin">
-              {EGYPTIAN_GOVERNORATES.map((gov) => {
-                const isGovActive = gov.id === selectedGovId;
-                return (
-                  <button
-                    key={gov.id}
-                    type="button"
-                    onClick={() => setSelectedGovId(gov.id)}
-                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-bold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
-                      isGovActive
-                        ? "bg-[#056B38] text-white"
-                        : "bg-[#E8FAF0] text-[#056B38] hover:bg-[#D4F5E0]"
-                    }`}
-                  >
-                    {gov.nameAr}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Cities List for active Governorate */}
-          <div>
-            <div className="text-[11px] font-bold text-[#526B5E] mb-1.5">
-              مدن ومناطق {activeGov.nameAr}:
-            </div>
-            <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
-              {activeGov.cities.map((city) => {
-                const locationFull = `${city}، ${activeGov.nameAr}`;
-                const isSelected = value === locationFull;
-                return (
-                  <button
-                    key={city}
-                    type="button"
-                    onClick={() => {
-                      onChange(locationFull);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 rounded-[10px] text-[12px] font-bold text-right flex items-center justify-between cursor-pointer transition-colors ${
-                      isSelected ? "bg-[#E8FAF0] text-[#056B38]" : "text-[#05291A] hover:bg-neutral-50"
-                    }`}
-                  >
-                    <span>{city}</span>
-                    {isSelected && <Check className="w-4 h-4 text-[#056B38]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
+        {/* Field 2: City / District */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-bold text-[#526B5E] flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5 text-[#056B38]" />
+            <span>المدينة أو المنطقة:</span>
+          </span>
+          <CustomSelect
+            value={selectedCity}
+            onChange={handleCityChange}
+            options={cityOptions}
+            placeholder={selectedGov ? "اختر المدينة..." : "اختر المحافظة أولاً"}
+            disabled={!selectedGov || cityOptions.length === 0}
+            size="lg"
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 }

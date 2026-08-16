@@ -86,7 +86,7 @@ export function AdminAiReviewCard({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           <div className="rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] p-3">
             <div className="text-[11px] text-[#526B5E] font-medium">حالة التعديل</div>
-            <div className="text-xs font-extrabold text-[#056B38] mt-0.5">مقفلة ومشفرة 🔒</div>
+            <div className="text-xs font-extrabold text-[#056B38] mt-0.5">مقفلة ومشفرة </div>
           </div>
           <div className="rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] p-3">
             <div className="text-[11px] text-[#526B5E] font-medium">وقت التوثيق</div>
@@ -100,7 +100,7 @@ export function AdminAiReviewCard({
           </div>
           <div className="rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] p-3">
             <div className="text-[11px] text-[#526B5E] font-medium">صلاحية الفحص</div>
-            <div className="text-xs font-extrabold text-[#056B38] mt-0.5">متاحة للأدمن فقط ⚡</div>
+            <div className="text-xs font-extrabold text-[#056B38] mt-0.5">متاحة للأدمن فقط </div>
           </div>
         </div>
       </div>

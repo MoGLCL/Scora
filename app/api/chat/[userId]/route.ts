@@ -14,13 +14,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
   }
 
   const receiver = await queryOne<{ id: number }>(
-    `SELECT u.id
-       FROM users u
-       LEFT JOIN developers d ON d.user_id=u.id
-      WHERE u.id=? AND u.role<>? AND u.status='active'
-        AND u.onboarding_completed_at IS NOT NULL
-        AND (u.role='client' OR d.approval_status='approved')`,
-    [otherUserId, session.role]
+    "SELECT u.id FROM users u WHERE u.id=? AND u.status='active'",
+    [otherUserId]
   );
   if (!receiver) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
@@ -39,11 +34,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
   const messages = await query<{
     id: number;
     body: string;
+    image_url: string | null;
     created_at: Date;
     sender_id: number;
     is_read: number;
   }>(
-    `SELECT id, body, created_at, sender_id, is_read
+    `SELECT id, body, image_url, created_at, sender_id, is_read
        FROM messages
       WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?)
       ORDER BY created_at ASC, id ASC
@@ -61,6 +57,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
     messages: messages.map((message) => ({
       id: message.id,
       body: message.body,
+      imageUrl: message.image_url || null,
       createdAt: new Date(message.created_at).toISOString(),
       senderId: message.sender_id,
       isRead: Boolean(message.is_read),

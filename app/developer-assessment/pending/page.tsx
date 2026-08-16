@@ -22,7 +22,6 @@ export default async function Page() {
   if (session.role !== "developer") redirect("/dashboard");
   const developer = await queryOne<{ approval_status: string }>("SELECT approval_status FROM developers WHERE user_id=?", [session.userId]);
   if (!developer) redirect("/complete-profile");
-  if (developer.approval_status === "approved") redirect("/profile");
 
   return (
     <div className="min-h-screen bg-[#F7FAF8] flex flex-col font-body dir-rtl" dir="rtl">

@@ -10,11 +10,13 @@ import {
   Clock,
   ChevronLeft,
 } from "lucide-react";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export interface ProjectCardData {
   id: string;
   title: string;
   clientName: string;
+  isClientVerified?: boolean;
   budget: string;
   postedTime: string;
   tags: string[];
@@ -118,8 +120,9 @@ export function ProjectsClient({ projects: initialProjects }: { projects: Projec
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[12px] font-bold text-[#056B38] bg-[#E8FAF0] px-3 py-1 rounded-full">
-                        {proj.clientName}
+                      <span className="text-[12px] font-bold text-[#056B38] bg-[#E8FAF0] px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+                        <span>{proj.clientName}</span>
+                        {proj.isClientVerified && <VerifiedBadge type="client" size="sm" />}
                       </span>
                       <span className="text-[12px] text-[#526B5E] flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />

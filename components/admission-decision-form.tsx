@@ -5,10 +5,18 @@ import { useRouter } from "next/navigation";
 import { decideDeveloperAdmission } from "@/lib/actions/admin";
 import { CheckCircle2, ShieldCheck, XCircle, Award } from "lucide-react";
 
-export function AdmissionDecisionForm({ assessmentPublicId }: { assessmentPublicId: string }) {
+export function AdmissionDecisionForm({
+  assessmentPublicId,
+  initialTrustScore = 0,
+  initialSkillPoints = 0
+}: {
+  assessmentPublicId: string;
+  initialTrustScore?: number;
+  initialSkillPoints?: number;
+}) {
   const [reason, setReason] = useState("");
-  const [trustScore, setTrustScore] = useState<number>(85);
-  const [skillPoints, setSkillPoints] = useState<number>(500);
+  const [trustScore, setTrustScore] = useState<number>(initialTrustScore);
+  const [skillPoints, setSkillPoints] = useState<number>(initialSkillPoints);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const router = useRouter();
@@ -20,8 +28,8 @@ export function AdmissionDecisionForm({ assessmentPublicId }: { assessmentPublic
       assessmentPublicId,
       decision,
       reason: reason || (decision === "approved" ? "تم الاعتماد الفني بواسطة الأدمن" : "تم الرفض بواسطة الأدمن"),
-      trustScore: Number(trustScore) || 85,
-      skillPoints: Number(skillPoints) || 500
+      trustScore: Number(trustScore) || 0,
+      skillPoints: Number(skillPoints) || 0
     });
     if (!r.ok) {
       setError(r.error);
@@ -65,14 +73,13 @@ export function AdmissionDecisionForm({ assessmentPublicId }: { assessmentPublic
         <div className="space-y-2">
           <label className="text-xs font-extrabold text-[#05291A] flex items-center gap-1.5">
             <Award className="h-4 w-4 text-amber-600" />
-            نقاط المهارة الممنوحة (Skill Points - SP):
+            نقاط المهارة الممنوحة (Skill Points - SP - مفتوحة بدون حد أقصى):
           </label>
           <input
             type="number"
             min={0}
-            max={10000}
             value={skillPoints}
-            onChange={(e) => setSkillPoints(Number(e.target.value))}
+            onChange={(e) => setSkillPoints(Math.max(0, Number(e.target.value)))}
             className="w-full rounded-2xl border border-[#D1E3D6] p-3 text-sm font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] focus:ring-2 focus:ring-[#056B38]/10"
           />
         </div>

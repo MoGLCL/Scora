@@ -19,11 +19,14 @@ import {
   CheckCircle2,
   Layers
 } from "lucide-react";
+import { CustomSelect } from "@/components/custom-select";
 import {
   requestReassessmentByDeveloper,
   startDeveloperAssessment,
   updateDeveloperAssessmentSkills
 } from "@/lib/actions/developer-assessment";
+
+import { useProfile } from "@/components/profile-provider";
 
 // Comprehensive Specialty Tracks
 const TRACKS_LIST = [
@@ -123,9 +126,10 @@ const MASTER_SKILLS_POOL = [
 
 export function AdmissionStatus() {
   const router = useRouter();
+  const { developer, updateDeveloper } = useProfile();
   const [status, setStatus] = useState<string | null>(null);
-  const [jobTitle, setJobTitle] = useState<string>("Full-Stack Web Developer");
-  const [skills, setSkills] = useState<string[]>([]);
+  const [jobTitle, setJobTitle] = useState<string>(() => developer?.jobTitle || "Full-Stack Web Developer");
+  const [skills, setSkills] = useState<string[]>(() => (developer?.skills && developer.skills.length > 0 ? developer.skills : []));
   const [remainingSkillsChanges, setRemainingSkillsChanges] = useState<number>(2);
 
   const [error, setError] = useState("");
@@ -145,7 +149,8 @@ export function AdmissionStatus() {
   const [skillsSubmitting, setSkillsSubmitting] = useState(false);
   const skillSearchBoxRef = useRef<HTMLDivElement>(null);
 
-  const recovering = useRef(false);
+  const isStartingRef = useRef(false);
+  const isSavingSkillsRef = useRef(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -155,7 +160,7 @@ export function AdmissionStatus() {
       const currentStatus = data.status || "pending";
       setStatus(currentStatus);
       if (data.jobTitle) setJobTitle(data.jobTitle);
-      if (Array.isArray(data.skills)) setSkills(data.skills);
+      if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
       if (typeof data.remainingSkillsChanges === "number") setRemainingSkillsChanges(data.remainingSkillsChanges);
       if (data.reassessmentReason) setReassessmentReason(data.reassessmentReason);
 
@@ -173,28 +178,21 @@ export function AdmissionStatus() {
     }
   }, [router]);
 
+  // Initial load once on mount
   useEffect(() => {
-    let active = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const checkLoop = async () => {
-      if (!active) return;
-      await fetchStatus();
-      if (active) timer = setTimeout(checkLoop, 3000);
-    };
-
-    void checkLoop();
-
-    const fallbackTimer = setTimeout(() => {
-      if (active) setStatus((current) => current ?? "pending");
-    }, 1500);
-
-    return () => {
-      active = false;
-      clearTimeout(fallbackTimer);
-      if (timer) clearTimeout(timer);
-    };
+    void fetchStatus();
   }, [fetchStatus]);
+
+  // Polling ONLY when waiting for admin decision (admin_review or reset_requested)
+  useEffect(() => {
+    if (status !== "admin_review" && status !== "reset_requested") return;
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void fetchStatus();
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [status, fetchStatus]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -208,10 +206,11 @@ export function AdmissionStatus() {
   }, []);
 
   const handleManualStart = async () => {
+    if (loadingTest || isStartingRef.current) return;
+    isStartingRef.current = true;
     setLoadingTest(true);
     setError("");
     setSuccessMessage("");
-    recovering.current = true;
     try {
       const result = await startDeveloperAssessment();
       if (result && result.ok && result.assessmentUrl) {
@@ -219,18 +218,20 @@ export function AdmissionStatus() {
       } else if (result && !result.ok) {
         setError(result.error);
         setLoadingTest(false);
-        recovering.current = false;
+        isStartingRef.current = false;
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء إنشاء وتوليد الاختبار");
       setLoadingTest(false);
-      recovering.current = false;
+      isStartingRef.current = false;
     }
   };
 
   const handleOpenSkillsModal = () => {
-    setEditTrack(jobTitle || "Full-Stack Web Developer");
-    setEditSkills(skills.length > 0 ? [...skills] : ["JavaScript", "TypeScript", "React.js", "Node.js"]);
+    const currentTrack = jobTitle || developer?.jobTitle || "Full-Stack Web Developer";
+    const currentSkills = skills.length > 0 ? skills : (developer?.skills && developer.skills.length > 0 ? developer.skills : []);
+    setEditTrack(currentTrack);
+    setEditSkills([...currentSkills]);
     setSkillSearch("");
     setError("");
     setSuccessMessage("");
@@ -251,6 +252,8 @@ export function AdmissionStatus() {
       setError("يجب اختيار مهارة واحدة على الأقل للاختبار.");
       return;
     }
+    if (skillsSubmitting || isSavingSkillsRef.current) return;
+    isSavingSkillsRef.current = true;
     setSkillsSubmitting(true);
     setError("");
     try {
@@ -259,17 +262,24 @@ export function AdmissionStatus() {
         jobTitle: editTrack
       });
       setSkillsSubmitting(false);
+      isSavingSkillsRef.current = false;
       if (!res.ok) {
         setError(res.error);
       } else {
         setSkills(res.skills);
         setJobTitle(res.jobTitle);
+        setEditSkills(res.skills);
+        updateDeveloper({
+          jobTitle: res.jobTitle,
+          skills: res.skills
+        });
         setRemainingSkillsChanges(res.remainingChanges);
         setSkillsModalOpen(false);
-        setSuccessMessage(`تم تحديث مهارات وتخصص الاختبار بنجاح! متبقي لك الآن ${res.remainingChanges} تغيير.`);
+        setSuccessMessage(`تم حفظ وتثبيت المهارات المختارة بنجاح! متبقي لك الآن ${res.remainingChanges} تغيير.`);
       }
     } catch (err: unknown) {
       setSkillsSubmitting(false);
+      isSavingSkillsRef.current = false;
       setError(err instanceof Error ? err.message : "تعذر حفظ المهارات");
     }
   };
@@ -609,17 +619,12 @@ export function AdmissionStatus() {
                 <Layers className="w-4 h-4 text-[#056B38]" />
                 <span>1. اختر تخصصك البرمجي الرئيسي:</span>
               </label>
-              <select
+              <CustomSelect
                 value={editTrack}
-                onChange={(e) => setEditTrack(e.target.value)}
-                className="w-full h-12 rounded-2xl border border-[#D1E3D6] bg-white px-4 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] focus:ring-2 focus:ring-[#056B38]/10 cursor-pointer"
-              >
-                {TRACKS_LIST.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setEditTrack(val)}
+                size="lg"
+                options={TRACKS_LIST}
+              />
             </div>
 
             {/* Step B: Selected Skills Badges List */}
