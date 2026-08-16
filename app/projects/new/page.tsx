@@ -388,7 +388,7 @@ export default function CreateProjectOfferPage() {
                         type="number"
                         required
                         min={1250}
-                        step="any"
+                        step="1"
                         value={budgetFrom}
                         onChange={(e) => setBudgetFrom(e.target.value)}
                         placeholder="1250"
@@ -406,8 +406,8 @@ export default function CreateProjectOfferPage() {
                       <input
                         type="number"
                         required
-                        min={Math.max(1250, Number(budgetFrom) || 1250)}
-                        step="any"
+                        min={1250}
+                        step="1"
                         value={budgetTo}
                         onChange={(e) => setBudgetTo(e.target.value)}
                         placeholder="15000"
