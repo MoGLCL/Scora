@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SubscriptionCheckoutModal } from "@/components/subscription-checkout-modal";
 import { useProfile } from "@/components/profile-provider";
-import { Sparkles, Zap, Bot, Tag, Lock, Briefcase, FileText, Award, Percent, ShieldCheck } from "lucide-react";
+import { Sparkles, Zap, Bot, Lock, Briefcase, FileText, Award, Percent, ShieldCheck } from "lucide-react";
 import { DEFAULT_PLAN_LIMITS, type PlanLimits, type SubscriptionPlan } from "@/lib/ai-quota-types";
 import { EgpCurrencyIcon } from "@/components/egp-currency-icon";
 
@@ -53,31 +53,6 @@ export default function PricingPage() {
             <p className="text-[16px] md:text-[17px] text-[#526B5E] leading-relaxed max-w-3xl">
               Scora تمنحك القوة الكاملة: تقديم العروض، رفع وتوظيف المشاريع، إبراز معرض الأعمال، مع وكيل الذكاء الاصطناعي SSD المدمج لمساعدتك في كل خطوة.
             </p>
-          </div>
-
-          {/* Promo Coupon Notice Box */}
-          <div className="rounded-[24px] border border-[#D1E3D6] bg-[#E8FAF0] p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="h-10 w-10 rounded-2xl bg-[#056B38] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Tag className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <div className="text-[15px] font-black text-[#05291A]">
-                  هل تملك كود ترويجي أو كوبون خصم؟
-                </div>
-                <div className="text-[13px] text-[#526B5E]">
-                  يمكنك استخدام كوبونات الخصم (مثل <code className="bg-white px-1.5 py-0.5 rounded-md border border-[#D1E3D6] font-mono text-[#056B38] font-bold">SCORA100</code> أو <code className="bg-white px-1.5 py-0.5 rounded-md border border-[#D1E3D6] font-mono text-[#056B38] font-bold">VIPFREE</code>) لتفعيل الباقات مجاناً 100%!
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => openCheckout("pro")}
-              className="h-11 px-5 rounded-full bg-[#056B38] hover:bg-[#04552D] text-white text-xs font-black transition-all shrink-0 cursor-pointer shadow-xs flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4 text-emerald-200" />
-              <span>ترقية واستخدام كوبون</span>
-            </button>
           </div>
         </div>
 
