@@ -180,7 +180,8 @@ export function AdmissionStatus() {
 
   // Initial load once on mount
   useEffect(() => {
-    void fetchStatus();
+    const timer = window.setTimeout(() => void fetchStatus(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchStatus]);
 
   // Polling ONLY when waiting for admin decision (admin_review or reset_requested)

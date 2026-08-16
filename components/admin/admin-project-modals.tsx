@@ -28,8 +28,8 @@ export interface ExtendedProjectItem {
   budgetTo: number;
   deadlineDays: number | null;
   status: string;
-  skillsJson?: any;
-  deliverablesJson?: any;
+  skillsJson?: unknown;
+  deliverablesJson?: unknown;
   postedAt: string;
   rawPostedAt?: string;
   clientId?: number;
@@ -455,7 +455,9 @@ export function EditProjectModal({
   const [budgetTo, setBudgetTo] = useState(project.budgetTo);
   const [deadlineDays, setDeadlineDays] = useState(project.deadlineDays ?? 7);
   const [status, setStatus] = useState<"open" | "in_progress" | "completed" | "closed">(
-    (project.status as any) || "open"
+    project.status === "open" || project.status === "in_progress" || project.status === "completed" || project.status === "closed"
+      ? project.status
+      : "open"
   );
   const [loading, setLoading] = useState(false);
 
@@ -528,7 +530,9 @@ export function EditProjectModal({
               <label className="block">حالة المشروع:</label>
               <CustomSelect
                 value={status}
-                onChange={(val) => setStatus(val as any)}
+                onChange={(val) => {
+                  if (val === "open" || val === "in_progress" || val === "completed" || val === "closed") setStatus(val);
+                }}
                 size="md"
                 options={[
                   { value: "open", label: "مفتوح للتقديم (Open)" },
@@ -734,15 +738,15 @@ export function BroadcastNotificationModal({
           <div className="space-y-1.5">
             <label className="block">الفئة المستهدفة:</label>
             <div className="grid grid-cols-3 gap-2">
-              {[
+              {([
                 { key: "all", label: "جميع المستخدمين" },
                 { key: "developers", label: "المطورون فقط" },
                 { key: "clients", label: "العملاء فقط" },
-              ].map((item) => (
+              ] as const).map((item) => (
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => setTargetAudience(item.key as any)}
+                  onClick={() => setTargetAudience(item.key)}
                   className={`p-2.5 rounded-xl border text-xs font-black text-center transition-all cursor-pointer ${
                     targetAudience === item.key
                       ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] shadow-2xs ring-1 ring-[#056B38]"

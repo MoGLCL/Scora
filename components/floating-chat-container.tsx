@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useProfile } from "@/components/profile-provider";
 import { useFloatingChat, FloatingChatUser } from "@/components/floating-chat-provider";
 import { sendMessage } from "@/lib/actions/chat";
@@ -60,7 +61,7 @@ function FloatingChatWindow({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Poll conversation messages
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/chat/${user.id}`, { cache: "no-store" });
       if (!res.ok) return;
@@ -71,7 +72,7 @@ function FloatingChatWindow({
     } catch {
       // ignore network errors
     }
-  };
+  }, [user.id]);
 
   useEffect(() => {
     let active = true;
@@ -89,7 +90,7 @@ function FloatingChatWindow({
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [user.id]);
+  }, [loadMessages]);
 
   // Auto-scroll internal messages on new message
   useEffect(() => {
@@ -202,9 +203,9 @@ function FloatingChatWindow({
         >
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative shrink-0">
-              <div className="h-7 w-7 overflow-hidden rounded-full bg-white/20 text-white font-black text-xs flex items-center justify-center border border-white/30">
+              <div className="relative h-7 w-7 overflow-hidden rounded-full bg-white/20 text-white font-black text-xs flex items-center justify-center border border-white/30">
                 {user.avatar ? (
-                  <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                  <Image src={user.avatar} alt={user.name} fill unoptimized sizes="28px" className="object-cover" />
                 ) : (
                   <span>{getInitials(user.name)}</span>
                 )}
@@ -288,7 +289,7 @@ function FloatingChatWindow({
                             className="mb-1.5 overflow-hidden rounded-lg cursor-pointer max-h-40"
                             onClick={() => setLightboxImage(msg.imageUrl!)}
                           >
-                            <img src={msg.imageUrl} alt="صورة" className="max-h-40 w-auto rounded-lg object-cover" />
+                            <Image src={msg.imageUrl} alt="صورة" width={320} height={160} unoptimized className="max-h-40 w-auto rounded-lg object-cover" />
                           </div>
                         )}
                         {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
@@ -323,7 +324,7 @@ function FloatingChatWindow({
             {previewUrl && (
               <div className="px-2 py-1 bg-[#E8FAF0] border-t border-[#D1E3D6] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={previewUrl} alt="Preview" className="h-7 w-7 object-cover rounded-md" />
+                  <Image src={previewUrl} alt="Preview" width={28} height={28} unoptimized className="h-7 w-7 object-cover rounded-md" />
                   <span className="text-[10px] font-bold text-[#05291A]">صورة مرفقة</span>
                 </div>
                 <button type="button" onClick={handleCancelImage} className="text-[#526B5E] hover:text-red-600">
@@ -386,7 +387,7 @@ function FloatingChatWindow({
             >
               <X className="w-5 h-5" />
             </button>
-            <img src={lightboxImage} alt="صورة مكبرة" className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl" />
+            <Image src={lightboxImage} alt="صورة مكبرة" width={1000} height={800} unoptimized className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl" />
           </div>
         </div>
       )}

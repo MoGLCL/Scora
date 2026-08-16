@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useProfile } from "@/components/profile-provider";
@@ -54,24 +54,25 @@ export default function SupportPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load User Tickets
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     setIsLoadingTickets(true);
     const res = await getUserTickets();
     if (res.ok) {
       setTickets(res.tickets);
-      if (res.tickets.length > 0 && !selectedTicketId) {
-        setSelectedTicketId(res.tickets[0].id);
+      if (res.tickets.length > 0) {
+        setSelectedTicketId((current) => current ?? res.tickets[0].id);
       }
     }
     setIsLoadingTickets(false);
-  };
-
-  useEffect(() => {
-    void fetchTickets();
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchTickets(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchTickets]);
+
   // Load Selected Ticket Details & Messages
-  const fetchTicketConversation = async (id: number) => {
+  const fetchTicketConversation = useCallback(async (id: number) => {
     setIsLoadingDetails(true);
     const res = await getTicketDetails(id);
     if (res.ok) {
@@ -79,13 +80,13 @@ export default function SupportPage() {
       setMessages(res.messages);
     }
     setIsLoadingDetails(false);
-  };
+  }, []);
 
   useEffect(() => {
-    if (selectedTicketId) {
-      void fetchTicketConversation(selectedTicketId);
-    }
-  }, [selectedTicketId]);
+    if (!selectedTicketId) return;
+    const timer = window.setTimeout(() => void fetchTicketConversation(selectedTicketId), 0);
+    return () => window.clearTimeout(timer);
+  }, [selectedTicketId, fetchTicketConversation]);
 
   // Auto-scroll inside ticket chat
   useEffect(() => {

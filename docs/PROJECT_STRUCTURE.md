@@ -60,7 +60,6 @@ Scora-V0.1/
 │   │   ├── auth.ts                # عمليات التسجيل والدخول
 │   │   ├── developer-assessment.ts # عمليات تقييم المطورين بـ AI
 │   │   ├── profile.ts             # عمليات تحديث الملفات والمشاريع
-│   │   ├── user-session.ts        # مزامنة الجلسات الحية مع MySQL
 │   │   └── upload.ts              # خدمات رفع الصور والملفات
 │   ├── dal.ts                     # طبقة الوصول للبيانات (Data Access Layer)
 │   ├── db.ts                      # مجمع اتصالات قاعدة البيانات (MySQL Pool)

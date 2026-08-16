@@ -131,7 +131,7 @@ function wantsAdminReport(message: string) {
 function extractSkillPointDelta(message: string): number | null {
   const text = normalize(message);
   if (!/sp|سكورا|نقط|skill.?point|مهار/.test(text) || !/قلل|خفض|خصم|زود|ارفع|عدل|غير|انقص/.test(text)) return null;
-  const amount = text.match(/(?:بمقدار|ب|قدر|الى|لحد)s*(d{1,5})/i)?.[1] ?? text.match(/d{1,5}/)?.[0];
+  const amount = text.match(/(?:بمقدار|ب|قدر|الى|لحد)\s*(\d{1,5})/i)?.[1] ?? text.match(/\d{1,5}/)?.[0];
   if (!amount) return null;
   const value = Math.min(10_000, Number(amount));
   if (!Number.isFinite(value) || value === 0) return null;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   ExternalLink,
@@ -150,9 +151,12 @@ export function PortfolioDetailClient({
             <div>
               <div className="overflow-hidden rounded-[24px] bg-[#E8FAF0] border border-[#D1E3D6]">
                 {selectedImage ? (
-                  <img
+                  <Image
                     src={selectedImage}
                     alt={project.title}
+                    width={1280}
+                    height={720}
+                    unoptimized
                     className="aspect-video h-auto max-h-[580px] w-full object-contain bg-black/5"
                   />
                 ) : (
@@ -169,11 +173,11 @@ export function PortfolioDetailClient({
                       type="button"
                       key={image.id}
                       onClick={() => setSelectedImage(image.url)}
-                      className={`aspect-[4/3] overflow-hidden rounded-xl border-2 transition cursor-pointer ${
+                      className={`relative aspect-[4/3] overflow-hidden rounded-xl border-2 transition cursor-pointer ${
                         selectedImage === image.url ? "border-[#056B38] shadow-xs" : "border-[#D1E3D6] hover:border-[#056B38]/50"
                       }`}
                     >
-                      <img src={image.url} alt={image.altText ?? project.title} className="h-full w-full object-cover" />
+                      <Image src={image.url} alt={image.altText ?? project.title} fill unoptimized sizes="120px" className="object-cover" />
                     </button>
                   ))}
                 </div>
@@ -381,9 +385,9 @@ export function PortfolioDetailClient({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-full bg-[#E8FAF0] border border-[#C5E8D1] flex items-center justify-center text-[#056B38] text-xs font-bold overflow-hidden shrink-0">
+                          <div className="relative h-8 w-8 rounded-full bg-[#E8FAF0] border border-[#C5E8D1] flex items-center justify-center text-[#056B38] text-xs font-bold overflow-hidden shrink-0">
                             {rev.reviewerAvatarUrl ? (
-                              <img src={rev.reviewerAvatarUrl} alt={rev.reviewerName} className="h-full w-full object-cover" />
+                              <Image src={rev.reviewerAvatarUrl} alt={rev.reviewerName} fill unoptimized sizes="32px" className="object-cover" />
                             ) : (
                               <span>{rev.reviewerName.slice(0, 2).toUpperCase()}</span>
                             )}

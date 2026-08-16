@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ExternalLink,
@@ -26,6 +28,7 @@ import { CustomSelect } from "@/components/custom-select";
 
 export default function NewPortfolioProjectPage() {
   const { addToast, userRole, username } = useProfile();
+  const router = useRouter();
   
   // Basic Info
   const [title, setTitle] = useState("");
@@ -53,27 +56,32 @@ export default function NewPortfolioProjectPage() {
 
   // Read SSD Agent draft if redirected from AI Assistant
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("scora_ai_portfolio_draft") || sessionStorage.getItem("scora_ai_project_draft");
-      if (raw) {
-        const draft = JSON.parse(raw);
-        if (draft.title) setTitle(draft.title);
-        if (draft.description) setDescription(draft.description);
-        if (draft.previewUrl) setPreviewUrl(draft.previewUrl);
-        if (draft.githubUrl) setGithubUrl(draft.githubUrl);
-        if (draft.executionTime) setExecutionTime(draft.executionTime);
-        if (draft.startDate) setStartDate(draft.startDate);
-        if (draft.isOpenSource !== undefined && draft.isOpenSource !== null) setIsOpenSource(Boolean(draft.isOpenSource));
-        if (draft.projectStatus) setProjectStatus(draft.projectStatus);
-        if (Array.isArray(draft.skills) && draft.skills.length > 0) {
-          setTechnologies(draft.skills);
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = sessionStorage.getItem("scora_ai_portfolio_draft") || sessionStorage.getItem("scora_ai_project_draft");
+        if (raw) {
+          const draft: Record<string, unknown> = JSON.parse(raw);
+          if (typeof draft.title === "string") setTitle(draft.title);
+          if (typeof draft.description === "string") setDescription(draft.description);
+          if (typeof draft.previewUrl === "string") setPreviewUrl(draft.previewUrl);
+          if (typeof draft.githubUrl === "string") setGithubUrl(draft.githubUrl);
+          if (typeof draft.executionTime === "string") setExecutionTime(draft.executionTime);
+          if (typeof draft.startDate === "string") setStartDate(draft.startDate);
+          if (typeof draft.isOpenSource === "boolean") setIsOpenSource(draft.isOpenSource);
+          if (draft.projectStatus === "completed" || draft.projectStatus === "in_progress") {
+            setProjectStatus(draft.projectStatus);
+          }
+          if (Array.isArray(draft.skills)) {
+            setTechnologies(draft.skills.filter((skill): skill is string => typeof skill === "string").slice(0, 20));
+          }
+          addToast("تمت تعبئة بيانات المشروع بواسطة مساعد SSD الذكي 🚀", "info");
+          sessionStorage.removeItem("scora_ai_portfolio_draft");
         }
-        addToast("تمت تعبئة بيانات المشروع بواسطة مساعد SSD الذكي 🚀", "info");
-        sessionStorage.removeItem("scora_ai_portfolio_draft");
+      } catch {
+        // Storage access blocked or invalid JSON
       }
-    } catch {
-      // Storage access blocked or invalid JSON
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [addToast]);
 
   if (userRole !== "developer") {
@@ -141,7 +149,7 @@ export default function NewPortfolioProjectPage() {
     }
 
     addToast("تم نشر مشروعك في معرض الأعمال بنجاح", "success");
-    window.location.assign(`/portfolio/${result.projectId}`);
+    router.push(`/portfolio/${result.projectId}`);
   };
 
   return (
@@ -478,7 +486,7 @@ export default function NewPortfolioProjectPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {previews.map((preview, index) => (
                     <div key={preview.url} className="relative aspect-video overflow-hidden rounded-xl border border-[#D1E3D6]">
-                      <img src={preview.url} alt="Preview" className="h-full w-full object-cover" />
+                      <Image src={preview.url} alt="Preview" fill unoptimized sizes="(max-width: 640px) 50vw, 180px" className="object-cover" />
                       {index === 0 && (
                         <span className="absolute bottom-1 right-1 rounded-md bg-[#056B38] px-1.5 py-0.5 text-[9px] font-black text-white">
                           الغلاف

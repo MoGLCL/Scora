@@ -338,20 +338,6 @@ export async function listProjects(): Promise<ProjectCard[]> {
     }));
 }
 
-export async function getProjectById(id: number) {
-  const row = await queryOne<
-    ProjectRow & { client_name: string | null; client_location: string | null; is_client_verified: 0 | 1 }
-  >(
-    `SELECT p.*, COALESCE(c.company_name, c.display_name) AS client_name,
-            COALESCE(c.is_verified, (SELECT is_verified FROM users WHERE id=c.user_id), 0) AS is_client_verified,
-            c.location AS client_location
-     FROM projects p JOIN clients c ON c.id = p.client_id
-     WHERE p.id = ?`,
-    [id]
-  );
-  return row;
-}
-
 export async function listProposalsForProject(projectId: number) {
   return query<
     ProposalRow & {
@@ -478,10 +464,4 @@ function parseJsonList(value: string[] | string | null): string[] {
   } catch {
     return [];
   }
-}
-
-export async function listSkills() {
-  return query<{ id: number; slug: string; name: string; name_ar: string | null }>(
-    "SELECT id, slug, name, name_ar FROM skills ORDER BY name"
-  );
 }

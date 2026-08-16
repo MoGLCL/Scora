@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { EGYPTIAN_GOVERNORATES, EGYPT_GOVERNORATES_AND_CITIES } from "@/lib/egyptian-locations";
 import { CustomSelect } from "@/components/custom-select";
 import { MapPin, Building2 } from "lucide-react";
@@ -33,26 +32,15 @@ export function EgyptianLocationSelector({
     return { gov: "", city: "" };
   };
 
-  const initial = parseLocation(value);
-  const [selectedGov, setSelectedGov] = useState(initial.gov);
-  const [selectedCity, setSelectedCity] = useState(initial.city);
-
-  useEffect(() => {
-    const parsed = parseLocation(value);
-    setSelectedGov(parsed.gov);
-    setSelectedCity(parsed.city);
-  }, [value]);
+  const { gov: selectedGov, city: selectedCity } = parseLocation(value);
 
   const handleGovChange = (newGov: string) => {
-    setSelectedGov(newGov);
     const availableCities = EGYPT_GOVERNORATES_AND_CITIES[newGov] || [];
     const newCity = availableCities[0] || "";
-    setSelectedCity(newCity);
     onChange(newCity ? `${newGov} - ${newCity}` : newGov);
   };
 
   const handleCityChange = (newCity: string) => {
-    setSelectedCity(newCity);
     onChange(selectedGov ? `${selectedGov} - ${newCity}` : newCity);
   };
 

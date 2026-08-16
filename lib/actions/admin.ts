@@ -11,6 +11,7 @@ import { appendTrustEvent } from "@/lib/trust-events";
 import { verifySession } from "@/lib/dal";
 import type { AccountStatus, AppRole } from "@/lib/types";
 import type { PoolConnection } from "mysql2/promise";
+import { isInternalPath } from "@/lib/safe-url";
 
 export interface DbUserItem {
   id: string;
@@ -29,6 +30,9 @@ export interface DbUserItem {
   assessmentPublicId?: string | null;
   suspendedUntil?: string | null;
   rejectionReason?: string | null;
+  subscriptionPlan?: "free" | "pro" | "vip" | null;
+  subscriptionStatus?: string | null;
+  subscriptionEnd?: string | null;
 }
 
 // ─── Helper Functions ──────────────────────────────────────────
@@ -47,6 +51,10 @@ function revalidateAdminPaths() {
   revalidatePath("/complete-profile");
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 async function sendNotification(conn: PoolConnection, userId: number, message: string, linkUrl?: string | null) {
   await conn.execute("INSERT INTO notifications (user_id, body, link_url) VALUES (?, ?, ?)", [userId, message, linkUrl ?? null]);
 }
@@ -61,10 +69,16 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
     suspended_until: Date | null;
     skill_points: number | null; trust_score: number | null; reports_count: number;
     approval_status: string | null; rejection_reason: string | null; assessment_public_id: string | null;
+    subscription_plan: "free" | "pro" | "vip" | null;
+    subscription_status: string | null;
+    subscription_end: Date | null;
   }>(`SELECT u.id, u.email, u.full_name, u.phone, u.role, u.is_admin, u.status, u.created_at, u.suspended_until,
              d.skill_points, d.trust_score, d.approval_status, d.rejection_reason,
              (SELECT das.public_id FROM developer_assessment_sessions das WHERE das.developer_id=d.id AND das.status='admin_review' ORDER BY das.id DESC LIMIT 1) assessment_public_id,
-             (SELECT COUNT(*) FROM support_tickets st WHERE st.reported_user_id = u.id) reports_count
+             (SELECT COUNT(*) FROM support_tickets st WHERE st.reported_user_id = u.id) reports_count,
+             (SELECT s.plan FROM user_subscriptions s WHERE s.user_id = u.id) subscription_plan,
+             (SELECT s.status FROM user_subscriptions s WHERE s.user_id = u.id) subscription_status,
+             (SELECT s.current_period_end FROM user_subscriptions s WHERE s.user_id = u.id) subscription_end
       FROM users u LEFT JOIN developers d ON d.user_id = u.id
       ORDER BY u.id DESC`);
 
@@ -72,6 +86,9 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
     const joinedDate = new Date(row.created_at).toLocaleDateString("ar-EG");
     const suspendedUntil = row.suspended_until
       ? new Date(row.suspended_until).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })
+      : null;
+    const subscriptionEnd = row.subscription_end
+      ? new Date(row.subscription_end).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })
       : null;
 
     return {
@@ -91,6 +108,9 @@ export async function fetchDbUsersForAdmin(): Promise<DbUserItem[]> {
       rejectionReason: row.rejection_reason ?? undefined,
       assessmentPublicId: row.assessment_public_id,
       suspendedUntil,
+      subscriptionPlan: row.subscription_plan || "free",
+      subscriptionStatus: row.subscription_status || "trial",
+      subscriptionEnd,
     };
   });
 }
@@ -592,7 +612,7 @@ export async function setUserPasswordForAdmin(input: z.input<typeof SetPasswordS
 const DirectNotificationSchema = z.object({
   userId: z.coerce.number().int().positive(),
   message: z.string().trim().min(2, "نص الإشعار يجب ألا يقل عن حرفين").max(1000),
-  linkUrl: z.string().trim().max(500).nullable().optional(),
+  linkUrl: z.string().trim().max(500).refine(isInternalPath, "رابط الإشعار يجب أن يكون مسارًا داخليًا").nullable().optional(),
 });
 
 export async function sendAdminDirectNotification(input: z.input<typeof DirectNotificationSchema>) {
@@ -669,8 +689,8 @@ export async function deleteProjectForAdmin(projectId: number) {
     await execute("DELETE FROM projects WHERE id = ?", [projectId]);
     revalidateAdminPaths();
     return { ok: true as const };
-  } catch (e: any) {
-    return { ok: false as const, error: e?.message || "فشل حذف المشروع" };
+  } catch (error: unknown) {
+    return { ok: false as const, error: getErrorMessage(error, "فشل حذف المشروع") };
   }
 }
 
@@ -680,15 +700,15 @@ export async function deleteProposalForAdmin(proposalId: number) {
     await execute("DELETE FROM proposals WHERE id = ?", [proposalId]);
     revalidateAdminPaths();
     return { ok: true as const };
-  } catch (e: any) {
-    return { ok: false as const, error: e?.message || "فشل حذف العرض" };
+  } catch (error: unknown) {
+    return { ok: false as const, error: getErrorMessage(error, "فشل حذف العرض") };
   }
 }
 
 const BroadcastNotificationSchema = z.object({
   targetAudience: z.enum(["all", "developers", "clients"]),
   message: z.string().trim().min(3, "نص الإشعار يجب أن يكون 3 أحرف على الأقل").max(1000),
-  linkUrl: z.string().trim().max(500).nullable().optional(),
+  linkUrl: z.string().trim().max(500).refine(isInternalPath, "رابط الإشعار يجب أن يكون مسارًا داخليًا").nullable().optional(),
 });
 
 export async function broadcastNotificationForAdmin(input: z.input<typeof BroadcastNotificationSchema>) {
@@ -734,8 +754,8 @@ export async function updateSupportTicketStatusForAdmin(input: z.input<typeof Ti
     await execute("UPDATE support_tickets SET status = ? WHERE id = ?", [parsed.data.status, parsed.data.ticketId]);
     revalidateAdminPaths();
     return { ok: true as const };
-  } catch (e: any) {
-    return { ok: false as const, error: e?.message || "فشل تحديث حالة التذكرة" };
+  } catch (error: unknown) {
+    return { ok: false as const, error: getErrorMessage(error, "فشل تحديث حالة التذكرة") };
   }
 }
 
@@ -745,7 +765,75 @@ export async function deleteReviewForAdmin(reviewId: number) {
     await execute("DELETE FROM reviews WHERE id = ?", [reviewId]);
     revalidateAdminPaths();
     return { ok: true as const };
-  } catch (e: any) {
-    return { ok: false as const, error: e?.message || "فشل حذف التقييم" };
+  } catch (error: unknown) {
+    return { ok: false as const, error: getErrorMessage(error, "فشل حذف التقييم") };
+  }
+}
+
+export async function setUserSubscriptionForAdmin(input: {
+  userId: number | string;
+  plan: "free" | "pro" | "vip";
+  status: "active" | "trial" | "expired" | "cancelled";
+  durationDays?: number | null;
+}) {
+  await requireAdmin();
+  const parsed = z
+    .object({
+      userId: z.union([z.number(), z.string()]),
+      plan: z.enum(["free", "pro", "vip"]),
+      status: z.enum(["active", "trial", "expired", "cancelled"]),
+      durationDays: z.number().int().min(1).max(3650).optional().nullable(),
+    })
+    .safeParse(input);
+
+  if (!parsed.success) return { ok: false as const, error: "بيانات الباقة غير صالحة" };
+
+  const userId = Number(parsed.data.userId);
+  const { plan, status, durationDays } = parsed.data;
+
+  try {
+    let periodEnd: Date | null = null;
+    let trialEndsAt: Date | null = null;
+
+    if (status === "trial") {
+      const days = durationDays || 3;
+      trialEndsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    } else if (durationDays) {
+      periodEnd = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+    }
+
+    await execute(
+      `INSERT INTO user_subscriptions (user_id, plan, status, trial_ends_at, current_period_start, current_period_end)
+       VALUES (?, ?, ?, ?, NOW(), ?)
+       ON DUPLICATE KEY UPDATE
+         plan = VALUES(plan),
+         status = VALUES(status),
+         trial_ends_at = VALUES(trial_ends_at),
+         current_period_start = NOW(),
+         current_period_end = VALUES(current_period_end),
+         updated_at = NOW()`,
+      [userId, plan, status, trialEndsAt, periodEnd]
+    );
+
+    const planNames: Record<string, string> = {
+      free: "المجانية (Free)",
+      pro: "الاحترافية (Pro)",
+      vip: "الفائقة (VIP)",
+    };
+
+    await execute(
+      `INSERT INTO notifications (user_id, body, link_url, is_read, created_at)
+       VALUES (?, ?, '/pricing', 0, NOW())`,
+      [
+        userId,
+        `تم تحديث باقة حسابك إلى ${planNames[plan]} بنجاح من قِبل إدارة منصة سكورا.`,
+      ]
+    );
+
+    revalidateAdminPaths();
+    return { ok: true as const, message: `تم تعيين باقة ${planNames[plan]} للمستخدم بنجاح` };
+  } catch (error) {
+    console.error("[setUserSubscriptionForAdmin]", error);
+    return { ok: false as const, error: "حدث خطأ أثناء تحديث باقة المستخدم" };
   }
 }

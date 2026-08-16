@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Image from "next/image";
 import { sendMessage } from "@/lib/actions/chat";
 import { uploadChatImage } from "@/lib/actions/upload";
 import { reportChatMessage } from "@/lib/actions/tickets";
@@ -288,9 +289,12 @@ export function ChatClient({
               {/* Render Image if exists */}
               {message.imageUrl && (
                 <div className="mb-2 relative overflow-hidden rounded-xl group/img cursor-pointer max-w-sm">
-                  <img
+                  <Image
                     src={message.imageUrl}
                     alt="صورة مرفقة"
+                    width={384}
+                    height={256}
+                    unoptimized
                     className="max-h-64 w-auto rounded-xl object-cover border border-black/10 transition-transform duration-200 group-hover/img:scale-[1.02]"
                     onClick={() => setLightboxImage(message.imageUrl!)}
                   />
@@ -353,7 +357,7 @@ export function ChatClient({
       {previewUrl && (
         <div className="px-4 py-2 bg-[#E8FAF0] border-t border-[#D1E3D6] flex items-center justify-between gap-3 font-body">
           <div className="flex items-center gap-3">
-            <img src={previewUrl} alt="Preview" className="h-12 w-12 object-cover rounded-xl border border-[#C5E8D1]" />
+            <Image src={previewUrl} alt="Preview" width={48} height={48} unoptimized className="h-12 w-12 object-cover rounded-xl border border-[#C5E8D1]" />
             <div className="text-xs">
               <p className="font-bold text-[#05291A]">صورة جاهزة للإرسال</p>
               <p className="text-[11px] text-[#526B5E]">{selectedFile?.name}</p>
@@ -442,9 +446,12 @@ export function ChatClient({
             >
               <X className="w-6 h-6" />
             </button>
-            <img
+            <Image
               src={lightboxImage}
               alt="صورة مكبرة"
+              width={1200}
+              height={900}
+              unoptimized
               className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
             />
             <div className="mt-3 flex gap-3">

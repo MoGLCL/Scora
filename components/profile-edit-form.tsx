@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useProfile } from "@/components/profile-provider";
 import { updateDeveloperProfile, updateClientProfile, setDeveloperSkills } from "@/lib/actions/profile";
 import { removeAvatar, uploadAvatar } from "@/lib/actions/upload";
@@ -74,17 +75,6 @@ export function ProfileEditForm({ initialData }: { initialData: InitialUserData 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Sync state if initialData changes
-  useEffect(() => {
-    if (initialData.username) setUsername(initialData.username);
-    if (initialData.fullName) setFullName(initialData.fullName);
-    if (initialData.phone) setPhone(initialData.phone);
-    if (initialData.jobTitle) setJobTitle(initialData.jobTitle);
-    if (initialData.location) setLocation(initialData.location);
-    if (initialData.avatarUrl !== undefined) setAvatarUrl(initialData.avatarUrl);
-    if (initialData.skills) setSkills(initialData.skills);
-  }, [initialData]);
 
   const handleAddSkill = (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,9 +218,12 @@ export function ProfileEditForm({ initialData }: { initialData: InitialUserData 
         <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-[#F7FAF8] rounded-[24px] border border-[#D1E3D6]">
           <div className="relative shrink-0">
             {avatarUrl ? (
-              <img
+              <Image
                 src={avatarUrl}
                 alt="Avatar"
+                width={96}
+                height={96}
+                unoptimized
                 className="h-24 w-24 rounded-full object-cover border-2 border-[#056B38] shadow-xs"
               />
             ) : (

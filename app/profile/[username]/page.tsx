@@ -265,7 +265,9 @@ export default async function PublicProfilePage({
   const displayName = isCompany ? (client?.company_name || user.full_name) : (dev?.display_name || user.full_name);
   const canChat = viewer && viewer.userId !== user.id && viewer.role !== user.role;
 
-  const trustScore = dev ? dev.trust_score : 50;
+  const completedProjectsCount = clientProjects.filter((p) => p.status === "completed").length;
+  const clientTrustCalculated = Math.min(100, 50 + (completedProjectsCount * 10) + (isVerified ? 10 : 0));
+  const trustScore = dev ? dev.trust_score : clientTrustCalculated;
   const skillPoints = dev ? dev.skill_points : 0;
   const headline = dev
     ? (dev.job_title || "Frontend Developer")
@@ -455,21 +457,37 @@ export default async function PublicProfilePage({
             {/* Right / Left Actions & Gauges */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 self-end lg:self-center">
               
-              {/* Gauges Block (Trust Score + Skill Points) */}
-              <div className="flex items-center gap-6 bg-[#F7FAF8] p-3.5 rounded-2xl border border-[#D1E3D6]">
-                <CircularScoreGauge score={trustScore} />
+              {/* Gauges Block */}
+              {user.role === "developer" ? (
+                <div className="flex items-center gap-6 bg-[#F7FAF8] p-3.5 rounded-2xl border border-[#D1E3D6]">
+                  <CircularScoreGauge score={trustScore} />
 
-                <div className="flex flex-col items-center justify-center border-r border-[#D1E3D6] pr-6">
-                  <div className="text-[11px] font-bold text-[#526B5E]">Skill Points (SP)</div>
-                  <div className="mt-1 text-2xl font-black text-[#05291A] flex items-baseline gap-1">
-                    <span>{skillPoints}</span>
-                    <span className="text-xs font-bold text-[#526B5E]">SP</span>
+                  <div className="flex flex-col items-center justify-center border-r border-[#D1E3D6] pr-6">
+                    <div className="text-[11px] font-bold text-[#526B5E]">Skill Points (SP)</div>
+                    <div className="mt-1 text-2xl font-black text-[#05291A] flex items-baseline gap-1">
+                      <span>{skillPoints}</span>
+                      <span className="text-xs font-bold text-[#526B5E]">SP</span>
+                    </div>
+                    <span className="mt-1 text-[10px] font-bold text-[#056B38] bg-[#E8FAF0] px-2 py-0.5 rounded-full border border-[#C5E8D1]">
+                      +0 هذا الشهر
+                    </span>
                   </div>
-                  <span className="mt-1 text-[10px] font-bold text-[#056B38] bg-[#E8FAF0] px-2 py-0.5 rounded-full border border-[#C5E8D1]">
-                    +0 هذا الشهر
-                  </span>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center gap-4 bg-[#F7FAF8] p-3.5 rounded-2xl border border-[#D1E3D6]">
+                  <CircularScoreGauge score={trustScore} />
+                  <div className="text-right pr-1">
+                    <div className="text-[12px] font-black text-[#05291A]">موثوقية العميل (Trust)</div>
+                    <div className="text-[10px] text-[#526B5E] max-w-[150px] leading-tight mt-0.5 font-bold">
+                      {isOwnProfile
+                        ? "يزداد معدل الموثوقية مع كل تسليم مشروع ناجح"
+                        : trustScore >= 80
+                        ? "عميل موثوق ومعتمد في المنصة"
+                        : "حساب عميل معتمد في سكورا"}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-row sm:flex-col gap-2.5 justify-end">
@@ -570,17 +588,17 @@ export default async function PublicProfilePage({
           <div className="bg-white p-5 rounded-[22px] border border-[#D1E3D6] shadow-xs flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-xs font-bold text-[#526B5E] block">
-                {user.role === "developer" ? "Skill Points" : isCompany ? "حجم الفريق" : "العروض المستلمة"}
+                {user.role === "developer" ? "Skill Points (SP)" : "المشاريع المفتوحة"}
               </span>
               <span className="text-2xl font-black text-[#05291A] block">
-                {user.role === "developer" ? skillPoints : isCompany ? (client?.company_size || "1-10") : 0}
+                {user.role === "developer" ? skillPoints : clientProjects.filter(p => p.status === "open").length}
               </span>
               <span className="text-[11px] text-[#056B38] font-bold block">
-                {user.role === "developer" ? "+0 هذا الشهر" : isCompany ? "موظف ومستشار" : "عرض متاح"}
+                {user.role === "developer" ? "+0 هذا الشهر" : "مشروع متاح للتنفيذ"}
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-[#E8FAF0] text-[#056B38] flex items-center justify-center shrink-0 border border-[#C5E8D1]">
-              <Star className="w-5 h-5" />
+              {user.role === "developer" ? <Star className="w-5 h-5" /> : <Briefcase className="w-5 h-5" />}
             </div>
           </div>
 
@@ -785,7 +803,7 @@ export default async function PublicProfilePage({
         {/* ───────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
           
-          {/* Column 1: Passport Card */}
+          {/* Column 1: Passport (Dev) OR Client Trust History (Client) */}
           <section className="bg-white p-6 sm:p-8 rounded-[28px] border border-[#D1E3D6] shadow-xs space-y-6 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4">
@@ -794,13 +812,13 @@ export default async function PublicProfilePage({
                     {user.role === "developer"
                       ? "Developer Passport"
                       : isCompany
-                      ? "بطاقة توثيق الشركة"
-                      : "Client Passport"}
+                      ? "بطاقة توثيق واعتماد الشركة"
+                      : "سجل توثيق العميل (Client Profile)"}
                   </h2>
                   <p className="text-xs text-[#526B5E] mt-0.5">
                     {user.role === "developer"
                       ? "ملفك المهني على Scora الذي يعكس مهاراتك وثقتك وتطورك المستمر."
-                      : "سجل اعتمادات الحساب وتوثيقات المنصة المعتمدة."}
+                      : "سجل اعتمادات الحساب وتوثيقات المنصة وإنجاز المشاريع المكتملة."}
                   </p>
                 </div>
                 
@@ -820,38 +838,60 @@ export default async function PublicProfilePage({
               </div>
 
               {/* Metrics Banner */}
-              <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-3 text-center divide-x divide-x-reverse divide-[#D1E3D6]">
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-[#526B5E] block">Trust Score</span>
-                  <span className="text-base font-black text-[#05291A] block">{trustScore}%</span>
-                  <span className="text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
-                    {trustScore >= 80 ? "مرتفع" : trustScore >= 50 ? "متوسط" : "مبتدئ"}
-                  </span>
-                </div>
+              {user.role === "developer" ? (
+                <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-3 text-center divide-x divide-x-reverse divide-[#D1E3D6]">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#526B5E] block">Trust Score</span>
+                    <span className="text-base font-black text-[#05291A] block">{trustScore}%</span>
+                    <span className="text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                      {trustScore >= 80 ? "مرتفع" : trustScore >= 50 ? "متوسط" : "مبتدئ"}
+                    </span>
+                  </div>
 
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-[#526B5E] block">Skill Points</span>
-                  <span className="text-base font-black text-[#05291A] block">{skillPoints}</span>
-                  <span className="text-[10px] font-bold text-[#056B38] block">+0 هذا الشهر</span>
-                </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#526B5E] block">Skill Points</span>
+                    <span className="text-base font-black text-[#05291A] block">{skillPoints}</span>
+                    <span className="text-[10px] font-bold text-[#056B38] block">+0 هذا الشهر</span>
+                  </div>
 
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-[#526B5E] block">
-                    {user.role === "developer" ? "Verified Skills" : "حالة التوثيق"}
-                  </span>
-                  <span className="text-base font-black text-[#05291A] block">
-                    {user.role === "developer" ? devSkills.length : (isVerified ? "موثق" : "جديد")}
-                  </span>
-                  <span className="text-[10px] text-[#526B5E] block">
-                    {user.role === "developer" ? "مهارات موثقة" : "هوية معتمدة"}
-                  </span>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#526B5E] block">Verified Skills</span>
+                    <span className="text-base font-black text-[#05291A] block">{devSkills.length}</span>
+                    <span className="text-[10px] text-[#526B5E] block">مهارات موثقة</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-[#F7FAF8] border border-[#D1E3D6] grid grid-cols-3 text-center divide-x divide-x-reverse divide-[#D1E3D6]">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#526B5E] block">Trust Score</span>
+                    <span className="text-base font-black text-[#05291A] block">{trustScore}%</span>
+                    <span className="text-[10px] font-bold bg-[#E8FAF0] text-[#056B38] px-2 py-0.5 rounded-full border border-[#D1E3D6]">
+                      {isOwnProfile ? "يزداد مع تسليم المشاريع" : trustScore >= 80 ? "موثوقية عالية" : "حساب معتمد"}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#526B5E] block">المشاريع المكتملة</span>
+                    <span className="text-base font-black text-[#05291A] block">{completedProjectsCount}</span>
+                    <span className="text-[10px] font-bold text-[#056B38] block">تم تسليمها بنجاح</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#526B5E] block">حالة التوثيق</span>
+                    <span className="text-base font-black text-[#05291A] block">
+                      {isVerified ? "موثق" : "نشط"}
+                    </span>
+                    <span className="text-[10px] text-[#526B5E] block">
+                      حساب معتمد
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Verified Skills / Tags */}
               <div className="space-y-2 pt-2">
                 <span className="text-xs font-black text-[#05291A] block">
-                  {user.role === "developer" ? "المهارات الموثقة" : "مجالات التخصص والنشاط"}
+                  {user.role === "developer" ? "المهارات الموثقة" : "مجالات التخصص ونشاط المشاريع"}
                 </span>
                 
                 {user.role === "developer" ? (
@@ -874,7 +914,7 @@ export default async function PublicProfilePage({
                   )
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {[client?.industry || "تكنولوجيا المعلومات", "إدارة المشاريع البرمجية"].map((skill) => (
+                    {[client?.industry || "تكنولوجيا المعلومات وتطوير البرمجيات", "إدارة وتوظيف المشاريع", "حساب دفع وضمان معتمد"].map((skill) => (
                       <span
                         key={skill}
                         className="bg-[#F7FAF8] border border-[#D1E3D6] text-[#05291A] px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-2xs"

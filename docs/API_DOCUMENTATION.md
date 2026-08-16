@@ -167,18 +167,14 @@
 - **Inputs:** `email`, `password`.
 - **Returns:** `{ ok: true, role, redirectTo }` أو `{ ok: false, error }`.
 
-#### `changePassword(currentPassword, newPassword)`
+#### `changeUserPassword(input)`
 تحديث كلمة المرور للمستخدم الحالي بعد التأكد من الجلسة.
-- **Inputs:** `currentPassword`, `newPassword`.
+- **Inputs:** `{ currentPassword, newPassword }`.
 - **Returns:** `{ ok: true }` أو `{ ok: false, error }`.
 
 ---
 
-### ب. خدمات الجلسات والملفات الشخصية (`lib/actions/user-session.ts` & `lib/actions/profile.ts`)
-
-#### `syncUserSessionWithDb()`
-مزامنة وتحديث حالة الجلسة لحظياً وقراءة البيانات من جدول `users` بـ MySQL.
-- **Returns:** `UserDbSessionResult` تحتوي على الهوية، الرتبة، تفاصيل المطور أو العميل.
+### ب. خدمات الملفات الشخصية (`lib/actions/profile.ts`)
 
 #### `updateDeveloperProfile(_prev, formData)`
 تحديث بيانات الملف الشخصي للمطور (المسمى الوظيفي، النبذة، المهارات، الروابط).
@@ -196,12 +192,12 @@
 
 ### ج. خدمات تقييم المطورين والـ AI (`lib/actions/developer-assessment.ts`)
 
-#### `submitDeveloperAssessment(input)`
-إرسال استجابات المطور لاختبار المهارات والملاءمة وتحليلها بواسطة نموذج الذكاء الاصطناعي OpenRouter لحساب نقاط السكورا.
-- **Inputs:** `{ developerId, answers, assessmentCategory }`.
-- **Returns:** `{ ok: true, scoreResult: { trustScore, skillPoints, aiFeedback } }`.
+#### `startDeveloperAssessment(input?)`
+بدء جلسة تقييم جديدة للمطور بعد التحقق من حالة القبول والمهارات.
+- **Inputs:** `{ track?, skills? }`.
 
-#### `submitAdmissionDecision(input)`
-اعتماد أو رفض طلب انضمام المطور بواسطة أدمن النظام.
-- **Inputs:** `{ developerId, decision: "approved" | "rejected", adminNotes }`.
-- **Returns:** `{ ok: true }`.
+#### `submitAndFinalizeAssessment(publicId)`
+تسليم جلسة التقييم المكتملة وإرسالها للمراجعة البشرية.
+
+#### `saveDeveloperAssessmentStateAction(input)` و`submitCodeAndGenerateNextQuestionsAction(input)`
+حفظ تقدم التقييم وتوليد الأسئلة التالية لمسارات الكود.

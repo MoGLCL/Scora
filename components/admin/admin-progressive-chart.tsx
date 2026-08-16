@@ -13,6 +13,7 @@ import {
   ArcElement,
   CategoryScale,
 } from "chart.js";
+import type { ChartData, ChartOptions, TooltipItem } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
 import { Eye, Users, UserPlus, Briefcase, Sparkles, PieChart, Clock, FolderTree } from "lucide-react";
 
@@ -81,8 +82,8 @@ export function AdminProgressiveChart({
   const labels = useMemo(() => slicedData.map((d) => d.formattedDate), [slicedData]);
   const count = Math.max(1, slicedData.length);
 
-  const datasets = useMemo(() => {
-    const ds = [];
+  const datasets = useMemo<ChartData<"line", { x: number; y: number }[]>["datasets"]>(() => {
+    const ds: ChartData<"line", { x: number; y: number }[]>["datasets"] = [];
 
     if (activeMetrics.visits) {
       ds.push({
@@ -159,7 +160,7 @@ export function AdminProgressiveChart({
     return ds;
   }, [slicedData, activeMetrics, range]);
 
-  const lineOptions: any = useMemo(() => {
+  const lineOptions = useMemo<ChartOptions<"line">>(() => {
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -192,14 +193,14 @@ export function AdminProgressiveChart({
             size: 12,
           },
           callbacks: {
-            title: (items: any) => {
+            title: (items: TooltipItem<"line">[]) => {
               const idx = items[0]?.parsed?.x;
-              if (idx !== undefined && slicedData[idx]) {
+              if (typeof idx === "number" && slicedData[idx]) {
                 return `التاريخ: ${slicedData[idx].day} (${slicedData[idx].formattedDate})`;
               }
               return "";
             },
-            label: (context: any) => {
+            label: (context: TooltipItem<"line">) => {
               const name = context.dataset.label || "";
               const val = context.parsed.y ?? 0;
               return `  ${name}: ${val.toLocaleString("ar-EG")}`;
@@ -219,14 +220,14 @@ export function AdminProgressiveChart({
             stepSize: 1,
             autoSkip: true,
             maxTicksLimit: range <= 7 ? 7 : range <= 14 ? 14 : 10,
-            callback: (val: number) => {
-              const index = Math.round(val);
+            callback: (val: string | number) => {
+              const index = Math.round(Number(val));
               return labels[index] || "";
             },
             font: {
               family: "inherit",
               size: 11,
-              weight: "600",
+              weight: 600,
             },
             color: "#526B5E",
           },
@@ -242,7 +243,7 @@ export function AdminProgressiveChart({
             font: {
               family: "inherit",
               size: 11,
-              weight: "600",
+              weight: 600,
             },
             color: "#526B5E",
           },
@@ -356,7 +357,7 @@ export function AdminProgressiveChart({
     };
   }, [hourlyToday]);
 
-  const doughnutOptions: any = {
+  const doughnutOptions: ChartOptions<"doughnut"> = {
     responsive: true,
     maintainAspectRatio: false,
     cutout: "68%",
@@ -379,7 +380,7 @@ export function AdminProgressiveChart({
     },
   };
 
-  const barOptions: any = {
+  const barOptions: ChartOptions<"bar"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -390,7 +391,7 @@ export function AdminProgressiveChart({
         padding: 10,
         cornerRadius: 12,
         callbacks: {
-          label: (context: any) => `  الزيارات: ${context.parsed.y} زيارة`,
+          label: (context: TooltipItem<"bar">) => `  الزيارات: ${context.parsed.y} زيارة`,
         },
       },
     },
@@ -541,7 +542,7 @@ export function AdminProgressiveChart({
         {/* Chart Canvas Area */}
         <div className="relative h-[320px] w-full pt-2">
           {slicedData.length > 0 ? (
-            <Line data={{ datasets } as any} options={lineOptions} />
+            <Line data={{ datasets }} options={lineOptions} />
           ) : (
             <div className="flex h-full items-center justify-center text-sm font-bold text-[#526B5E]">
               لا توجد بيانات إحصائية مسجلة حتى الآن.

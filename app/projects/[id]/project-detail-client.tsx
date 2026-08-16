@@ -94,7 +94,7 @@ export function ProjectDetailClient({
   currentUserId?: number | null;
 }) {
   const router = useRouter();
-  const { userRole, addToast } = useProfile();
+  const { userRole, isAdmin, addToast } = useProfile();
 
   // Project Management State
   const [projectStatus, setProjectStatus] = useState<string>(project.status || "open");
@@ -131,7 +131,7 @@ export function ProjectDetailClient({
 
   const isProjectOwner =
     Boolean(currentUserId && project.clientUserId && currentUserId === project.clientUserId);
-  const canManageProposals = isProjectOwner || userRole === "client";
+  const canManageProposals = isProjectOwner || isAdmin;
 
   // Toggle open / closed status for proposals
   const handleToggleStatus = async () => {

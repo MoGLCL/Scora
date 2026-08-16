@@ -1,12 +1,10 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { execute, queryOne, transaction } from "@/lib/db";
-import { createSession, destroySession } from "@/lib/session";
-import { verifySession } from "@/lib/dal";
+import { createSession } from "@/lib/session";
 import type { AppRole, UserRow } from "@/lib/types";
 
 const BCRYPT_ROUNDS = 12;
@@ -168,41 +166,4 @@ export async function login(
     ? "/complete-profile"
     : "/complete-client-profile";
   return { ok: true, role: user.role, redirectTo };
-}
-
-export async function logout(): Promise<void> {
-  await destroySession();
-  redirect("/");
-}
-
-/** Update the signed-in user's password. */
-export async function changePassword(
-  currentPassword: string,
-  newPassword: string
-): Promise<{ ok: boolean; error?: string }> {
-  const session = await verifySession();
-  if (!session) return { ok: false, error: "غير مصرح لك" };
-
-  const strong = z
-    .string()
-    .min(8, "كلمة المرور 8 أحرف على الأقل")
-    .regex(/[a-zA-Z]/, "لازم تحتوي على حرف")
-    .regex(/[0-9]/, "لازم تحتوي على رقم")
-    .safeParse(newPassword);
-  if (!strong.success) {
-    return { ok: false, error: strong.error.issues[0]?.message ?? "كلمة مرور ضعيفة" };
-  }
-
-  const user = await queryOne<UserRow>(
-    "SELECT id, password_hash FROM users WHERE id = ?",
-    [session.userId]
-  );
-  if (!user) return { ok: false, error: "المستخدم غير موجود" };
-
-  const ok = await bcrypt.compare(currentPassword, user.password_hash);
-  if (!ok) return { ok: false, error: "كلمة المرور الحالية غير صحيحة" };
-
-  const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  await execute("UPDATE users SET password_hash = ? WHERE id = ?", [hash, session.userId]);
-  return { ok: true };
 }

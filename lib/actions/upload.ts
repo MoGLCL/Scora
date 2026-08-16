@@ -63,11 +63,6 @@ export async function uploadAvatar(formData: FormData): Promise<UploadResult> {
     return { ok: false, error: "محتوى الملف لا يطابق صيغته" };
   }
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const filename = `${randomUUID()}.${ext}`;
-  await writeFile(path.join(UPLOAD_DIR, filename), bytes);
-  const url = `/uploads/${filename}`;
-
   const isDeveloper = session.role === "developer";
   const table = isDeveloper ? "developers" : "clients";
   const profile = await queryOne<{ id: number }>(
@@ -75,6 +70,11 @@ export async function uploadAvatar(formData: FormData): Promise<UploadResult> {
     [session.userId]
   );
   if (!profile) return { ok: false, error: "الملف الشخصي غير موجود" };
+
+  await mkdir(UPLOAD_DIR, { recursive: true });
+  const filename = `${randomUUID()}.${ext}`;
+  await writeFile(path.join(UPLOAD_DIR, filename), bytes);
+  const url = `/uploads/${filename}`;
 
   await execute(
     `INSERT INTO media (owner_type, owner_id, mime_type, size_bytes, url)

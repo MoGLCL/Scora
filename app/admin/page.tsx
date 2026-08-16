@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Ban,
@@ -34,6 +34,8 @@ import {
   FileCheck,
   History,
   Star,
+  Tag,
+  Sliders,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { VerifiedBadge } from "@/components/verified-badge";
@@ -54,9 +56,13 @@ import {
   broadcastNotificationForAdmin,
   updateSupportTicketStatusForAdmin,
   deleteReviewForAdmin,
+  setUserSubscriptionForAdmin,
 } from "@/lib/actions/admin";
 import { setAiAssistantEnabled, setQuickRegistrationEnabled, setSpPerStarSetting } from "@/lib/actions/settings";
 import { OpenRouterSettings } from "@/components/openrouter-settings";
+import { AdminCouponsTab } from "@/components/admin/admin-coupons-tab";
+import { AdminAiLogsTab } from "@/components/admin/admin-ai-logs-tab";
+import { AdminPlansTab } from "@/components/admin/admin-plans-tab";
 import { useProfile } from "@/components/profile-provider";
 import { AdminProgressiveChart, type TimelineDataPoint } from "@/components/admin/admin-progressive-chart";
 import {
@@ -64,6 +70,7 @@ import {
   EditUserModal,
   SetPasswordModal,
   SendNotificationModal,
+  ChangeUserPlanModal,
   type ExtendedUserItem,
 } from "@/components/admin/admin-user-modals";
 import {
@@ -164,7 +171,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<StatsResponse>({});
 
   const [tab, setTab] = useState<
-    "users" | "projects" | "assessments" | "tickets" | "reviews" | "audit" | "stats" | "ai" | "settings"
+    "users" | "projects" | "assessments" | "tickets" | "reviews" | "audit" | "stats" | "ai" | "ai_logs" | "plans" | "coupons" | "settings"
   >("users");
 
   // Users filter state
@@ -207,6 +214,7 @@ export default function AdminPage() {
   const [deleteModalUser, setDeleteModalUser] = useState<ExtendedUserItem | null>(null);
   const [resetTestUser, setResetTestUser] = useState<ExtendedUserItem | null>(null);
   const [editPointsUser, setEditPointsUser] = useState<ExtendedUserItem | null>(null);
+  const [planModalUser, setPlanModalUser] = useState<ExtendedUserItem | null>(null);
   const [customTrustScore, setCustomTrustScore] = useState<number>(0);
   const [customSkillPoints, setCustomSkillPoints] = useState<number>(0);
 
@@ -222,61 +230,61 @@ export default function AdminPage() {
   // Broadcast Notification Modal state
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/users", { cache: "no-store" });
       if (response.ok) setUsers(await response.json());
     } catch {
       addToast("تعذر تحميل قائمة المستخدمين", "warn");
     }
-  };
+  }, [addToast]);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/projects", { cache: "no-store" });
       if (response.ok) setProjects(await response.json());
     } catch {
       addToast("تعذر تحميل المشاريع", "warn");
     }
-  };
+  }, [addToast]);
 
-  const loadTickets = async () => {
+  const loadTickets = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/tickets", { cache: "no-store" });
       if (response.ok) setTickets(await response.json());
     } catch {
       // silent
     }
-  };
+  }, []);
 
-  const loadAssessments = async () => {
+  const loadAssessments = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/assessments", { cache: "no-store" });
       if (response.ok) setAssessments(await response.json());
     } catch {
       // silent
     }
-  };
+  }, []);
 
-  const loadAuditLogs = async () => {
+  const loadAuditLogs = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/audit-logs", { cache: "no-store" });
       if (response.ok) setAuditLogs(await response.json());
     } catch {
       // silent
     }
-  };
+  }, []);
 
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/reviews", { cache: "no-store" });
       if (response.ok) setReviews(await response.json());
     } catch {
       // silent
     }
-  };
+  }, []);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/stats", { cache: "no-store" });
       if (response.ok) {
@@ -289,7 +297,7 @@ export default function AdminPage() {
     } catch {
       // silent
     }
-  };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -305,14 +313,15 @@ export default function AdminPage() {
         if (active) userTimer = setTimeout(fetchUsersLoop, 12000);
       }
     };
-    void fetchUsersLoop();
-
-    loadProjects();
-    loadTickets();
-    loadAssessments();
-    loadAuditLogs();
-    loadReviews();
-    loadStats();
+    const initialTimer = window.setTimeout(() => {
+      void fetchUsersLoop();
+      loadProjects();
+      loadTickets();
+      loadAssessments();
+      loadAuditLogs();
+      loadReviews();
+      loadStats();
+    }, 0);
 
     const statsTimer = window.setInterval(() => {
       loadStats();
@@ -323,14 +332,15 @@ export default function AdminPage() {
 
     return () => {
       active = false;
+      window.clearTimeout(initialTimer);
       if (userTimer) clearTimeout(userTimer);
       window.clearInterval(statsTimer);
     };
-  }, [addToast]);
+  }, [addToast, loadAssessments, loadAuditLogs, loadProjects, loadReviews, loadStats, loadTickets]);
 
   // Filter & Sort visible users
   const visibleUsers = useMemo(() => {
-    let list = users.filter((u) => {
+    const list = users.filter((u) => {
       const match =
         !search ||
         `${u.id} ${u.name} ${u.email} ${u.phone} ${u.jobTitle || ""} ${u.companyName || ""}`
@@ -381,7 +391,7 @@ export default function AdminPage() {
 
   // Filtered & Sorted projects
   const visibleProjects = useMemo(() => {
-    let list = projects.filter((p) => {
+    const list = projects.filter((p) => {
       const matchSearch =
         !projectSearch ||
         `${p.id} ${p.title} ${p.ownerName} ${p.companyName || ""} ${p.category || ""}`
@@ -527,6 +537,37 @@ export default function AdminPage() {
     setNotifyModalUser(null);
     setServerMessage({ text: "تم إرسال الإشعار إلى حساب المستخدم بنجاح", kind: "success" });
     addToast("تم إرسال الإشعار بنجاح", "success");
+  };
+
+  const handleSaveUserPlan = async (
+    userId: string,
+    plan: "free" | "pro" | "vip",
+    status: "active" | "trial" | "expired" | "cancelled",
+    durationDays?: number | null
+  ) => {
+    try {
+      const res = await setUserSubscriptionForAdmin({
+        userId,
+        plan,
+        status,
+        durationDays,
+      });
+      if (res.ok) {
+        addToast(res.message, "success");
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, subscriptionPlan: plan, subscriptionStatus: status }
+              : u
+          )
+        );
+        await loadUsers();
+      } else {
+        addToast(res.error, "warn");
+      }
+    } catch {
+      addToast("حدث خطأ أثناء تعيين الباقة", "warn");
+    }
   };
 
   const handleOpenEditPoints = (u: ExtendedUserItem) => {
@@ -991,6 +1032,45 @@ export default function AdminPage() {
 
           <button
             type="button"
+            onClick={() => setTab("ai_logs")}
+            className={`rounded-xl px-3.5 sm:px-4 py-2 font-black text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer ${
+              tab === "ai_logs"
+                ? "bg-[#056B38] text-white shadow-xs"
+                : "text-[#526B5E] hover:bg-[#F7FAF8] hover:text-[#05291A]"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>محادثات الذكاء الاصطناعي</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab("plans")}
+            className={`rounded-xl px-3.5 sm:px-4 py-2 font-black text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer ${
+              tab === "plans"
+                ? "bg-[#056B38] text-white shadow-xs"
+                : "text-[#526B5E] hover:bg-[#F7FAF8] hover:text-[#05291A]"
+            }`}
+          >
+            <Sliders className="h-4 w-4" />
+            <span>تسعير ومميزات الباقات</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab("coupons")}
+            className={`rounded-xl px-3.5 sm:px-4 py-2 font-black text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer ${
+              tab === "coupons"
+                ? "bg-[#056B38] text-white shadow-xs"
+                : "text-[#526B5E] hover:bg-[#F7FAF8] hover:text-[#05291A]"
+            }`}
+          >
+            <Tag className="h-4 w-4" />
+            <span>كوبونات الخصم</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setTab("settings")}
             className={`rounded-xl px-3.5 sm:px-4 py-2 font-black text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "settings"
@@ -1115,7 +1195,7 @@ export default function AdminPage() {
                   <div className="min-w-[160px]">
                     <CustomSelect
                       value={sortBy}
-                      onChange={(val) => setSortBy(val as any)}
+                      onChange={(val) => setSortBy(val as typeof sortBy)}
                       size="sm"
                       options={[
                         { value: "newest", label: "الأحدث انضماماً" },
@@ -1176,7 +1256,7 @@ export default function AdminPage() {
                 ].map((item) => (
                   <button
                     key={item.key}
-                    onClick={() => setFilter(item.key as any)}
+                    onClick={() => setFilter(item.key as typeof filter)}
                     className={`rounded-xl px-3 py-1.5 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                       filter === item.key
                         ? "bg-[#056B38] text-white shadow-2xs"
@@ -1265,6 +1345,19 @@ export default function AdminPage() {
                                   بانتظار قرار الأدمن
                                 </span>
                               )}
+                              <span
+                                onClick={() => setPlanModalUser(u)}
+                                title="انقر لتعديل وتعيين باقة الاشتراك لهذا المستخدم"
+                                className={`rounded-full text-[10px] font-black px-2.5 py-0.5 cursor-pointer transition-all ${
+                                  u.subscriptionPlan === "vip"
+                                    ? "bg-[#05291A] text-white hover:bg-[#041D12]"
+                                    : u.subscriptionPlan === "pro"
+                                    ? "bg-[#056B38] text-white hover:bg-[#04552D]"
+                                    : "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6] hover:bg-[#D1E3D6]"
+                                }`}
+                              >
+                                باقة {u.subscriptionPlan === "vip" ? "VIP" : u.subscriptionPlan === "pro" ? "Pro" : "Free"}
+                              </span>
                             </div>
 
                             <div className="text-xs text-[#526B5E] flex flex-wrap gap-x-3 gap-y-0.5">
@@ -1458,6 +1551,7 @@ export default function AdminPage() {
                         <th className="p-3.5">#ID</th>
                         <th className="p-3.5">المستخدم</th>
                         <th className="p-3.5">نوع الحساب</th>
+                        <th className="p-3.5">الباقة</th>
                         <th className="p-3.5">الحالة</th>
                         <th className="p-3.5">Trust & SP</th>
                         <th className="p-3.5">التواجد</th>
@@ -1505,6 +1599,22 @@ export default function AdminPage() {
                               >
                                 {u.role === "developer" ? "مطور" : "عميل"}
                               </span>
+                            </td>
+                            <td className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => setPlanModalUser(u)}
+                                title="انقر لتعديل وتعيين الباقة"
+                                className={`rounded-xl px-2.5 py-1 text-[11px] font-black cursor-pointer transition-all ${
+                                  u.subscriptionPlan === "vip"
+                                    ? "bg-[#05291A] text-white hover:bg-[#041D12]"
+                                    : u.subscriptionPlan === "pro"
+                                    ? "bg-[#056B38] text-white hover:bg-[#04552D]"
+                                    : "bg-[#E8FAF0] text-[#056B38] border border-[#D1E3D6] hover:bg-[#D1E3D6]"
+                                }`}
+                              >
+                                {u.subscriptionPlan === "vip" ? "VIP" : u.subscriptionPlan === "pro" ? "Pro" : "Free"}
+                              </button>
                             </td>
                             <td className="p-3.5">
                               <span
@@ -1629,7 +1739,7 @@ export default function AdminPage() {
                 <div className="min-w-[140px]">
                   <CustomSelect
                     value={projectSortBy}
-                    onChange={(val) => setProjectSortBy(val as any)}
+                    onChange={(val) => setProjectSortBy(val as typeof projectSortBy)}
                     size="sm"
                     options={[
                       { value: "newest", label: "الأحدث" },
@@ -1700,7 +1810,7 @@ export default function AdminPage() {
                             { value: "completed", label: "مكتمل ومسلّم" },
                             { value: "closed", label: "مغلق / ملغي" },
                           ]}
-                          onChange={(newSt) => handleUpdateProjectStatus(project.id, newSt as any)}
+                          onChange={(newSt) => handleUpdateProjectStatus(project.id, newSt as "open" | "in_progress" | "completed" | "closed")}
                         />
                       </div>
                     </div>
@@ -1977,7 +2087,7 @@ export default function AdminPage() {
                             { value: "reviewing", label: "قيد المعالجة" },
                             { value: "resolved", label: "تم الحل (Resolved)" },
                           ]}
-                          onChange={(newSt) => handleUpdateTicketStatus(ticket.id, newSt as any)}
+                          onChange={(newSt) => handleUpdateTicketStatus(ticket.id, newSt as "new" | "reviewing" | "resolved")}
                         />
                       </div>
                     </div>
@@ -2287,7 +2397,22 @@ export default function AdminPage() {
         {tab === "ai" && <OpenRouterSettings notify={addToast} />}
 
         {/* ───────────────────────────────────────────────────────────── */}
-        {/* TAB 9: SETTINGS TAB */}
+        {/* TAB 9: AI CHAT LOGS TAB */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        {tab === "ai_logs" && <AdminAiLogsTab notify={addToast} />}
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* TAB 10: PLANS PRICING & LIMITS TAB */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        {tab === "plans" && <AdminPlansTab notify={addToast} />}
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* TAB 11: COUPONS TAB */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        {tab === "coupons" && <AdminCouponsTab notify={addToast} />}
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* TAB 10: SETTINGS TAB */}
         {/* ───────────────────────────────────────────────────────────── */}
         {tab === "settings" && (
           <div className="space-y-4">
@@ -2387,6 +2512,16 @@ export default function AdminPage() {
           onOpenSuspension={(u) => setSuspensionModalUser(u)}
           onOpenDelete={(u) => setDeleteModalUser(u)}
           onOpenResetTest={(u) => setResetTestUser(u)}
+          onOpenPlan={(u) => setPlanModalUser(u)}
+        />
+      )}
+
+      {/* 1.1 Change User Subscription Plan Modal */}
+      {planModalUser && (
+        <ChangeUserPlanModal
+          user={planModalUser}
+          onClose={() => setPlanModalUser(null)}
+          onSave={handleSaveUserPlan}
         />
       )}
 

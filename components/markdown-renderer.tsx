@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Copy, Check, ExternalLink } from "lucide-react";
+import { isSafeExternalUrl } from "@/lib/safe-url";
 
 interface MarkdownRendererProps {
   content: string;
@@ -64,7 +65,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       } else if (token.startsWith("[") && token.includes("](")) {
         const linkText = token.slice(1, token.indexOf("]("));
         const linkUrl = token.slice(token.indexOf("](") + 2, -1);
-        parts.push(
+        parts.push(isSafeExternalUrl(linkUrl) ? (
           <a
             key={parts.length}
             href={linkUrl}
@@ -75,7 +76,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
             <span>{linkText}</span>
             <ExternalLink className="w-3 h-3 inline" />
           </a>
-        );
+        ) : linkText);
       }
       lastIndex = inlineRegex.lastIndex;
     }

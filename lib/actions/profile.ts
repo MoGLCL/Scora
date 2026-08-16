@@ -19,6 +19,8 @@ const PhoneSchema = z.string().trim().transform((v) =>
 ).refine((v) => /^1[0-25]\d{8}$/.test(v), "رقم الهاتف المصري غير صالح")
   .transform((v) => `0${v}`);
 const UsernameSchema = z.string().trim().toLowerCase().min(2).max(30).regex(/^[a-z0-9_]+$/, "اسم المستخدم يقبل حروف إنجليزية وأرقام وشرطة سفلية فقط");
+const SkillNameSchema = z.string().trim().min(1).max(80);
+const MAX_SKILLS_PER_PROFILE = 30;
 
 // ─── Developer profile ────────────────────────────────────────────────────
 
@@ -91,6 +93,10 @@ export async function setDeveloperSkills(slugs: string[]): Promise<ActionState> 
   if (!session) return { error: "غير مصرح لك" };
   if (session.role !== "developer") return { error: "هذا الإجراء متاح للمطورين فقط" };
 
+  const parsedSkills = z.array(SkillNameSchema).max(MAX_SKILLS_PER_PROFILE, `الحد الأقصى هو ${MAX_SKILLS_PER_PROFILE} مهارة`).safeParse(slugs);
+  if (!parsedSkills.success) return { error: parsedSkills.error.issues[0]?.message || "المهارات غير صالحة" };
+  const skills = Array.from(new Set(parsedSkills.data));
+
   const dev = await queryOne<{ id: number }>(
     "SELECT id FROM developers WHERE user_id = ?",
     [session.userId]
@@ -99,9 +105,7 @@ export async function setDeveloperSkills(slugs: string[]): Promise<ActionState> 
 
   await transaction(async (conn) => {
     await conn.execute("DELETE FROM developer_skills WHERE developer_id = ?", [dev.id]);
-    for (const rawName of slugs) {
-      const name = rawName.trim();
-      if (!name) continue;
+    for (const name of skills) {
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "skill";
       const [skillRows] = await conn.execute("SELECT id FROM skills WHERE slug = ? OR name = ? LIMIT 1", [slug, name]);
       let skillId: number;
@@ -209,7 +213,7 @@ const CreateProjectSchema = z
       .number()
       .int()
       .min(3, "أقل مدة تسليم مسموحة للمشروع هي 3 أيام"),
-    skills: z.array(z.string().trim().min(1)).optional().default([]),
+    skills: z.array(SkillNameSchema).max(MAX_SKILLS_PER_PROFILE, `الحد الأقصى هو ${MAX_SKILLS_PER_PROFILE} مهارة`).optional().default([]),
   })
   .refine((data) => data.budgetTo >= data.budgetFrom, {
     message: "الحد الأقصى للميزانية يجب أن يكون أكبر من أو يساوي الحد الأدنى للميزانية",
@@ -222,20 +226,13 @@ export async function createProject(
 ): Promise<ActionState> {
   const session = await verifySession();
   if (!session) return { error: "غير مصرح لك" };
+  if (session.role !== "client") return { error: "إنشاء المشاريع متاح للعملاء فقط" };
 
-  let client = await queryOne<{ id: number }>(
+  const client = await queryOne<{ id: number }>(
     "SELECT id FROM clients WHERE user_id = ?",
     [session.userId]
   );
-  if (!client) {
-    const user = await queryOne<{ full_name: string }>("SELECT full_name FROM users WHERE id = ?", [session.userId]);
-    const insertRes = await execute(
-      "INSERT INTO clients (user_id, display_name, account_type) VALUES (?, ?, 'personal')",
-      [session.userId, user?.full_name || "صاحب مشروع"]
-    );
-    const newClientId = (insertRes as unknown as { insertId: number }).insertId;
-    client = { id: newClientId };
-  }
+  if (!client) return { error: "أكمل ملف العميل الشخصي قبل نشر مشروع" };
 
   const rawSkills = formData.getAll("skills").map(String).filter(Boolean);
   const parsed = CreateProjectSchema.safeParse({
@@ -250,7 +247,7 @@ export async function createProject(
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  const p = parsed.data;
+  const p = { ...parsed.data, skills: Array.from(new Set(parsed.data.skills)) };
 
   const projectId = await transaction(async (conn) => {
     const [res] = await conn.execute(

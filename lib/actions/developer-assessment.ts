@@ -1,13 +1,12 @@
 "use server";
 import { randomUUID } from "node:crypto";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { InterviewEventType, SkillEventType } from "@scora/trust-core";
+import { SkillEventType } from "@scora/trust-core";
 import { query, queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import { appendTrustEvent } from "@/lib/trust-events";
-import { generateAssessment, gradeAssessmentAnswer, generateCodeSpecificMcqs } from "@/lib/openrouter";
+import { generateAssessment, generateCodeSpecificMcqs } from "@/lib/openrouter";
 import { readJsonValue } from "@/lib/json-value";
 import { finalizeAssessmentSession } from "@/lib/assessment-finalize";
 
@@ -357,125 +356,6 @@ export async function cancelDeveloperAssessment(publicId: string) {
   return { ok: true as const };
 }
 
-const Submission = z.record(z.string(), z.string().trim().min(1).max(20000));
-export async function submitDeveloperAssessment(publicId: string, answers: Record<string, string>) {
-  const s = await verifySession();
-  if (!s || s.role !== "developer") return { ok: false as const, error: "غير مصرح لك" };
-  const session = await queryOne<{ id: number; developer_id: number; status: string; started_at: Date }>(
-    "SELECT das.id,das.developer_id,das.status,das.started_at FROM developer_assessment_sessions das JOIN developers d ON d.id=das.developer_id WHERE das.public_id=? AND d.user_id=?",
-    [publicId, s.userId]
-  );
-  if (!session || session.status !== "in_progress") return { ok: false as const, error: "الاختبار غير متاح حالياً" };
-  const parsed = Submission.safeParse(
-    Object.fromEntries(Object.entries(answers).map(([key, value]) => [key, typeof value === "string" ? value : String(value)]))
-  );
-  if (!parsed.success) return { ok: false as const, error: "أجب عن جميع الأسئلة المطلوبة" };
-  const questions = await query<{
-    id: number;
-    public_id: string;
-    kind: string;
-    skill: string;
-    question_text: string;
-    expected_answer_json: unknown;
-    max_score: number;
-  }>("SELECT id,public_id,kind,skill,question_text,expected_answer_json,max_score FROM developer_assessment_questions WHERE session_id=? ORDER BY position", [
-    session.id
-  ]);
-  if (questions.length !== Object.keys(parsed.data).length || questions.some((q) => !parsed.data[q.public_id])) {
-    return { ok: false as const, error: "أجب عن جميع الأسئلة المطلوبة" };
-  }
-  const graded: Array<{ q: (typeof questions)[number]; answer: string; grade: Awaited<ReturnType<typeof gradeAssessmentAnswer>> }> = [];
-  try {
-    for (const q of questions) {
-      graded.push({
-        q,
-        answer: parsed.data[q.public_id],
-        grade: await gradeAssessmentAnswer({
-          kind: q.kind,
-          skill: q.skill,
-          question: q.question_text,
-          expectedAnswer: readJsonValue(q.expected_answer_json),
-          answer: parsed.data[q.public_id],
-          maxScore: q.max_score
-        })
-      });
-    }
-  } catch {
-    return { ok: false as const, error: "تعذر تقييم الإجابات من خدمة الذكاء الاصطناعي. حاول مرة أخرى" };
-  }
-  await transaction(async (c) => {
-    for (const { q, answer, grade } of graded) {
-      await c.execute("INSERT INTO developer_assessment_answers(question_id,developer_id,answer_text,score,feedback) VALUES(?,?,?,?,?)", [
-        q.id,
-        session.developer_id,
-        answer,
-        grade.score,
-        grade.feedback
-      ]);
-      if (q.kind === "interview") {
-        await appendTrustEvent(
-          {
-            sessionPublicId: publicId,
-            developerId: session.developer_id,
-            assessmentPublicId: publicId,
-            type: InterviewEventType.INTERVIEW_ANSWER_RECEIVED,
-            source: "SERVER",
-            payload: {
-              interviewId: publicId,
-              questionId: q.public_id,
-              responseMs: Math.max(0, Date.now() - new Date(session.started_at).getTime()),
-              wordCount: answer.trim().split(/\s+/).length,
-              transcriptRef: null,
-              recordingRef: null
-            }
-          },
-          c
-        );
-        await appendTrustEvent(
-          {
-            sessionPublicId: publicId,
-            developerId: session.developer_id,
-            assessmentPublicId: publicId,
-            type: InterviewEventType.INTERVIEW_ANSWER_SCORED,
-            source: "AI_SERVICE",
-            payload: {
-              interviewId: publicId,
-              questionId: q.public_id,
-              correctness: grade.correctness,
-              depth: grade.depth,
-              specificity: grade.specificity,
-              consistencyWithCode: grade.consistency,
-              graderModel: grade.model,
-              graderConfidence: grade.confidence
-            }
-          },
-          c
-        );
-      }
-    }
-    await c.execute("UPDATE developer_assessment_sessions SET status='admin_review',submitted_at=CURRENT_TIMESTAMP WHERE id=?", [session.id]);
-    await c.execute("UPDATE developers SET approval_status='admin_review' WHERE id=?", [session.developer_id]);
-    await appendTrustEvent(
-      {
-        sessionPublicId: publicId,
-        developerId: session.developer_id,
-        assessmentPublicId: publicId,
-        type: SkillEventType.ASSESSMENT_SUBMITTED,
-        source: "SERVER",
-        payload: {
-          assessmentId: publicId,
-          tasksCompleted: questions.length,
-          tasksTotal: questions.length,
-          totalDurationMs: Math.max(0, Date.now() - new Date(session.started_at).getTime())
-        }
-      },
-      c
-    );
-  });
-  revalidatePath("/admin");
-  redirect("/developer-assessment/pending");
-}
-
 export async function saveDeveloperAssessmentStateAction(input: {
   publicId: string;
   currentQuestionId?: string | null;
@@ -590,7 +470,7 @@ export async function submitCodeAndGenerateNextQuestionsAction(input: {
       let currentPos = Number(maxPosRow?.max_pos ?? 1);
 
       await transaction(async (c) => {
-        for (const q of generatedCodeMcqs) {
+        for (const q of generatedCodeMcqs.questions) {
           currentPos += 1;
           await c.execute(
             "INSERT INTO developer_assessment_questions(session_id,public_id,kind,skill,question_text,options_json,expected_answer_json,max_score,position) VALUES(?,?,?,?,?,?,?,?,?)",

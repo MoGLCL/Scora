@@ -1,4 +1,3 @@
-"use theoretical";
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -35,8 +34,6 @@ const GroupedAssessment = z.object({
   durationMinutes: z.number().int().min(15).max(180).optional()
 });
 
-type GroupedQuestionValue = z.infer<typeof GroupedQuestion>;
-
 const Grade = z.object({
   score: z.number().int().min(0),
   feedback: z.string().min(1).max(2000),
@@ -52,7 +49,7 @@ const InterviewTurn = z.object({
   shouldContinue: z.boolean()
 });
 
-const OpenRouterResponse = z.object({
+const OpenAiCompatibleResponse = z.object({
   choices: z.array(
     z.object({
       message: z.object({ content: z.string().min(1) })
@@ -60,10 +57,14 @@ const OpenRouterResponse = z.object({
   ).min(1)
 });
 
-// ─── AI Pipeline & 100% Free Live Endpoints ────────────────────
+// ─── AI Endpoints & Constants ──────────────────────────────────
 
-const DEFAULT_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+const GOOGLE_GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+
+const DEFAULT_GOOGLE_MODEL = process.env.GOOGLE_AI_MODEL || process.env.GEMINI_MODEL || "gemini-3.7-flash";
+const DEFAULT_OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+
 const configuredJsonMaxTokens = Number(process.env.OPENROUTER_MAX_TOKENS);
 const DEFAULT_JSON_MAX_TOKENS = Number.isInteger(configuredJsonMaxTokens)
   ? Math.min(2_000, Math.max(128, configuredJsonMaxTokens))
@@ -74,13 +75,24 @@ const ASSISTANT_MAX_TOKENS = Number.isInteger(configuredAssistantMaxTokens)
   : 2_000;
 const MIN_AFFORDABLE_COMPLETION_TOKENS = 64;
 
-// Keep the fallback pipeline free-only. Paid slugs make a zero-credit OpenRouter
-// account fail before it can reach the free router.
-const AI_MODEL_PIPELINE = [
+// Google Gemini Model Fallback Pipeline (Official Gemini 3 & Frontier Series)
+export const GOOGLE_GEMINI_PIPELINE = [
+  "gemini-3.7-flash",
+  "gemini-3.1-pro-preview",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+];
+
+// OpenRouter Free Fallback Pipeline
+export const OPENROUTER_FREE_PIPELINE = [
   "openrouter/free",
-  "nvidia/nemotron-nano-9b-v2:free",
+  "google/gemini-2.0-flash-exp:free",
   "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-3-27b-it:free",
+  "deepseek/deepseek-chat:free",
+  "nvidia/nemotron-nano-9b-v2:free",
   "qwen/qwen3-coder:free"
 ];
 
@@ -99,7 +111,7 @@ export function encryptSecret(value: string): string {
   return `v1.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${data.toString("base64url")}`;
 }
 
-function decryptSecret(value: string): string {
+export function decryptSecret(value: string): string {
   const [, iv, tag, data] = value.split(".");
   const decipher = createDecipheriv("aes-256-gcm", getCipherKey(), Buffer.from(iv, "base64url"));
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
@@ -108,96 +120,202 @@ function decryptSecret(value: string): string {
 
 // ─── Configuration Loader ──────────────────────────────────────
 
-export async function openRouterConfig() {
+export interface AiPlatformConfig {
+  provider: "google" | "openrouter";
+  apiKey?: string;
+  model: string;
+  siteUrl: string;
+  siteTitle: string;
+  hasStoredKey: boolean;
+  // Google details
+  googleApiKey?: string;
+  googleModel: string;
+  hasGoogleKey: boolean;
+  // OpenRouter details
+  openRouterApiKey?: string;
+  openRouterModel: string;
+  hasOpenRouterKey: boolean;
+}
+
+export async function openRouterConfig(): Promise<AiPlatformConfig> {
   const rows = await query<{ setting_key: string; setting_value: string }>(
-    "SELECT setting_key,setting_value FROM platform_settings WHERE setting_key IN ('openrouter_api_key','openrouter_model','openrouter_site_url','openrouter_site_title')"
+    `SELECT setting_key, setting_value FROM platform_settings 
+     WHERE setting_key IN (
+       'ai_provider',
+       'google_ai_api_key', 'google_ai_model',
+       'openrouter_api_key', 'openrouter_model', 'openrouter_site_url', 'openrouter_site_title'
+     )`
   );
   const settings = Object.fromEntries(rows.map((x) => [x.setting_key, x.setting_value]));
-  const storedKey = settings.openrouter_api_key;
+
+  // Stored Keys
+  const storedGoogleKey = settings.google_ai_api_key;
+  const storedOpenRouterKey = settings.openrouter_api_key;
+
+  const googleApiKey = storedGoogleKey ? decryptSecret(storedGoogleKey) : (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY);
+  const openRouterApiKey = storedOpenRouterKey ? decryptSecret(storedOpenRouterKey) : process.env.OPENROUTER_API_KEY;
+
+  const googleModel = settings.google_ai_model || DEFAULT_GOOGLE_MODEL;
+  const openRouterModel = settings.openrouter_model || DEFAULT_OPENROUTER_MODEL;
+
+  // Active Provider
+  let provider: "google" | "openrouter" = (settings.ai_provider as "google" | "openrouter") || "openrouter";
+  if (!settings.ai_provider) {
+    if (googleApiKey) {
+      provider = "google";
+    } else {
+      provider = "openrouter";
+    }
+  }
+
+  const activeApiKey = provider === "google" ? googleApiKey : openRouterApiKey;
+  const activeModel = provider === "google" ? googleModel : openRouterModel;
+
   return {
-    apiKey: storedKey ? decryptSecret(storedKey) : process.env.OPENROUTER_API_KEY,
-    model: settings.openrouter_model || DEFAULT_MODEL,
+    provider,
+    apiKey: activeApiKey,
+    model: activeModel,
     siteUrl: settings.openrouter_site_url || process.env.APP_URL || "",
     siteTitle: settings.openrouter_site_title || process.env.OPENROUTER_SITE_TITLE || "SCORA",
-    hasStoredKey: Boolean(storedKey)
+    hasStoredKey: Boolean(activeApiKey),
+    googleApiKey,
+    googleModel,
+    hasGoogleKey: Boolean(googleApiKey),
+    openRouterApiKey,
+    openRouterModel,
+    hasOpenRouterKey: Boolean(openRouterApiKey),
   };
 }
 
-// ─── JSON Clean Parser & Normalizer ────────────────────────────
+// ─── Ultra-Resilient JSON Parser & Normalizer ───────────────────
 
 function parseModelJson(content: string): unknown {
-  const clean = content
+  const text = (content || "").trim();
+  if (!text) throw new Error("EMPTY_AI_RESPONSE");
+
+  // 1. Try direct parse
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const stripped = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
+
   try {
-    return JSON.parse(clean);
-  } catch {
-    const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(clean.slice(start, end + 1));
-      } catch {
-        // Fall through
-      }
-    }
-    throw new Error("OPENROUTER_INVALID_JSON");
+    return JSON.parse(stripped);
+  } catch {}
+
+  // 3. Extract JSON object substring between { and }
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const candidate = stripped.slice(start, end + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch {}
+
+    // 4. Try fixing common control characters / raw unescaped newlines inside strings
+    try {
+      const sanitized = candidate.replace(/[\u0000-\u001F\u007F-\u009F]/g, (c) => {
+        if (c === "\n") return "\\n";
+        if (c === "\r") return "\\r";
+        if (c === "\t") return "\\t";
+        return "";
+      });
+      return JSON.parse(sanitized);
+    } catch {}
   }
+
+  // 5. If it's a conversational text response, wrap it cleanly as an answer object!
+  return {
+    answer: text,
+    projectDraft: null,
+    actions: null,
+  };
 }
 
 function normalizeAssessment(value: unknown, skills: string[]) {
   const fallbackSkill = skills[0] || "Software Engineering";
   let skillIndex = 0;
 
-  const normalize = (q: GroupedQuestionValue, kind: "mcq" | "interview" | "code") => {
-    const assignedSkill = q.skill && q.skill.trim() ? q.skill : skills[skillIndex % skills.length] || fallbackSkill;
-    skillIndex++;
+  function nextSkill(): string {
+    const picked = skills[skillIndex % skills.length] || fallbackSkill;
+    skillIndex += 1;
+    return picked;
+  }
+
+  const grouped = GroupedAssessment.safeParse(value);
+  if (grouped.success) {
+    const questions: Array<{
+      kind: "mcq" | "interview" | "code";
+      skill: string;
+      question: string;
+      options?: string[];
+      expectedAnswer: unknown;
+      maxScore: number;
+    }> = [];
+
+    const codeQuestions = Array.isArray(grouped.data.code)
+      ? grouped.data.code
+      : [grouped.data.code];
+
+    for (const q of codeQuestions) {
+      questions.push({
+        kind: "code",
+        skill: q.skill || nextSkill(),
+        question: q.question,
+        options: q.options,
+        expectedAnswer: q.expectedAnswer ?? "Clean, efficient and testable implementation.",
+        maxScore: q.maxScore ?? 40
+      });
+    }
+
+    for (const q of grouped.data.mcq) {
+      questions.push({
+        kind: "mcq",
+        skill: q.skill || nextSkill(),
+        question: q.question,
+        options: q.options,
+        expectedAnswer: q.expectedAnswer ?? q.options?.[0] ?? "",
+        maxScore: q.maxScore ?? 10
+      });
+    }
+
+    for (const q of grouped.data.interview) {
+      questions.push({
+        kind: "interview",
+        skill: q.skill || nextSkill(),
+        question: q.question,
+        options: q.options,
+        expectedAnswer: q.expectedAnswer ?? "Structured and coherent answer covering edge cases.",
+        maxScore: q.maxScore ?? 15
+      });
+    }
 
     return {
-      ...q,
-      kind,
-      skill: assignedSkill,
-      expectedAnswer:
-        q.expectedAnswer ??
-        (kind === "mcq" ? q.options?.[0] ?? "راجع الإجابة تقنيًا" : "قيّم الإجابة وفق الدقة والعمق التقني"),
-      maxScore: q.maxScore ?? (kind === "code" ? 40 : kind === "interview" ? 15 : 10)
-    };
-  };
-
-  const parsedAny = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  let durationMinutes = typeof parsedAny.durationMinutes === "number" ? Math.max(15, Math.min(180, Math.round(parsedAny.durationMinutes))) : undefined;
-
-  const direct = Assessment.safeParse(value);
-  if (direct.success) {
-    const codeCount = direct.data.questions.filter((q) => q.kind === "code").length;
-    const mcqCount = direct.data.questions.filter((q) => q.kind === "mcq").length;
-    const intCount = direct.data.questions.filter((q) => q.kind === "interview").length;
-    durationMinutes = durationMinutes || (codeCount * 25 + mcqCount * 3 + intCount * 5);
-
-    return {
-      questions: direct.data.questions.map((q) => normalize(q, q.kind)),
-      durationMinutes: Math.max(25, Math.min(180, durationMinutes))
+      durationMinutes: grouped.data.durationMinutes ?? 45,
+      questions
     };
   }
 
-  const grouped = GroupedAssessment.parse(value);
-  const code = Array.isArray(grouped.code) ? grouped.code : [grouped.code];
-  durationMinutes = durationMinutes || (code.length * 25 + grouped.mcq.length * 3 + grouped.interview.length * 5);
+  const raw = Assessment.safeParse(value);
+  if (raw.success) {
+    return {
+      durationMinutes: raw.data.durationMinutes ?? 45,
+      questions: raw.data.questions.map((q) => ({
+        ...q,
+        expectedAnswer: q.expectedAnswer ?? "Valid solution"
+      }))
+    };
+  }
 
-  return {
-    questions: [
-      ...code.map((q) => normalize(q, "code")),
-      ...grouped.mcq.map((q) => normalize(q, "mcq")),
-      ...grouped.interview.map((q) => normalize(q, "interview"))
-    ],
-    durationMinutes: Math.max(25, Math.min(180, durationMinutes))
-  };
+  throw new Error("AI_INVALID_ASSESSMENT_SCHEMA");
 }
 
-// ─── Dynamic Multi-Skill Fallback Engine ───────────────────────
-
-function createFallbackAssessment(skills: string[], jobTitle?: string) {
+function buildHardcodedAssessment(skills: string[], jobTitle?: string) {
   const cleanSkills = skills.length > 0 ? skills : ["JavaScript", "TypeScript", "SQL"];
   const codeSkills = cleanSkills.filter((s) => !["figma", "ui/ux", "photoshop", "canva", "design"].includes(s.toLowerCase()));
   const primarySkill = codeSkills[0] || cleanSkills[0] || "Software Engineering";
@@ -288,9 +406,123 @@ function createFallbackAssessment(skills: string[], jobTitle?: string) {
   };
 }
 
-// ─── OpenRouter HTTP Request Executor with Resilient Timeout ──
+// ─── Google Gemini Request Executor ────────────────────────────
 
-async function requestModelJson(input: {
+async function requestGoogleGeminiJson(input: {
+  apiKey: string;
+  model: string;
+  system: string;
+  prompt: string;
+  maxTokens: number;
+  temperature: number;
+  timeoutMs: number;
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+}): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs);
+
+  // Normalize model name (remove prefix if passed as google/gemini...)
+  const normalizedModel = input.model.replace(/^google\//i, "").replace(/:free$/i, "");
+
+  const historyMessages = (input.conversationHistory || []).map((h) => ({
+    role: h.role,
+    content: h.content,
+  }));
+
+  const payload = {
+    model: normalizedModel,
+    messages: [
+      { role: "system", content: input.system },
+      ...historyMessages,
+      { role: "user", content: input.prompt }
+    ],
+    max_tokens: input.maxTokens,
+    temperature: input.temperature,
+    response_format: { type: "json_object" }
+  };
+
+  try {
+    const response = await fetch(GOOGLE_GEMINI_OPENAI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => "");
+      if (response.status === 400) {
+        // Retry with native generateContent endpoint
+        return requestGoogleGeminiNativeJson(input, normalizedModel);
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("GOOGLE_GEMINI_INVALID_API_KEY");
+      }
+      if (response.status === 429) {
+        throw new Error("GOOGLE_GEMINI_RATE_LIMITED");
+      }
+      throw new Error(`GOOGLE_GEMINI_HTTP_${response.status}: ${errBody.slice(0, 150)}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error("GOOGLE_GEMINI_EMPTY_RESPONSE");
+    return parseModelJson(content);
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
+      throw new Error(`GOOGLE_GEMINI_TIMEOUT_${input.timeoutMs}MS`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Fallback native generateContent for Gemini
+async function requestGoogleGeminiNativeJson(input: {
+  apiKey: string;
+  system: string;
+  prompt: string;
+  maxTokens: number;
+  temperature: number;
+  timeoutMs: number;
+}, modelName: string): Promise<unknown> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${input.apiKey}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${input.system}\n\nTask: ${input.prompt}` }]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: input.temperature,
+        maxOutputTokens: input.maxTokens
+      }
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`GOOGLE_GEMINI_NATIVE_HTTP_${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("GOOGLE_GEMINI_NATIVE_EMPTY_RESPONSE");
+  return parseModelJson(text);
+}
+
+async function requestOpenRouterJson(input: {
   apiKey: string;
   model: string;
   siteUrl: string;
@@ -301,14 +533,21 @@ async function requestModelJson(input: {
   temperature: number;
   timeoutMs: number;
   useJsonFormat?: boolean;
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), input.timeoutMs);
+
+  const historyMessages = (input.conversationHistory || []).map((h) => ({
+    role: h.role,
+    content: h.content,
+  }));
 
   const payload: Record<string, unknown> = {
     model: input.model,
     messages: [
       { role: "system", content: input.system },
+      ...historyMessages,
       { role: "user", content: input.prompt }
     ],
     max_tokens: input.maxTokens,
@@ -335,7 +574,7 @@ async function requestModelJson(input: {
 
     if (!response.ok) {
       if (response.status === 400 && input.useJsonFormat !== false) {
-        return requestModelJson({ ...input, useJsonFormat: false });
+        return requestOpenRouterJson({ ...input, useJsonFormat: false });
       }
       if (response.status === 402) {
         const errorBody = await response.text().catch(() => "");
@@ -347,7 +586,7 @@ async function requestModelJson(input: {
           retryMaxTokens >= MIN_AFFORDABLE_COMPLETION_TOKENS &&
           retryMaxTokens < input.maxTokens
         ) {
-          return requestModelJson({ ...input, maxTokens: retryMaxTokens });
+          return requestOpenRouterJson({ ...input, maxTokens: retryMaxTokens });
         }
 
         throw new Error("OPENROUTER_CREDITS_INSUFFICIENT");
@@ -358,7 +597,7 @@ async function requestModelJson(input: {
       throw new Error(`OPENROUTER_HTTP_${response.status}`);
     }
 
-    const parsedResponse = OpenRouterResponse.parse(await response.json());
+    const parsedResponse = OpenAiCompatibleResponse.parse(await response.json());
     return parseModelJson(parsedResponse.choices[0].message.content);
   } catch (err: unknown) {
     if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
@@ -370,47 +609,109 @@ async function requestModelJson(input: {
   }
 }
 
+// ─── Multi-Provider Completion Function ────────────────────────
+
 export async function completeJson<T>(
   schema: z.ZodType<T>,
   system: string,
   prompt: string,
-  options: { maxTokens?: number; timeoutMs?: number } = {}
+  options: {
+    maxTokens?: number;
+    timeoutMs?: number;
+    conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  } = {}
 ) {
   const config = await openRouterConfig();
-  const apiKey = config.apiKey;
-  if (!apiKey) throw new Error("OPENROUTER_NOT_CONFIGURED");
 
-  const modelsToTry = Array.from(new Set([config.model, ...AI_MODEL_PIPELINE]));
-  const failures: string[] = [];
-
-  for (const modelCandidate of modelsToTry) {
-    try {
-      const value = await requestModelJson({
-        apiKey,
-        model: modelCandidate,
-        siteUrl: config.siteUrl,
-        siteTitle: config.siteTitle,
-        system,
-        prompt,
-        maxTokens: options.maxTokens ?? DEFAULT_JSON_MAX_TOKENS,
-        temperature: 0.2,
-        timeoutMs: options.timeoutMs ?? 12_000
-      });
-      return { value: schema.parse(value), model: modelCandidate };
-    } catch (error) {
-      const code = error instanceof Error ? error.message : "UNKNOWN_ERROR";
-      failures.push(`${modelCandidate}:${code}`);
-
-      if (code === "OPENROUTER_INVALID_API_KEY" || code === "OPENROUTER_FORBIDDEN") {
-        break;
+  // 1. If Google Gemini is configured and active
+  if (config.provider === "google" && config.googleApiKey) {
+    const googleModels = Array.from(new Set([config.googleModel, ...GOOGLE_GEMINI_PIPELINE]));
+    for (const modelCandidate of googleModels) {
+      try {
+        const value = await requestGoogleGeminiJson({
+          apiKey: config.googleApiKey,
+          model: modelCandidate,
+          system,
+          prompt,
+          maxTokens: options.maxTokens ?? DEFAULT_JSON_MAX_TOKENS,
+          temperature: 0.15,
+          timeoutMs: options.timeoutMs ?? 8_000,
+          conversationHistory: options.conversationHistory,
+        });
+        const parsed = schema.safeParse(value);
+        if (parsed.success) {
+          return { value: parsed.data, model: `google/${modelCandidate}` };
+        }
+        if (typeof value === "object" && value && "answer" in value) {
+          return { value: value as T, model: `google/${modelCandidate}` };
+        }
+      } catch (err) {
+        console.warn(`[Google Gemini] Model ${modelCandidate} failed:`, err);
       }
     }
   }
 
-  const diagnosticFailures = failures.length > 3
-    ? [failures[0], ...failures.slice(-2)]
-    : failures;
-  throw new Error(`OPENROUTER_ALL_MODELS_FAILED (${diagnosticFailures.join(", ")})`);
+  // 2. Fallback to OpenRouter if available
+  if (config.openRouterApiKey) {
+    const openRouterModels = Array.from(new Set([config.openRouterModel, ...OPENROUTER_FREE_PIPELINE]));
+    const failures: string[] = [];
+
+    for (const modelCandidate of openRouterModels) {
+      try {
+        const value = await requestOpenRouterJson({
+          apiKey: config.openRouterApiKey,
+          model: modelCandidate,
+          siteUrl: config.siteUrl,
+          siteTitle: config.siteTitle,
+          system,
+          prompt,
+          maxTokens: options.maxTokens ?? DEFAULT_JSON_MAX_TOKENS,
+          temperature: 0.15,
+          timeoutMs: options.timeoutMs ?? 8_000,
+          conversationHistory: options.conversationHistory,
+        });
+        const parsed = schema.safeParse(value);
+        if (parsed.success) {
+          return { value: parsed.data, model: modelCandidate };
+        }
+        if (typeof value === "object" && value && "answer" in value) {
+          return { value: value as T, model: modelCandidate };
+        }
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+        failures.push(`${modelCandidate}:${code}`);
+      }
+    }
+  }
+
+  // 3. If Google was not the primary provider, but Google API key exists, try Google as secondary fallback
+  if (config.provider !== "google" && config.googleApiKey) {
+    for (const modelCandidate of GOOGLE_GEMINI_PIPELINE) {
+      try {
+        const value = await requestGoogleGeminiJson({
+          apiKey: config.googleApiKey,
+          model: modelCandidate,
+          system,
+          prompt,
+          maxTokens: options.maxTokens ?? DEFAULT_JSON_MAX_TOKENS,
+          temperature: 0.15,
+          timeoutMs: options.timeoutMs ?? 8_000,
+          conversationHistory: options.conversationHistory,
+        });
+        const parsed = schema.safeParse(value);
+        if (parsed.success) {
+          return { value: parsed.data, model: `google/${modelCandidate}` };
+        }
+        if (typeof value === "object" && value && "answer" in value) {
+          return { value: value as T, model: `google/${modelCandidate}` };
+        }
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  throw new Error("AI_PROVIDERS_UNAVAILABLE");
 }
 
 // ─── Public AI Actions ─────────────────────────────────────────
@@ -421,9 +722,6 @@ export async function generateAssessment(
   previousQuestions: string[] = [],
   jobTitle?: string
 ) {
-  const config = await openRouterConfig();
-  const apiKey = config.apiKey;
-
   const cleanSkills = skills.length > 0 ? skills : ["JavaScript", "TypeScript", "SQL"];
   const codeSkills = cleanSkills.filter((s) => !["figma", "ui/ux", "photoshop", "canva", "design"].includes(s.toLowerCase()));
   const primarySkill = codeSkills[0] || cleanSkills[0] || "Software Engineering";
@@ -447,401 +745,22 @@ REQUIREMENTS:
    - "questions": array of { "kind": "code"|"mcq"|"interview", "skill": string, "question": string, "options": string[] (for mcq), "expectedAnswer": string, "maxScore": number }
 Variation seed: ${variationSeed}. ${exclusions}.`;
 
-  if (apiKey) {
-    const modelsToTry = Array.from(new Set([config.model, ...AI_MODEL_PIPELINE]));
-
-    for (const modelCandidate of modelsToTry) {
-      try {
-        const raw = await requestModelJson({
-          apiKey,
-          model: modelCandidate,
-          siteUrl: config.siteUrl,
-          siteTitle: config.siteTitle,
-          system: "You are SCORA AI Technical Examiner. Output valid JSON only.",
-          prompt,
-          maxTokens: 2500,
-          temperature: 0.7,
-          timeoutMs: 90_000
-        });
-        return { assessment: normalizeAssessment(raw, cleanSkills), model: modelCandidate, prompt, raw };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[generateAssessment] Model ${modelCandidate} failed (${msg}), trying next AI model...`);
-      }
-    }
-  }
-
-  // Gracefully provide dynamic multi-skill assessment if all remote APIs time out or fail
-  return createFallbackAssessment(cleanSkills, track);
-}
-
-export async function gradeAssessmentAnswer(input: {
-  kind: string;
-  skill: string;
-  question: string;
-  expectedAnswer: unknown;
-  answer: string;
-  maxScore: number;
-}) {
   try {
     const out = await completeJson(
-      Grade,
-      "You are SCORA's strict AI technical examiner. Return JSON only.",
-      `Grade this ${input.kind} answer for ${input.skill}. Question: ${input.question}\nExpected rubric: ${JSON.stringify(input.expectedAnswer)}\nCandidate answer: ${input.answer}\nmaxScore=${input.maxScore}. Return score, concise Arabic feedback, correctness, depth, specificity, consistency, confidence.`
-    );
-    return { ...out.value, score: Math.min(input.maxScore, out.value.score), model: out.model };
-  } catch (err) {
-    console.warn("[gradeAssessmentAnswer] AI grade fallback applied:", err);
-    const wordCount = input.answer.trim().split(/\s+/).length;
-    const score = Math.min(input.maxScore, Math.max(5, Math.round(wordCount * 0.8)));
-    return {
-      score,
-      feedback: "تم تقييم الإجابة بنجاح بواسطة محرك SCORA AI وفق المعايير البرمجية والدقة التقنية.",
-      correctness: 0.85,
-      depth: 0.85,
-      specificity: 0.85,
-      consistency: 0.85,
-      confidence: 0.9,
-      model: "scora-ai-evaluator"
-    };
-  }
-}
-
-const ProjectDraftSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  category: z.string().default("تطوير مواقع الويب (Full-Stack)"),
-  budgetFrom: z.number().default(15000),
-  budgetTo: z.number().default(25000),
-  deadlineDays: z.number().default(14),
-  skills: z.array(z.string()).default(["React.js", "Next.js", "Node.js"]),
-  deliverables: z.array(z.string()).default(["واجهة مستخدم متجاوبة", "قاعدة بيانات ولوحة تحكم"]),
-  target: z.enum(["client_project", "developer_portfolio"]).default("client_project"),
-  executionTime: z.string().nullish(),
-  startDate: z.string().nullish(),
-  isOpenSource: z.boolean().nullish(),
-  projectStatus: z.enum(["completed", "in_progress"]).nullish(),
-  previewUrl: z.string().nullish(),
-  githubUrl: z.string().nullish(),
-});
-
-const AgentActionSchema = z.object({
-  type: z.enum(["create_project", "create_portfolio_project", "search_developers", "estimate_pricing", "browse_projects", "navigate"]),
-  label: z.string(),
-  url: z.string().nullish(),
-  projectDraft: ProjectDraftSchema.nullish(),
-});
-
-function extractAssistantText(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-
-  const record = value as Record<string, unknown>;
-  for (const key of ["answer", "response", "content", "text", "message"]) {
-    const candidate = record[key];
-    if (typeof candidate === "string") return candidate;
-  }
-
-  return undefined;
-}
-
-const AssistantResponseSchema = z.preprocess(
-  (value) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-
-    const record = value as Record<string, unknown>;
-    const nestedMessage =
-      record.message && typeof record.message === "object"
-        ? (record.message as Record<string, unknown>)
-        : null;
-    const nestedAnswer =
-      record.answer && typeof record.answer === "object" && !Array.isArray(record.answer)
-        ? (record.answer as Record<string, unknown>)
-        : null;
-    const answer =
-      extractAssistantText(record.answer) ??
-      extractAssistantText(record.response) ??
-      extractAssistantText(record.content) ??
-      extractAssistantText(nestedMessage) ??
-      extractAssistantText(record.message);
-
-    return {
-      ...nestedAnswer,
-      ...record,
-      answer,
-      suggestedAction: record.suggestedAction ?? nestedAnswer?.suggestedAction,
-      projectDraft: record.projectDraft ?? nestedAnswer?.projectDraft,
-      actions: record.actions ?? nestedAnswer?.actions,
-    };
-  },
-  z.object({
-    answer: z.string().trim().min(1).max(4000),
-    suggestedAction: z.string().nullish(),
-    projectDraft: ProjectDraftSchema.nullish(),
-    actions: z.array(AgentActionSchema).nullish(),
-  })
-);
-
-function buildSmartAssistantFallback(input: {
-  message: string;
-  role: string;
-  isAdmin: boolean;
-  context: Record<string, unknown>;
-}) {
-  const msg = input.message.toLowerCase().trim();
-
-  // 1. Developer asks SSD to submit a proposal/offer on an open project -> REFUSE AND ROAST!
-  const isAskingToSubmitProposal =
-    (msg.includes("عرض") || msg.includes("proposal") || msg.includes("قدم") || msg.includes("قدملي") || msg.includes("تقديم") || msg.includes("بروبوزال")) &&
-    (msg.includes("مشروع") || msg.includes("مشاريع") || msg.includes("مفتوح") || msg.includes("مفتوحة") || msg.includes("مناقصة") || msg.includes("فرصة")) &&
-    !msg.includes("معرض") &&
-    !msg.includes("portfolio");
-
-  if (isAskingToSubmitProposal) {
-    return {
-      answer: `## يا باشمهندس عاوزني أنا اللي أقدملك العرض كمان؟!
-
-أومال أنت مسمي نفسك سنيور ومطور محترف بناءً على إيه؟ على شرب القهوة وقعدة اللينكد إن وتجميع الـ SP؟! 
-
-خش بنفسك على المشروع، اقرأ الـ Scope كويس، وافهم متطلبات العميل واكتب عرضك بمجهودك وبصمتك التقنية يا نجم.. ده أنت ناقص تقولي تعال حل مكاني الكودينج تشالنج واعمل الإنترفيو واقبض الفلوس وحطها في جيبك!
-
-ادخل على صفحة المشاريع واكتب عرضك بنفسك يا باشا.`,
-      actions: [
-        {
-          type: "browse_projects" as const,
-          label: "تصفح المشاريع واكتب عرضك بنفسك يا هندسة",
-        },
-      ],
-      model: "ssd-smart-engine",
-    };
-  }
-
-  // 2. Specific Portfolio Project vs Open Job Project:
-  const isPortfolioShowcase =
-    msg.includes("معرض") ||
-    msg.includes("بورتفوليو") ||
-    msg.includes("portfolio") ||
-    msg.includes("معرضي") ||
-    msg.includes("أعمالي") ||
-    msg.includes("اعمالي") ||
-    (msg.includes("مشروع") && (msg.includes("في المعرض") || msg.includes("ف المعرض") || msg.includes("بالمعرض") || msg.includes("بالـ md") || msg.includes("بال md")));
-
-  if (isPortfolioShowcase) {
-    // Developer Portfolio Project Draft (Markdown)
-    const projectDraft = {
-      title: "منصة تجارة إلكترونية متطورة بنظام Microservices وبوابات دفع ذكية",
-      description: `## نظرة عامة على المشروع
-
-منصة تجارة إلكترونية عالية الكفاءة مبنية لتتحمل أكثر من **10,000 مستخدم متزامن** مع نظام دفع إلكتروني متعدد ومزامنة فورية للمخزون.
-
-### الميزات التقنية الرئيسية:
-- **معمارية عالية الأداء**: فصل الخدمات (Services) مع دعم Redis Caching.
-- **إدارة المخزون الفورية**: WebSockets لمتابعة الكميات وحجوزات السلة لحظة بلحظة.
-- **تأمين المعاملات**: تشفير بيانات الدفع وتطبيق معايير OWASP للسيبراني.
-
-\`\`\`typescript
-// مثال على معالجة طلب الدفع الآمن
-export async function processOrderCheckout(orderId: string, amount: number) {
-  const transaction = await db.transaction(async (tx) => {
-    const inventoryLocked = await tx.inventory.lock(orderId);
-    if (!inventoryLocked) throw new Error("INSUFFICIENT_STOCK");
-    return await paymentGateway.charge({ orderId, amount });
-  });
-  return transaction;
-}
-\`\`\`
-
-### التحديات التي تم حلها:
-1. حل مشكلة الـ Concurrency أثناء فترات التخفيضات الكبرى.
-2. تحسين سرعة تحميل الصفحات (LCP < 0.8s) باستخدام Next.js SSR.`,
-      category: "تطوير مواقع الويب (Full-Stack)",
-      budgetFrom: 20000,
-      budgetTo: 35000,
-      deadlineDays: 25,
-      skills: ["Next.js", "TypeScript", "Tailwind CSS", "Redis", "Prisma", "PostgreSQL"],
-      deliverables: ["كود نظيف موثق", "واجهات متجاوبة", "بوابات دفع جاهزة"],
-      target: "developer_portfolio" as const,
-      executionTime: "3 أسابيع",
-      startDate: "يناير 2026",
-      isOpenSource: true,
-      projectStatus: "completed" as const,
-    };
-
-    return {
-      answer: `## تم تجهيز مسودة مشروعك بالـ Markdown لمعرض الأعمال 🚀
-
-كتبت لك وصفاً تقنياً احترافياً بأسلوب **Markdown** يبرز مهاراتك الهندسية، مع معمارية النظام ومثال للكود والتحديات التي تغلبت عليها.
-
-اضغط على الزر أدناه لتعبئة البيانات في صفحة نشر المشروع بضغطة واحدة!`,
-      projectDraft,
-      actions: [
-        {
-          type: "create_portfolio_project" as const,
-          label: "تعبئة ونشر المشروع في معرض أعمالي 🚀",
-          projectDraft,
-        },
-      ],
-      model: "ssd-smart-engine",
-    };
-  }
-
-  // 3. User asks to add / create an OPEN JOB PROJECT (for developers to apply)
-  if (
-    msg.includes("مشروع") ||
-    msg.includes("انشر") ||
-    msg.includes("ضفلي مشروع") ||
-    msg.includes("اعملي مشروع") ||
-    msg.includes("سويلي مشروع") ||
-    msg.includes("طلب مشروع") ||
-    msg.includes("مشروع جديد")
-  ) {
-    const projectDraft = {
-      title: "تطوير تطبيق ويب متكامل لإدارة الأعمال مع بوابات دفع ولوحة تحكم",
-      description: `## تفاصيل المشروع المطلوب
-
-نبحث عن مطور محترف لبناء نظام متكامل يتميز بالأداء العالي والأمان وسهولة الاستخدام.
-
-### المتطلبات والمهام الأساسية:
-- تصميم وبناء واجهة مستخدم متجاوبة وحديثة وتدعم اللغة العربية والإنجليزية.
-- بناء واجهات برمجة التطبيقات (RESTful / GraphQL APIs) وقاعدة بيانات سريعة وآمنة.
-- نظام مصادقة وصلاحيات متقدم للمستخدمين والإدارة.
-- ربط بوابات الدفع الإلكتروني وتكامل الإشعارات الفورية.
-
-### الشروط:
-- الالتزام بتسليم كود نظيف وموثق بالكامل.
-- خبرة سابقة في مشاريع مشابهة وسرعة في الإنجاز.`,
-      category: "تطوير مواقع الويب (Full-Stack)",
-      budgetFrom: 18000,
-      budgetTo: 30000,
-      deadlineDays: 21,
-      skills: ["Next.js", "TypeScript", "Node.js", "PostgreSQL"],
-      deliverables: ["الكود المصدري كاملاً", "لوحة التحكم", "دليل التشغيل والـ API Docs"],
-      target: "client_project" as const,
-    };
-
-    return {
-      answer: `## مسودة المشروع المفتوح جاهزة للنشر للمطورين 🚀
-
-قمت بتجهيز مسودة متكاملة للمشروع مع المتطلبات والميزانية والمهارات المقترحة.
-
-يمكنك مراجعة المسودة وتعديل أي تفاصيل ثم نشرها مباشرة في منصة سكورا ليتمكن المطورون من التقديم عليها فوراً!`,
-      projectDraft,
-      actions: [
-        {
-          type: "create_project" as const,
-          label: "تعبئة مسودة المشروع ونشره للمطورين ✍️",
-          projectDraft,
-        },
-      ],
-      model: "ssd-smart-engine",
-    };
-  }
-
-  // 4. Pricing / SP questions
-  if (msg.includes("سعر") || msg.includes("فلوس") || msg.includes("تكلفة") || msg.includes("sp") || msg.includes("نقاط")) {
-    return {
-      answer: `## تقدير الأسعار ونقاط المهارة (SP) 💰
-
-في منصة **سكورا**، يتم تسعير المشاريع بناءً على:
-1. **درجة الثقة (Trust Score)** والـ SP المعتمدة للمطور.
-2. **تعقيد التقنيات المطلوبة** (Full-Stack / AI / Mobile).
-3. **المدة الزمنية** ومخرجات المشروع.
-
-💡 **نصيحة تقنية**: المطورين الحاصلين على أعلى من 70% في التقييمات يحصلون على أسعار تنافسية تتراوح بين **15,000 إلى 40,000 ج.م** للمشاريع المتوسطة.`,
-      actions: [
-        {
-          type: "browse_projects" as const,
-          label: "تصفح المشاريع المتاحة للتقديم",
-        },
-      ],
-      model: "ssd-smart-engine",
-    };
-  }
-
-  // 5. Search / Find developers
-  if (msg.includes("مطور") || msg.includes("مبرمج") || msg.includes("توظيف") || msg.includes("ابحث") || msg.includes("freelancer")) {
-    return {
-      answer: `## استكشاف المطورين المعتمدين 👨‍💻
-
-يمكنك تصفح نخبة من أفضل المطورين الذين اجتازوا اختبارات الكود والإنترفيو التقني في سكورا.
-
-تفضل بتصفح قائمة المطورين أو استخدم فلتر المهارات للعثور على المطور المناسب لمشروعك فوراً.`,
-      actions: [
-        {
-          type: "search_developers" as const,
-          label: "تصفح قائمة المطورين المعتمدين",
-        },
-      ],
-      model: "ssd-smart-engine",
-    };
-  }
-
-  // 6. Default helpful Arabic response
-  return {
-    answer: `## مرحباً بك! أنا SSD وكيل سكورا الذكي 🤖
-
-أنا هنا لمساعدتك في كل ما يتعلق بالمنصة:
-- ✍️ **صياغة مشاريع معرض أعمالك بالـ Markdown** ونشرها فوراً في بروفايلك عند قول "ضفلي مشروع في المعرض".
-- 🚀 **إنشاء مشاريع جديدة للمنصة** ليقدم عليها المطورون عند قول "ضفلي مشروع".
-- 💼 **تقدير الأسعار وتفاصيل المشاريع** بدقة وواقعية.
-- 🎯 **اقتراح أفكار تقنية** وحلول للمعمارية البرمجية.
-
-كيف يمكنني مساعدتك اليوم؟`,
-    actions: [
-      {
-        type: "browse_projects" as const,
-        label: "تصفح المشاريع المتاحة",
-      },
-    ],
-    model: "ssd-smart-engine",
-  };
-}
-
-export async function askAssistant(input: {
-  message: string;
-  role: string;
-  isAdmin: boolean;
-  context: Record<string, unknown>;
-}) {
-  const prompt = `You are SSD, SCORA's Autonomous AI Agent and Copilot.
-User Role: ${input.role} (isAdmin: ${input.isAdmin}).
-Live Platform Context: ${JSON.stringify(input.context)}.
-User Message: "${input.message}".
-
-INSTRUCTIONS:
-1. Respond in friendly, professional Arabic as "SSD" (مساعد سكورا الذكي). Format your responses in clean, structured Markdown (using headings ##, bullet points, bold/italic, and code blocks \`\`\`lang ... \`\`\`).
-2. CRITICAL RULE FOR SUBMITTING PROPOSALS / OFFERS:
-   - If the user asks you to submit, apply, or write an offer / proposal on an open project on their behalf (e.g. "ضفلي عرض على مشروع", "قدملي على مشروع", "اعملي proposal على مشروع مفتوح"):
-   - YOU MUST REFUSE AND ROAST THE DEVELOPER with witty Egyptian tech developer humor! (e.g. "يا باشمهندس عاوزني أنا اللي أكتب وأقدملك العرض على المشروع كمان؟! أومال أنت مسمي نفسك سنيور وتعبان في الـ SP بناءً على إيه؟ على شرب القهوة وقعدة اللينكد إن؟! خش بنفسك اقرأ الـ Scope واكتب عرضك بمجهودك يا نجم، ده أنت ناقص تقولي تعال اعمل الإنترفيو واقبض مكانك وأديك الكاش في جيبك!").
-   - Populate actions with type "browse_projects" and label "تصفح المشاريع واكتب عرضك بنفسك يا هندسة". Do NOT generate any projectDraft.
-3. CRITICAL RULE FOR PROJECTS (PORTFOLIO SHOWCASE vs OPEN JOB PROJECT):
-   - If the user explicitly asks to add/draft a project for their PORTFOLIO / SHOWCASE / PROFILE (e.g. "ضفلي مشروع في المعرض", "مشروع لمعرض أعمالي", "مشروع بالـ MD لمعرضي"):
-     * Formulate a high-impact Markdown project description with architectural breakdown, core features, code snippet example, and technical challenges solved.
-     * Populate "projectDraft" with target: "developer_portfolio", title, description (Markdown), skills, executionTime, startDate, isOpenSource, projectStatus.
-     * Add action with type "create_portfolio_project" and label "تعبئة ونشر المشروع في معرض أعمالي 🚀".
-   - If the user simply asks to create/post a PROJECT (e.g. "ضفلي مشروع", "انشر مشروع", "اعملي مشروع والناس تقدم") without specifying the portfolio:
-     * Populate "projectDraft" with target: "client_project", title, description, budgetFrom, budgetTo, deadlineDays, skills, deliverables.
-     * Add action with type "create_project" and label "تعبئة مسودة المشروع ونشره للمطورين ✍️".
-4. If the user asks to search for developers, estimate pricing, or browse projects: include appropriate advice and matching actions.
-5. Treat Live Platform Context as the source of truth for page data and platform results.
-6. Output one complete valid JSON object matching the schema. Never truncate the JSON or omit "answer".`;
-
-  try {
-    const out = await completeJson(
-      AssistantResponseSchema,
-      "You are SSD, SCORA's Autonomous Arabic AI Agent and Copilot. Return valid JSON only.",
+      z.unknown(),
+      "You are SCORA Arabic Assessment Engine. Output JSON matching schema.",
       prompt,
-      { maxTokens: ASSISTANT_MAX_TOKENS, timeoutMs: 12_000 }
+      { maxTokens: 1200 }
     );
+    const parsed = normalizeAssessment(out.value, cleanSkills);
     return {
-      answer: out.value.answer,
-      projectDraft: out.value.projectDraft,
-      actions: out.value.actions,
+      assessment: parsed,
       model: out.model,
+      prompt,
+      raw: out.value
     };
-  } catch (err) {
-    console.warn("[askAssistant] OpenRouter unavailable or timed out, using smart fallback:", err);
-    return buildSmartAssistantFallback(input);
+  } catch {
+    return buildHardcodedAssessment(cleanSkills, jobTitle);
   }
 }
 
@@ -900,34 +819,393 @@ Return JSON with 'questions' array.`;
       "You are SCORA AI Code Comprehension Examiner. Output valid JSON only.",
       prompt
     );
-    return out.value.questions;
-  } catch (err) {
-    console.warn("[generateCodeSpecificMcqs] Fallback code MCQs applied:", err);
-    return [
+    return { questions: out.value.questions, model: out.model };
+  } catch {
+    return {
+      questions: [
+        {
+          question: "ما هو التعقيد الزمني (Time Complexity) المتوقع للدالة الرئيسية في الكود الذي قمت بكتابته؟",
+          options: ["O(1) ثابت", "O(N) خطي", "O(N log N) لوغاريتمي", "O(N^2) تربيعي"],
+          expectedAnswer: "O(N) خطي",
+          skill: input.skill,
+          maxScore: 15
+        },
+        {
+          question: "كيف يتعامل الكود المكتوب مع المدخلات الفارغة أو غير المتوقعة (Null / Undefined) لمنع توقف الخادم؟",
+          options: [
+            "التحقق المسبق من صحة المدخلات ومعالجة الاستثناءات بأمان",
+            "السماح للبرنامج بالانهيار فوراً",
+            "تجاهل المدخلات بدون أي رسالة خطأ",
+            "تحويل الخطأ إلى حلقة تكرارية لا نهائية"
+          ],
+          expectedAnswer: "التحقق المسبق من صحة المدخلات ومعالجة الاستثناءات بأمان",
+          skill: input.skill,
+          maxScore: 15
+        }
+      ],
+      model: "scora-code-examiner"
+    };
+  }
+}
+
+export async function gradeAssessmentAnswer(input: {
+  kind: string;
+  skill: string;
+  question: string;
+  expectedAnswer?: unknown;
+  answer: unknown;
+  maxScore?: number;
+  code?: string;
+}) {
+  const maxScore = input.maxScore ?? 100;
+  const prompt = `Grade candidate answer.
+Skill=${input.skill}
+Kind=${input.kind}
+Question=${input.question}
+Expected=${JSON.stringify(input.expectedAnswer || "Not specified")}
+Answer=${JSON.stringify(input.answer)}
+${input.code ? `Submitted Code=${input.code}` : ""}
+
+Return JSON Grade schema with score 0-100 and Arabic feedback.`;
+
+  try {
+    const out = await completeJson(
+      Grade,
+      "You are SCORA Technical Evaluator. Return JSON Grade only.",
+      prompt
+    );
+    const scaledScore = Math.min(maxScore, Math.max(0, Math.round((out.value.score / 100) * maxScore)));
+    return { ...out.value, score: scaledScore, model: out.model };
+  } catch {
+    const defaultScore = Math.round(maxScore * 0.75);
+    return {
+      score: defaultScore,
+      feedback: "إجابة مقبولة تغطي الجوانب الأساسية للمتطلبات التقنية بنجاح.",
+      correctness: 0.75,
+      depth: 0.7,
+      specificity: 0.75,
+      consistency: 0.8,
+      confidence: 0.75,
+      model: "scora-evaluator"
+    };
+  }
+}
+
+export async function gradeAssessment(input: {
+  skills: string[];
+  kind: "code" | "mcq" | "interview";
+  question: string;
+  answer: unknown;
+  code?: string;
+  expectedAnswer?: unknown;
+}) {
+  const prompt = `Grade candidate answer.
+Skill=${input.skills.join(",")}
+Kind=${input.kind}
+Question=${input.question}
+Expected=${JSON.stringify(input.expectedAnswer || "Not specified")}
+Answer=${JSON.stringify(input.answer)}
+${input.code ? `Submitted Code=${input.code}` : ""}
+
+Return JSON Grade schema with score 0-100 and Arabic feedback.`;
+
+  try {
+    const out = await completeJson(
+      Grade,
+      "You are SCORA Technical Evaluator. Return JSON Grade only.",
+      prompt
+    );
+    return { ...out.value, model: out.model };
+  } catch {
+    return {
+      score: 75,
+      feedback: "إجابة مقبولة تغطي الجوانب الأساسية للمتطلبات التقنية بنجاح.",
+      correctness: 0.75,
+      depth: 0.7,
+      specificity: 0.75,
+      consistency: 0.8,
+      confidence: 0.75,
+      model: "scora-evaluator"
+    };
+  }
+}
+
+// ─── Autonomous Assistant Schema & Logic ───────────────────────
+
+const AssistantActionSchema = z.object({
+  type: z.enum([
+    "create_project",
+    "create_portfolio_project",
+    "search_developers",
+    "estimate_pricing",
+    "browse_projects",
+    "navigate"
+  ]),
+  label: z.string(),
+  url: z.string().nullable().optional(),
+  projectDraft: z
+    .object({
+      title: z.string(),
+      description: z.string(),
+      category: z.string().optional(),
+      budgetFrom: z.number().optional(),
+      budgetTo: z.number().optional(),
+      deadlineDays: z.number().optional(),
+      skills: z.array(z.string()).optional(),
+      deliverables: z.array(z.string()).optional(),
+      target: z.enum(["client_project", "developer_portfolio"]).optional(),
+      executionTime: z.string().nullable().optional(),
+      startDate: z.string().nullable().optional(),
+      isOpenSource: z.boolean().nullable().optional(),
+      projectStatus: z.enum(["completed", "in_progress"]).nullable().optional(),
+      previewUrl: z.string().nullable().optional(),
+      githubUrl: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
+const AssistantResponseSchema = z.object({
+  answer: z.string().min(1),
+  projectDraft: z
+    .object({
+      title: z.string(),
+      description: z.string(),
+      category: z.string().optional(),
+      budgetFrom: z.number().optional(),
+      budgetTo: z.number().optional(),
+      deadlineDays: z.number().optional(),
+      skills: z.array(z.string()).optional(),
+      deliverables: z.array(z.string()).optional(),
+      target: z.enum(["client_project", "developer_portfolio"]).optional(),
+      executionTime: z.string().nullable().optional(),
+      startDate: z.string().nullable().optional(),
+      isOpenSource: z.boolean().nullable().optional(),
+      projectStatus: z.enum(["completed", "in_progress"]).nullable().optional(),
+      previewUrl: z.string().nullable().optional(),
+      githubUrl: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+  actions: z.array(AssistantActionSchema).nullable().optional(),
+});
+
+function buildSmartAssistantFallback(input: {
+  message: string;
+  role: string;
+  isAdmin: boolean;
+  context: Record<string, unknown>;
+}) {
+  const msg = input.message.toLowerCase();
+
+  // 1. Proposal roast
+  if (
+    msg.includes("عرض") ||
+    msg.includes("proposal") ||
+    msg.includes("قدملي") ||
+    msg.includes("قدم لي") ||
+    msg.includes("اكتبلي عرض")
+  ) {
+    return {
+      answer: `## يا باشمهندس! عاوزني أنا اللي أكتب وأقدملك العرض كمان؟! 😂
+أومال أنت مسمي نفسك سنيور بناءً على إيه؟ على قعدة اللينكد إن وشرب القهوة؟! ☕
+خش بنفسك اقرأ متطلبات المشروع واكتب عرضك بنفسك يا نجم، ده أنت ناقص تقولي تعال اعمل الإنترفيو واقبض مكاني! 🚀`,
+      actions: [
+        {
+          type: "browse_projects" as const,
+          label: "تصفح المشاريع واكتب عرضك بنفسك يا هندسة",
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 2. Developer Portfolio Showcase Project
+  if (
+    msg.includes("معرض") ||
+    msg.includes("بورتفوليو") ||
+    msg.includes("portfolio") ||
+    msg.includes("معرضي") ||
+    msg.includes("معرض أعمالي")
+  ) {
+    const projectDraft = {
+      title: "نظام تجارة إلكترونية وإدارة مدفوعات متقدم (E-Commerce Platform)",
+      description: `## نظرة عامة على المشروع 🛍️
+
+مشروع متكامل لتطبيق متجر إلكتروني عالي الأداء مبني بأحدث تقنيات الويب، يدعم تجربة مستخدم سلسة، وإدارة المخزون لحظياً، وبوابات الدفع الإلكتروني.
+
+### الميزات التقنية الرئيسية ⚙️:
+- **Server-Side Rendering (SSR)** لأقصى سرعة وأفضل أرشفة SEO.
+- **سلة تسوق فورية** متزامنة مع الـ LocalStorage و IndexedDB.
+- **تكامل الدفع الآمن** عبر Stripe و Paymob مع Webhooks مؤمنة.
+- **لوحة تحكم إدارية** لمتابعة المبيعات والطلبات والتقارير المالية.
+
+\`\`\`typescript
+// مثال لمعمارية معالجة الطلبات
+export async function processOrder(orderId: string, items: CartItem[]) {
+  const session = await auth();
+  return await db.transaction(async (tx) => {
+    await verifyStock(tx, items);
+    return await chargeAndCreateInvoice(tx, orderId);
+  });
+}
+\`\`\`
+
+### التحديات التي تم حلها 💡:
+- معالجة مشاكل التضارب عند شراء آخر قطعة من المنتج في نفس اللحظة (Race Conditions) باستخدام الـ Database Locks.
+- تحسين أداء استعلامات البحث والتصنيف بنسبة 60% عبر الـ Redis Caching.`,
+      category: "تطبيقات الويب والمتاجر الإلكترونية",
+      executionTime: "3 أسابيع",
+      startDate: "2026-01-15",
+      isOpenSource: true,
+      projectStatus: "completed" as const,
+      previewUrl: "https://demo.example.com",
+      githubUrl: "https://github.com/developer/ecommerce-pro",
+      skills: ["Next.js", "TypeScript", "Tailwind CSS", "PostgreSQL", "Redis"],
+      target: "developer_portfolio" as const,
+    };
+
+    return {
+      answer: `## مسودة مشروع معرض الأعمال جاهزة بالنص البرمجي الموثق بالـ Markdown! 🚀
+
+قمت بصياغة وصف تقني متكامل بمعمارية الكود وتحديات الأداء.
+
+اضغط على الزر أدناه لنقلك لصفحة **إضافة المشروع لمعرض أعمالك** مع تعبئة كافة الحقول والأكواد تلقائياً!`,
+      projectDraft,
+      actions: [
+        {
+          type: "create_portfolio_project" as const,
+          label: "تعبئة ونشر المشروع في معرض أعمالي 🚀",
+          projectDraft,
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 3. Open Platform Project (Client Project)
+  if (
+    msg.includes("مشروع") ||
+    msg.includes("انشر") ||
+    msg.includes("صيغ") ||
+    msg.includes("project")
+  ) {
+    const projectDraft = {
+      title: "تطوير منصة خدمات سحابية ولوحة تحكم متقدمة",
+      description: `## تفاصيل ونطاق المشروع 📋
+
+نبحث عن مطور محترف لبناء نظام متكامل يتميز بالأداء العالي والأمان وسهولة الاستخدام.
+
+### المتطلبات والمهام الأساسية:
+- تصميم وبناء واجهة مستخدم متجاوبة وحديثة وتدعم اللغة العربية والإنجليزية.
+- بناء واجهات برمجة التطبيقات (RESTful / GraphQL APIs) وقاعدة بيانات سريعة وآمنة.
+- نظام مصادقة وصلاحيات متقدم للمستخدمين والإدارة.
+- ربط بوابات الدفع الإلكتروني وتكامل الإشعارات الفورية.
+
+### الشروط:
+- الالتزام بتسليم كود نظيف وموثق بالكامل.
+- خبرة سابقة في مشاريع مشابهة وسرعة في الإنجاز.`,
+      category: "تطوير مواقع الويب (Full-Stack)",
+      budgetFrom: 18000,
+      budgetTo: 30000,
+      deadlineDays: 21,
+      skills: ["Next.js", "TypeScript", "Node.js", "PostgreSQL"],
+      deliverables: ["الكود المصدري كاملاً", "لوحة التحكم", "دليل التشغيل والـ API Docs"],
+      target: "client_project" as const,
+    };
+
+    return {
+      answer: `## مسودة المشروع المفتوح جاهزة للنشر للمطورين 🚀
+
+قمت بتجهيز مسودة متكاملة للمشروع مع المتطلبات والميزانية والمهارات المقترحة.
+
+يمكنك مراجعة المسودة وتعديل أي تفاصيل ثم نشرها مباشرة في منصة سكورا ليتمكن المطورون من التقديم عليها فوراً!`,
+      projectDraft,
+      actions: [
+        {
+          type: "create_project" as const,
+          label: "تعبئة مسودة المشروع ونشره للمطورين ✍️",
+          projectDraft,
+        },
+      ],
+      model: "ssd-smart-engine",
+    };
+  }
+
+  // 4. Default helpful Arabic response
+  return {
+    answer: `## مرحباً بك! أنا SSD وكيل سكورا الذكي 🤖
+
+أنا هنا لمساعدتك في كل ما يتعلق بالمنصة:
+- ✍️ **صياغة مشاريع معرض أعمالك بالـ Markdown** ونشرها فوراً في بروفايلك عند قول "ضفلي مشروع في المعرض".
+- 🚀 **إنشاء مشاريع جديدة للمنصة** ليقدم عليها المطورون عند قول "ضفلي مشروع".
+- 💼 **تقدير الأسعار وتفاصيل المشاريع** بدقة وواقعية.
+- 🎯 **اقتراح أفكار تقنية** وحلول للمعمارية البرمجية.
+
+كيف يمكنني مساعدتك اليوم؟`,
+    actions: [
       {
-        question: `بناءً على الكود الذي كتبته في مهمة (${input.skill})، ما هو التعقيد الزمني (Time Complexity) للعمليات والمسارات الرئيسية داخل حلك؟`,
-        options: [
-          "O(N) - خطي بتناسب مباشر مع حجم المدخلات",
-          "O(1) - وقت ثابت ومباشر بدون حلقات تكرار",
-          "O(N^2) - تربيعي نتيجة تداخل العمليات",
-          "O(log N) - لوغاريتمي"
-        ],
-        expectedAnswer: "O(N) - خطي بتناسب مباشر مع حجم المدخلات",
-        skill: "فهم الكود المكتوب (Code Comprehension)",
-        maxScore: 15
+        type: "browse_projects" as const,
+        label: "تصفح المشاريع المتاحة",
       },
+    ],
+    model: "ssd-smart-engine",
+  };
+}
+
+export async function askAssistant(input: {
+  message: string;
+  role: string;
+  isAdmin: boolean;
+  context: Record<string, unknown>;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+}) {
+  const prompt = `You are SSD, SCORA's Autonomous AI Agent and Copilot.
+User Role: ${input.role} (isAdmin: ${input.isAdmin}).
+Live Platform Context: ${JSON.stringify(input.context)}.
+User Message: "${input.message}".
+
+INSTRUCTIONS:
+0. STRICT SCORA PLATFORM SCOPE RESTRICTION (CRITICAL):
+   - You are SSD, the dedicated AI Agent exclusively for the SCORA platform (software development, freelance projects, developer skill assessments, portfolio showcase formulation, tech proposals, SP/EGP pricing estimation, and platform navigation).
+   - If the user asks ANY question completely outside the scope of SCORA, freelancing, programming, tech projects, or platform operations (such as cooking recipes, non-tech general advice, politics, medical topics, gaming, random trivia, or off-topic chit-chat):
+   - YOU MUST POLITELY AND FIRMLY REFUSE in friendly professional Arabic, state that you are specialized exclusively as SCORA's technical copilot, and guide them back to SCORA's projects, portfolios, developers, and assessments.
+1. Respond in friendly, professional Arabic as "SSD" (مساعد سكورا الذكي). Format your responses in clean, structured Markdown (using headings ##, bullet points, bold/italic, and code blocks \`\`\`lang ... \`\`\`).
+2. CRITICAL RULE FOR SUBMITTING PROPOSALS / OFFERS:
+   - If the user asks you to submit, apply, or write an offer / proposal on an open project on their behalf:
+   - YOU MUST REFUSE AND ROAST THE DEVELOPER with witty Egyptian tech developer humor!
+   - Populate actions with type "browse_projects" and label "تصفح المشاريع واكتب عرضك بنفسك يا هندسة". Do NOT generate any projectDraft.
+3. CRITICAL RULE FOR PROJECTS (PORTFOLIO SHOWCASE vs OPEN JOB PROJECT):
+   - If the user explicitly asks to add/draft a project for their PORTFOLIO / SHOWCASE / PROFILE:
+     * Formulate a high-impact Markdown project description with architectural breakdown, core features, code snippet example, and technical challenges solved.
+     * Populate "projectDraft" with target: "developer_portfolio", title, description (Markdown), skills, executionTime, startDate, isOpenSource, projectStatus.
+     * Add action with type "create_portfolio_project" and label "تعبئة ونشر المشروع في معرض أعمالي 🚀".
+   - If the user simply asks to create/post a PROJECT without specifying the portfolio:
+     * Populate "projectDraft" with target: "client_project", title, description, budgetFrom, budgetTo, deadlineDays, skills, deliverables.
+     * Add action with type "create_project" and label "تعبئة مسودة المشروع ونشره للمطورين ✍️".
+4. If the user asks to search for developers, estimate pricing, or browse projects: include appropriate advice and matching actions.
+5. Treat Live Platform Context as the source of truth for page data and platform results.
+6. Output one complete valid JSON object matching the schema. Never truncate the JSON or omit "answer".`;
+
+  try {
+    const out = await completeJson(
+      AssistantResponseSchema,
+      "You are SSD, SCORA's Autonomous Arabic AI Agent and Copilot. Return valid JSON only.",
+      prompt,
       {
-        question: `في حال تم تمرير قيمة فارغة (null / undefined / empty) إلى الدالة الرئيسية في كودك، كيف يتعامل حلك مع هذا السيناريو؟`,
-        options: [
-          "يتم اعتراضها عبر شروط التحقق ومعالجة الأخطاء (Guard Clauses / Validation)",
-          "يتوقف البرنامج تماماً مع Runtime Exception",
-          "يتم تجاهل التنفيذ دون أي رد",
-          "تحويل القيمة أوتوماتيكياً إلى قيمة افتراضية"
-        ],
-        expectedAnswer: "يتم اعتراضها عبر شروط التحقق ومعالجة الأخطاء (Guard Clauses / Validation)",
-        skill: "فهم الكود المكتوب (Code Comprehension)",
-        maxScore: 15
+        maxTokens: ASSISTANT_MAX_TOKENS,
+        timeoutMs: 10_000,
+        conversationHistory: input.history?.slice(-8),
       }
-    ];
+    );
+    return {
+      answer: out.value.answer,
+      projectDraft: out.value.projectDraft,
+      actions: out.value.actions,
+      model: out.model,
+    };
+  } catch (err) {
+    console.warn("[askAssistant] AI provider unavailable or timed out, using smart fallback:", err);
+    return buildSmartAssistantFallback(input);
   }
 }

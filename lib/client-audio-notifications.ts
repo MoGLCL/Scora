@@ -1,5 +1,7 @@
 "use client";
 
+import { safeInternalPath } from "@/lib/safe-url";
+
 // Web Audio API Synthesizer for instant, crystal-clear sound effects without external file dependencies
 class SoundFX {
   private ctx: AudioContext | null = null;
@@ -141,7 +143,7 @@ export function sendBrowserNotification(title: string, body: string, url?: strin
       notif.onclick = () => {
         window.focus();
         if (url) {
-          window.location.href = url;
+          window.location.assign(safeInternalPath(url));
         }
         notif.close();
       };

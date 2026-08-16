@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   CheckCheck,
@@ -15,6 +16,7 @@ import {
   requestBrowserNotificationPermission,
   sendBrowserNotification
 } from "@/lib/client-audio-notifications";
+import { safeInternalPath } from "@/lib/safe-url";
 
 type NotificationItem = {
   id: number;
@@ -33,6 +35,7 @@ export function NotificationsMenu({
   onToggle?: () => void;
   onClose?: () => void;
 } = {}) {
+  const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [internalOpen, setInternalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -51,13 +54,13 @@ export function NotificationsMenu({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isControlled) {
       if (onClose) onClose();
     } else {
       setInternalOpen(false);
     }
-  };
+  }, [isControlled, onClose]);
 
   // Close on click outside when uncontrolled
   useEffect(() => {
@@ -69,7 +72,7 @@ export function NotificationsMenu({
     };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
-  }, [isControlled]);
+  }, [isControlled, handleClose]);
 
   // Request browser desktop notification permission
   useEffect(() => {
@@ -169,7 +172,7 @@ export function NotificationsMenu({
       else if (n.body.includes("اختبار") || n.body.includes("مراجعة")) targetUrl = "/admin";
       else targetUrl = "/dashboard";
     }
-    window.location.href = targetUrl;
+    router.push(safeInternalPath(targetUrl));
   };
 
   const getIcon = (body: string) => {

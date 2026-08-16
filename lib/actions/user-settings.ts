@@ -6,18 +6,6 @@ import { execute, query, queryOne } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import { revalidatePath } from "next/cache";
 
-export interface UserSessionItem {
-  id: number;
-  deviceName: string;
-  browser: string;
-  ipAddress: string;
-  location: string;
-  isCurrent: boolean;
-  status: "active" | "logged_out" | "revoked";
-  createdAt: string;
-  lastActiveAt: string;
-}
-
 export interface UserSettingsFullData {
   user: {
     id: number;
@@ -27,7 +15,6 @@ export interface UserSettingsFullData {
     phone: string;
     role: "developer" | "client";
     isAdmin: boolean;
-    is2faEnabled: boolean;
     avatarUrl: string | null;
     createdAt: string;
   };
@@ -56,7 +43,6 @@ export interface UserSettingsFullData {
     tone: "egyptian_friendly" | "formal_arabic" | "technical_english";
     autoSuggest: boolean;
   };
-  sessions: UserSessionItem[];
 }
 
 // ─── 1. Get User Full Settings ────────────────────────────────────
@@ -74,9 +60,8 @@ export async function getUserSettingsData(): Promise<
     phone: string | null;
     role: "developer" | "client";
     is_admin: number;
-    is_2fa_enabled: number;
     created_at: Date;
-  }>("SELECT id, full_name, username, email, phone, role, is_admin, is_2fa_enabled, created_at FROM users WHERE id=?", [
+  }>("SELECT id, full_name, username, email, phone, role, is_admin, created_at FROM users WHERE id=?", [
     session.userId,
   ]);
 
@@ -167,22 +152,6 @@ export async function getUserSettingsData(): Promise<
     autoSuggest: settingsMap.get("ai_auto_suggest") !== "false",
   };
 
-  // User Login Sessions
-  const sessionRows = await query<{
-    id: number;
-    device_name: string;
-    browser: string;
-    ip_address: string;
-    location: string;
-    is_current: number;
-    status: "active" | "logged_out" | "revoked";
-    created_at: Date;
-    last_active_at: Date;
-  }>(
-    "SELECT id, device_name, browser, ip_address, location, is_current, status, created_at, last_active_at FROM user_login_sessions WHERE user_id=? ORDER BY is_current DESC, last_active_at DESC LIMIT 20",
-    [session.userId]
-  );
-
   return {
     ok: true,
     data: {
@@ -194,24 +163,12 @@ export async function getUserSettingsData(): Promise<
         phone: user.phone || "",
         role: user.role,
         isAdmin: Boolean(user.is_admin),
-        is2faEnabled: Boolean(user.is_2fa_enabled),
         avatarUrl,
         createdAt: new Date(user.created_at).toISOString(),
       },
       devProfile,
       clientData,
       aiPreferences,
-      sessions: sessionRows.map((s) => ({
-        id: s.id,
-        deviceName: s.device_name,
-        browser: s.browser,
-        ipAddress: s.ip_address,
-        location: s.location,
-        isCurrent: Boolean(s.is_current),
-        status: s.status,
-        createdAt: new Date(s.created_at).toISOString(),
-        lastActiveAt: new Date(s.last_active_at).toISOString(),
-      })),
     },
   };
 }
@@ -251,53 +208,7 @@ export async function changeUserPassword(input: z.infer<typeof PasswordSchema>) 
   return { ok: true as const };
 }
 
-// ─── 3. Toggle Two-Factor Authentication (2FA) ────────────────────
-export async function toggleTwoFactorAuth(input: { enabled: boolean; code?: string }) {
-  const session = await verifySession();
-  if (!session) return { ok: false as const, error: "سجل الدخول أولاً" };
-
-  if (input.enabled) {
-    if (!input.code || input.code.trim().length !== 6) {
-      return { ok: false as const, error: "رمز التحقق يجب أن يتكون من 6 أرقام" };
-    }
-    await execute("UPDATE users SET is_2fa_enabled=1, two_factor_secret='SCORA-SEC-2026-PRO' WHERE id=?", [
-      session.userId,
-    ]);
-  } else {
-    await execute("UPDATE users SET is_2fa_enabled=0, two_factor_secret=NULL WHERE id=?", [session.userId]);
-  }
-
-  revalidatePath("/settings");
-  return { ok: true as const };
-}
-
-// ─── 4. Revoke Active Sessions ────────────────────────────────────
-export async function revokeUserSession(sessionId: number) {
-  const session = await verifySession();
-  if (!session) return { ok: false as const, error: "غير مصرح لك" };
-
-  await execute("UPDATE user_login_sessions SET status='revoked' WHERE id=? AND user_id=? AND is_current=0", [
-    sessionId,
-    session.userId,
-  ]);
-
-  revalidatePath("/settings");
-  return { ok: true as const };
-}
-
-export async function revokeAllOtherSessions() {
-  const session = await verifySession();
-  if (!session) return { ok: false as const, error: "غير مصرح لك" };
-
-  await execute("UPDATE user_login_sessions SET status='logged_out' WHERE user_id=? AND is_current=0", [
-    session.userId,
-  ]);
-
-  revalidatePath("/settings");
-  return { ok: true as const };
-}
-
-// ─── 5. Save AI Preferences ───────────────────────────────────────
+// ─── 3. Save AI Preferences ───────────────────────────────────────
 export async function saveUserAiPreferences(input: {
   enabled: boolean;
   mode: "creative" | "balanced" | "strict";
@@ -328,7 +239,7 @@ export async function saveUserAiPreferences(input: {
   return { ok: true as const };
 }
 
-// ─── 6. Save Client Company Settings ──────────────────────────────
+// ─── 4. Save Client Company Settings ──────────────────────────────
 export async function saveClientCompanySettings(input: {
   accountType: "personal" | "company";
   companyName?: string;
@@ -339,6 +250,20 @@ export async function saveClientCompanySettings(input: {
 }) {
   const session = await verifySession();
   if (!session) return { ok: false as const, error: "غير مصرح لك" };
+  if (session.role !== "client") return { ok: false as const, error: "هذا الإجراء متاح للعملاء فقط" };
+
+  const parsed = z.object({
+    accountType: z.enum(["personal", "company"]),
+    companyName: z.string().trim().max(255).optional(),
+    taxId: z.string().trim().max(100).optional(),
+    industry: z.string().trim().max(100).optional(),
+    companySize: z.string().trim().max(50).optional(),
+    website: z.string().trim().url("رابط الموقع غير صالح").max(500).optional().or(z.literal("")),
+  }).safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message || "بيانات غير صالحة" };
+  if (parsed.data.accountType === "company" && !parsed.data.companyName) {
+    return { ok: false as const, error: "اسم الشركة مطلوب لحساب الشركة" };
+  }
 
   await execute(
     `UPDATE clients
@@ -350,12 +275,12 @@ export async function saveClientCompanySettings(input: {
             website = ?
       WHERE user_id = ?`,
     [
-      input.accountType,
-      input.accountType === "company" ? input.companyName || null : null,
-      input.accountType === "company" ? input.taxId || null : null,
-      input.accountType === "company" ? input.industry || null : null,
-      input.accountType === "company" ? input.companySize || null : null,
-      input.website || null,
+      parsed.data.accountType,
+      parsed.data.accountType === "company" ? parsed.data.companyName || null : null,
+      parsed.data.accountType === "company" ? parsed.data.taxId || null : null,
+      parsed.data.accountType === "company" ? parsed.data.industry || null : null,
+      parsed.data.accountType === "company" ? parsed.data.companySize || null : null,
+      parsed.data.website || null,
       session.userId,
     ]
   );

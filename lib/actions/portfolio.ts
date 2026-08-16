@@ -8,7 +8,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { execute, queryOne, transaction } from "@/lib/db";
+import { queryOne, transaction } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
@@ -184,26 +184,6 @@ export async function savePortfolioReview(input: {
   revalidatePath(`/profile`);
   revalidatePath(`/developers`);
   return { ok: true, projectId: parsed.data.projectId };
-}
-
-export async function deletePortfolioProject(projectId: number): Promise<PortfolioActionResult> {
-  const session = await verifySession();
-  if (!session || (session.role !== "developer" && !session.isAdmin)) return { ok: false, error: "غير مصرح" };
-  const project = await queryOne<{ id: number; developer_id: number; developer_user_id: number }>(
-    `SELECT dp.id, dp.developer_id, d.user_id AS developer_user_id
-     FROM developer_projects dp JOIN developers d ON d.id = dp.developer_id WHERE dp.id = ?`,
-    [projectId]
-  );
-  if (!project || (!session.isAdmin && project.developer_user_id !== session.userId)) return { ok: false, error: "المشروع غير موجود" };
-  const images = await queryOne<{ urls: string | null }>(
-    "SELECT GROUP_CONCAT(url SEPARATOR '\n') AS urls FROM developer_project_images WHERE project_id = ?",
-    [projectId]
-  );
-  await execute("DELETE FROM developer_projects WHERE id = ?", [projectId]);
-  revalidatePath(`/portfolio/${projectId}`);
-  revalidatePath(`/developers/${project.developer_id}`);
-  await Promise.all((images?.urls ?? "").split("\n").filter(Boolean).map((url) => unlink(path.join(process.cwd(), "public", url)).catch(() => undefined)));
-  return { ok: true };
 }
 
 async function saveWatermarkedImage(file: File): Promise<string> {

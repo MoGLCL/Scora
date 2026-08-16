@@ -45,25 +45,32 @@ export default function CreateProjectOfferPage() {
 
   // Read AI Agent Project Draft from sessionStorage or URL query params on mount
   React.useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("scora_ai_project_draft");
-      if (stored) {
-        const draft = JSON.parse(stored);
-        if (draft.title) setTitle(draft.title);
-        if (draft.category) setCategory(draft.category);
-        if (draft.budgetFrom) setBudgetFrom(String(draft.budgetFrom));
-        if (draft.budgetTo) setBudgetTo(String(draft.budgetTo));
-        if (draft.deadlineDays) setDeadline(String(draft.deadlineDays));
-        if (draft.description) setDescription(draft.description);
-        if (Array.isArray(draft.skills) && draft.skills.length > 0) setSelectedSkills(draft.skills);
-        if (Array.isArray(draft.deliverables) && draft.deliverables.length > 0) setDeliverables(draft.deliverables);
-        setIsFilledByAi(true);
-        sessionStorage.removeItem("scora_ai_project_draft");
-        addToast("تمت تعبئة بيانات المشروع بواسطة مساعد SSD الذكي ", "info");
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = sessionStorage.getItem("scora_ai_project_draft");
+        if (stored) {
+          const draft: Record<string, unknown> = JSON.parse(stored);
+          if (typeof draft.title === "string") setTitle(draft.title);
+          if (typeof draft.category === "string") setCategory(draft.category);
+          if (typeof draft.budgetFrom === "number" || typeof draft.budgetFrom === "string") setBudgetFrom(String(draft.budgetFrom));
+          if (typeof draft.budgetTo === "number" || typeof draft.budgetTo === "string") setBudgetTo(String(draft.budgetTo));
+          if (typeof draft.deadlineDays === "number" || typeof draft.deadlineDays === "string") setDeadline(String(draft.deadlineDays));
+          if (typeof draft.description === "string") setDescription(draft.description);
+          if (Array.isArray(draft.skills)) {
+            setSelectedSkills(draft.skills.filter((skill): skill is string => typeof skill === "string").slice(0, 30));
+          }
+          if (Array.isArray(draft.deliverables)) {
+            setDeliverables(draft.deliverables.filter((item): item is string => typeof item === "string").slice(0, 30));
+          }
+          setIsFilledByAi(true);
+          sessionStorage.removeItem("scora_ai_project_draft");
+          addToast("تمت تعبئة بيانات المشروع بواسطة مساعد SSD الذكي ", "info");
+        }
+      } catch {
+        // Storage can be disabled or contain invalid JSON.
       }
-    } catch {
-      // silent
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [addToast]);
 
   // Keep a sanitized snapshot available to SSD while the form is still unsaved.

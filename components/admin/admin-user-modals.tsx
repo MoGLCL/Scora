@@ -22,6 +22,7 @@ import {
   Copy,
   Check,
   Code2,
+  Sliders,
 } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import type { AccountStatus, AppRole } from "@/lib/types";
@@ -67,6 +68,9 @@ export interface ExtendedUserItem {
   reassessmentStatus?: string | null;
   reassessmentNote?: string | null;
   suspendedUntil?: string | null;
+  subscriptionPlan?: "free" | "pro" | "vip" | null;
+  subscriptionStatus?: string | null;
+  subscriptionEnd?: string | null;
   skills?: { name: string; nameAr: string | null; level: string; sp: number }[];
 }
 
@@ -83,6 +87,7 @@ export function UserDetailsModal({
   onOpenSuspension,
   onOpenDelete,
   onOpenResetTest,
+  onOpenPlan,
 }: {
   user: ExtendedUserItem;
   onClose: () => void;
@@ -93,6 +98,7 @@ export function UserDetailsModal({
   onOpenSuspension: (u: ExtendedUserItem) => void;
   onOpenDelete: (u: ExtendedUserItem) => void;
   onOpenResetTest: (u: ExtendedUserItem) => void;
+  onOpenPlan?: (u: ExtendedUserItem) => void;
 }) {
   return (
     <div
@@ -227,6 +233,51 @@ export function UserDetailsModal({
                 <Award className="h-4 w-4 text-[#526B5E] shrink-0" />
                 <span className="font-bold">{user.experienceYears} سنوات خبرة</span>
               </div>
+            )}
+          </div>
+
+          {/* Subscription Plan Status Bar */}
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#E8FAF0] border border-[#D1E3D6]">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-[#056B38] text-white flex items-center justify-center shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-[#05291A]">باقة الحساب:</span>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                    user.subscriptionPlan === "vip"
+                      ? "bg-[#05291A] text-white"
+                      : user.subscriptionPlan === "pro"
+                      ? "bg-[#056B38] text-white"
+                      : "bg-white text-[#056B38] border border-[#D1E3D6]"
+                  }`}>
+                    {user.subscriptionPlan === "vip" ? "VIP" : user.subscriptionPlan === "pro" ? "Pro" : "Free"}
+                  </span>
+                  <span className="text-[10px] text-[#526B5E] font-bold">
+                    ({user.subscriptionStatus === "active" ? "نشط" : user.subscriptionStatus === "trial" ? "فترة تجريبية" : "منتهي"})
+                  </span>
+                </div>
+                {user.subscriptionEnd && (
+                  <div className="text-[10px] text-[#526B5E] font-mono mt-0.5">
+                    تنتهي في: {user.subscriptionEnd}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {onOpenPlan && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenPlan(user);
+                }}
+                className="h-8 px-3 rounded-xl bg-[#056B38] hover:bg-[#04552D] text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0"
+              >
+                <Sliders className="h-3.5 w-3.5" />
+                <span>تغيير الباقة</span>
+              </button>
             )}
           </div>
 
@@ -365,7 +416,6 @@ export function UserDetailsModal({
               const nextVal = !user.isVerified;
               const res = await toggleDeveloperVerificationForAdmin(Number(user.id), nextVal);
               if (res.ok) {
-                user.isVerified = nextVal;
                 onClose();
               }
             }}
@@ -879,3 +929,174 @@ export function SendNotificationModal({
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// 8. Change User Subscription Plan Modal
+// ─────────────────────────────────────────────────────────────
+export function ChangeUserPlanModal({
+  user,
+  onClose,
+  onSave,
+}: {
+  user: ExtendedUserItem;
+  onClose: () => void;
+  onSave: (
+    userId: string,
+    plan: "free" | "pro" | "vip",
+    status: "active" | "trial" | "expired" | "cancelled",
+    durationDays?: number | null
+  ) => Promise<void>;
+}) {
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | "vip">(
+    user.subscriptionPlan || "free"
+  );
+  const [selectedStatus, setSelectedStatus] = useState<"active" | "trial" | "expired" | "cancelled">(
+    (user.subscriptionStatus as "active" | "trial" | "expired" | "cancelled") || "active"
+  );
+  const [durationOption, setDurationOption] = useState<number | "lifetime">(30);
+  const [customDays, setCustomDays] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const days = customDays ? Number(customDays) : durationOption === "lifetime" ? null : durationOption;
+      await onSave(user.id, selectedPlan, selectedStatus, days);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      dir="rtl"
+    >
+      <div className="w-full max-w-lg rounded-[28px] border border-[#D1E3D6] bg-white p-6 sm:p-7 shadow-2xl space-y-5">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+          <h3 className="text-lg font-black text-[#05291A] flex items-center gap-2">
+            <Sliders className="h-5 w-5 text-[#056B38]" />
+            تعيين باقة الاشتراك للمستخدم
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 w-9 rounded-full bg-[#F7FAF8] hover:bg-neutral-200 text-neutral-500 hover:text-black flex items-center justify-center cursor-pointer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs font-bold text-[#05291A]">
+          <p className="text-[#526B5E] text-xs leading-relaxed font-normal">
+            يمكنك كمسؤول تعيين باقة اشتراك فورية لحساب <strong className="text-[#05291A] font-black">{user.name}</strong> ({user.email}) وتحديد مدتها وحالتها.
+          </p>
+
+          {/* Plan Selector */}
+          <div className="space-y-1.5">
+            <label className="block">اختر الباقة:</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "free" as const, name: "المجانية (Free)" },
+                { id: "pro" as const, name: "الاحترافية (Pro)" },
+                { id: "vip" as const, name: "الفائقة (VIP)" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelectedPlan(p.id)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    selectedPlan === p.id
+                      ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] ring-2 ring-[#056B38]/20 font-black shadow-xs"
+                      : "border-[#D1E3D6] bg-white text-[#05291A] hover:bg-[#F7FAF8]"
+                  }`}
+                >
+                  <span className="text-xs">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Status Selector */}
+          <div className="space-y-1.5">
+            <label className="block">حالة الاشتراك:</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value as "active" | "trial" | "expired" | "cancelled")}
+              className="w-full h-10 px-3 text-xs font-bold rounded-xl border border-[#D1E3D6] focus:border-[#056B38] outline-hidden bg-white text-[#05291A]"
+            >
+              <option value="active">نشط ومفعل (Active)</option>
+              <option value="trial">فترة تجريبية (Trial)</option>
+              <option value="expired">منتهي الصلاحية (Expired)</option>
+              <option value="cancelled">ملغي (Cancelled)</option>
+            </select>
+          </div>
+
+          {/* Duration Selector */}
+          <div className="space-y-1.5">
+            <label className="block">المدة الزمنية للاشتراك:</label>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { value: 30, label: "شهر (30 يوم)" },
+                { value: 90, label: "3 أشهر" },
+                { value: 365, label: "سنة (365 يوم)" },
+                { value: "lifetime" as const, label: "دائم (مفتوح)" },
+              ].map((d) => (
+                <button
+                  key={String(d.value)}
+                  type="button"
+                  onClick={() => {
+                    setDurationOption(d.value);
+                    setCustomDays("");
+                  }}
+                  className={`p-2 rounded-xl border text-[11px] font-bold text-center transition-all cursor-pointer ${
+                    !customDays && durationOption === d.value
+                      ? "border-[#056B38] bg-[#E8FAF0] text-[#056B38] font-black"
+                      : "border-[#D1E3D6] bg-white text-[#05291A] hover:bg-[#F7FAF8]"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Days Input */}
+          <div className="space-y-1">
+            <label className="text-[11px] text-[#526B5E]">أو حدد عدد أيام مخصص:</label>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={customDays}
+              onChange={(e) => setCustomDays(e.target.value)}
+              placeholder="مثال: 60 يوماً"
+              className="w-full rounded-xl border border-[#D1E3D6] p-2.5 text-xs font-bold text-[#05291A] focus:outline-none focus:border-[#056B38] bg-[#F7FAF8]"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-11 rounded-full bg-[#056B38] hover:bg-[#005B27] text-white font-black text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{loading ? "جاري الحفظ..." : "حفظ وتفعيل الباقة"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 h-11 rounded-full border border-[#D1E3D6] bg-white text-[#05291A] font-bold text-sm hover:bg-[#F7FAF8] cursor-pointer"
+            >
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+

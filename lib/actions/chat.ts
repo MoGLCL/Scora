@@ -21,6 +21,14 @@ export async function sendMessage(input: { receiverId: number | string; body?: s
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message || "رسالة غير صالحة" };
   if (parsed.data.receiverId === session.userId) return { ok: false as const, error: "لا يمكنك مراسلة نفسك" };
 
+  if (parsed.data.imageUrl) {
+    const media = await queryOne<{ id: number }>(
+      "SELECT id FROM media WHERE owner_type='chat' AND owner_id=? AND url=?",
+      [session.userId, parsed.data.imageUrl]
+    );
+    if (!media) return { ok: false as const, error: "الصورة المرفقة غير صالحة" };
+  }
+
   const receiver = await queryOne<{ id: number; role: string }>(
     "SELECT u.id, u.role FROM users u WHERE u.id=? AND u.status='active'",
     [parsed.data.receiverId]
@@ -57,15 +65,4 @@ export async function sendMessage(input: { receiverId: number | string; body?: s
   });
 
   return { ok: true as const, message };
-}
-
-export async function markConversationRead(otherUserId: number) {
-  const session = await verifySession();
-  if (!session) return;
-  const { execute } = await import("@/lib/db");
-  await execute("UPDATE messages SET is_read=1 WHERE sender_id=? AND receiver_id=?", [otherUserId, session.userId]);
-  await execute(
-    "UPDATE notifications SET is_read=1 WHERE user_id=? AND (link_url=? OR link_url=? OR link_url=?) AND is_read=0",
-    [session.userId, `/chat?user=${otherUserId}`, `/chat?with=${otherUserId}`, "/chat"]
-  );
 }

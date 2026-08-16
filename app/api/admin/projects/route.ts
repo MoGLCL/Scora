@@ -15,8 +15,8 @@ export async function GET() {
     budget_to: number;
     deadline_days: number | null;
     status: string;
-    skills_json: any;
-    deliverables_json: any;
+    skills_json: unknown;
+    deliverables_json: unknown;
     posted_at: Date;
     client_id: number;
     owner_name: string;

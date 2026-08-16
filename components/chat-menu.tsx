@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { MessageSquare, ArrowLeft, ShieldCheck, Clock } from "lucide-react";
 import { useFloatingChat } from "@/components/floating-chat-provider";
 import { AvatarStatusBadge } from "@/components/user-status-indicator";
@@ -28,6 +30,7 @@ export function ChatMenu({
   onClose?: () => void;
 } = {}) {
   const { openFloatingChat } = useFloatingChat();
+  const router = useRouter();
   const [conversations, setConversations] = useState<ChatMenuItem[]>([]);
   const [totalUnread, setTotalUnread] = useState(0);
   const [queueAhead, setQueueAhead] = useState(0);
@@ -37,24 +40,7 @@ export function ChatMenu({
   const isControlled = typeof isOpen === "boolean";
   const open = isControlled ? isOpen : internalOpen;
 
-  const handleToggle = () => {
-    if (isControlled) {
-      if (onToggle) onToggle();
-    } else {
-      setInternalOpen((prev) => !prev);
-    }
-    if (!open) void loadRecentChats();
-  };
-
-  const handleClose = () => {
-    if (isControlled) {
-      if (onClose) onClose();
-    } else {
-      setInternalOpen(false);
-    }
-  };
-
-  const loadRecentChats = async () => {
+  const loadRecentChats = useCallback(async () => {
     try {
       const res = await fetch("/api/chat/recent", { cache: "no-store" });
       if (!res.ok) return;
@@ -66,6 +52,23 @@ export function ChatMenu({
     } catch {
       // ignore
     }
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (isControlled) {
+      if (onClose) onClose();
+    } else {
+      setInternalOpen(false);
+    }
+  }, [isControlled, onClose]);
+
+  const handleToggle = () => {
+    if (isControlled) {
+      if (onToggle) onToggle();
+    } else {
+      setInternalOpen((prev) => !prev);
+    }
+    if (!open) void loadRecentChats();
   };
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export function ChatMenu({
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [loadRecentChats]);
 
   // Close on click outside when uncontrolled
   useEffect(() => {
@@ -96,7 +99,7 @@ export function ChatMenu({
     };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
-  }, [isControlled]);
+  }, [isControlled, handleClose]);
 
   const handleOpenConversation = (item: ChatMenuItem) => {
     handleClose();
@@ -109,7 +112,7 @@ export function ChatMenu({
 
     // If already on /chat page, navigate there
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/chat")) {
-      window.location.href = targetUrl;
+      router.push(targetUrl);
     } else {
       // Otherwise open in Floating Chat Box!
       openFloatingChat({
@@ -249,12 +252,15 @@ export function ChatMenu({
                   >
                     {/* User Avatar */}
                     <div className="relative shrink-0">
-                      <div className="h-11 w-11 overflow-hidden rounded-full bg-[#E8FAF0] text-[#056B38] font-black text-xs flex items-center justify-center border border-[#D1E3D6] shadow-2xs">
+                      <div className="relative h-11 w-11 overflow-hidden rounded-full bg-[#E8FAF0] text-[#056B38] font-black text-xs flex items-center justify-center border border-[#D1E3D6] shadow-2xs">
                         {item.avatar ? (
-                          <img
+                          <Image
                             src={item.avatar}
                             alt={item.name}
-                            className="h-full w-full object-cover"
+                            fill
+                            unoptimized
+                            sizes="44px"
+                            className="object-cover"
                           />
                         ) : (
                           <span>{getInitials(item.name || "Scora")}</span>

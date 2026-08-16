@@ -105,8 +105,12 @@ export function SiteHeader() {
     <header className="w-full border-b border-[#D1E3D6]/80 bg-white sticky top-0 z-50">
       <div className="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between px-6 md:px-10 relative">
         
-        {/* Right Side: Logo */}
-        <div className="z-10 flex items-center">
+        {/* Right Side: Logo (Centered on mobile before login) */}
+        <div
+          className={`z-10 flex items-center ${
+            userRole === "guest" ? "w-full justify-center sm:w-auto sm:justify-start" : ""
+          }`}
+        >
           <ScoraLogo
             href={userRole !== "guest" ? "/dashboard" : "/"}
             size="md"
@@ -262,14 +266,12 @@ export function SiteHeader() {
 
                   {/* Logout Button */}
                   <div className="pt-2 border-t border-neutral-100">
-                    <a
-                      href="/api/auth/logout"
-                      onClick={() => setActiveDropdown(null)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4 text-red-500" />
-                      <span>تسجيل الخروج</span>
-                    </a>
+                    <form action="/api/auth/logout" method="post" onSubmit={() => setActiveDropdown(null)}>
+                      <button type="submit" className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                        <LogOut className="w-4 h-4 text-red-500" />
+                        <span>تسجيل الخروج</span>
+                      </button>
+                    </form>
                   </div>
 
                 </div>
@@ -277,7 +279,7 @@ export function SiteHeader() {
 
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <Link
                 href="/login"
                 className="inline-flex h-[44px] items-center justify-center rounded-[12px] border border-[#056B38] px-5 text-[13px] font-bold text-[#056B38] transition-colors hover:bg-[#E8FAF0]"

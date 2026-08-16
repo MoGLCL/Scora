@@ -21,7 +21,26 @@ import {
   ExternalLink,
   BrainCircuit,
   Code2,
+  Crown,
+  AlertTriangle,
 } from "lucide-react";
+import { SubscriptionCheckoutModal } from "@/components/subscription-checkout-modal";
+import { EgpCurrencyIcon } from "@/components/egp-currency-icon";
+
+interface QuotaState {
+  plan: "free" | "pro" | "vip";
+  isTrial: boolean;
+  isTrialExpired: boolean;
+  trialDaysLeft: number;
+  dailyRequestsLimit: number;
+  weeklyRequestsLimit: number;
+  usedToday: number;
+  usedThisWeek: number;
+  remainingToday: number;
+  remainingThisWeek: number;
+  canUseAi: boolean;
+  blockReason: string | null;
+}
 
 interface ProjectDraft {
   title: string;
@@ -146,7 +165,26 @@ export function AiAssistantSsd() {
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+  const [quota, setQuota] = useState<QuotaState | null>(null);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch real-time AI quota
+  const fetchQuota = async () => {
+    try {
+      const res = await fetch("/api/ai/quota");
+      if (res.ok) {
+        const data = (await res.json()) as QuotaState;
+        setQuota(data);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (isOpen && userRole !== "guest") {
+      fetchQuota();
+    }
+  }, [isOpen, userRole]);
 
   // Floating Button Drag & Edge-Snap Positioning State
   const [position, setPosition] = useState<{ side: "left" | "right"; top: number }>({
@@ -160,24 +198,26 @@ export function AiAssistantSsd() {
 
   // Load saved position from localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("scora_ssd_agent_pos");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.side && typeof parsed.top === "number") {
-          const maxTop = Math.max(100, window.innerHeight - 90);
-          setPosition({
-            side: parsed.side === "right" ? "right" : "left",
-            top: Math.max(70, Math.min(maxTop, parsed.top)),
-          });
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("scora_ssd_agent_pos");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.side && typeof parsed.top === "number") {
+            const maxTop = Math.max(100, window.innerHeight - 90);
+            setPosition({
+              side: parsed.side === "right" ? "right" : "left",
+              top: Math.max(70, Math.min(maxTop, parsed.top)),
+            });
+          }
+        } else {
+          setPosition({ side: "left", top: Math.max(100, window.innerHeight - 100) });
         }
-      } else {
-        // Default bottom-left
-        setPosition({ side: "left", top: Math.max(100, window.innerHeight - 100) });
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -188,7 +228,7 @@ export function AiAssistantSsd() {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     });
-    dragStartPos.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    dragStartPos.current = { x: e.clientX, y: e.clientY, time: e.timeStamp };
     setCurrentDragCoords({ x: rect.left, y: rect.top });
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -215,7 +255,7 @@ export function AiAssistantSsd() {
       e.clientX - dragStartPos.current.x,
       e.clientY - dragStartPos.current.y
     );
-    const duration = Date.now() - dragStartPos.current.time;
+    const duration = e.timeStamp - dragStartPos.current.time;
 
     // Quick tap / click
     if (dist < 8 && duration < 500) {
@@ -238,6 +278,11 @@ export function AiAssistantSsd() {
       localStorage.setItem("scora_ssd_agent_pos", JSON.stringify(newPos));
     } catch {}
   };
+
+  const SESSION_STORAGE_KEY = "scora_ssd_chat_session";
+  const SESSION_INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+  const [_lastActiveTime, setLastActiveTime] = useState<number>(() => Date.now());
 
   // Initial Welcome Message
   const getInitialMessage = (): string => {
@@ -262,6 +307,47 @@ export function AiAssistantSsd() {
     },
   ]);
 
+  // Load persisted active session on mount if within 10 minutes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const now = Date.now();
+        if (
+          parsed.lastActive &&
+          now - parsed.lastActive < SESSION_INACTIVITY_TIMEOUT_MS &&
+          Array.isArray(parsed.messages) &&
+          parsed.messages.length > 0
+        ) {
+          setMessages(parsed.messages);
+          setLastActiveTime(now);
+          localStorage.setItem(
+            SESSION_STORAGE_KEY,
+            JSON.stringify({ lastActive: now, messages: parsed.messages })
+          );
+        } else {
+          // 10 minutes exceeded: session is expired!
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Save session helper
+  const saveSession = (msgs: ChatMessage[]) => {
+    const now = Date.now();
+    setLastActiveTime(now);
+    try {
+      localStorage.setItem(
+        SESSION_STORAGE_KEY,
+        JSON.stringify({ lastActive: now, messages: msgs })
+      );
+    } catch {}
+  };
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (isOpen) {
@@ -279,24 +365,55 @@ export function AiAssistantSsd() {
     return () => window.clearInterval(timer);
   }, [isTyping]);
 
-  // Fast Instant Open / Close
+  // Fast Instant Open / Close with 10-minute inactivity check
   const handleOpenChat = () => {
+    const now = Date.now();
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.lastActive && now - parsed.lastActive >= SESSION_INACTIVITY_TIMEOUT_MS) {
+          // Session expired due to 10-minute inactivity!
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+          const initialMsgs: ChatMessage[] = [
+            {
+              id: "init",
+              sender: "ssd",
+              text: getInitialMessage(),
+              time: "الآن",
+            },
+          ];
+          setMessages(initialMsgs);
+          saveSession(initialMsgs);
+        } else {
+          saveSession(messages);
+        }
+      } else {
+        saveSession(messages);
+      }
+    } catch {
+      saveSession(messages);
+    }
     setIsOpen(true);
   };
 
   const handleCloseChat = () => {
+    saveSession(messages);
     setIsOpen(false);
   };
 
   const handleResetChat = () => {
-    setMessages([
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    const freshMsgs: ChatMessage[] = [
       {
         id: Date.now().toString(),
         sender: "ssd",
         text: getInitialMessage(),
         time: "الآن",
       },
-    ]);
+    ];
+    setMessages(freshMsgs);
+    saveSession(freshMsgs);
   };
 
   // Agent Actions
@@ -397,7 +514,9 @@ export function AiAssistantSsd() {
       time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedWithUser = [...messages, userMsg];
+    setMessages(updatedWithUser);
+    saveSession(updatedWithUser);
     setInputText("");
     setThinkingStep(0);
     setIsTyping(true);
@@ -409,13 +528,55 @@ export function AiAssistantSsd() {
         latestPageContext = raw ? JSON.parse(raw) : undefined;
       } catch {
       }
+
+      // Build conversation history (last 8 turns)
+      const history = messages
+        .filter((m) => m.id !== "init")
+        .slice(-8)
+        .map((m) => ({
+          role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
+          content: m.text,
+        }));
+
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsgText, pathname, pageContext: latestPageContext }),
+        body: JSON.stringify({
+          message: userMsgText,
+          pathname,
+          pageContext: latestPageContext,
+          history,
+        }),
       });
-      const data = (await response.json()) as AssistantApiResponse;
-      if (!response.ok) throw new Error(data.error || "AI_UNAVAILABLE");
+      const data = (await response.json()) as AssistantApiResponse & { reason?: string; quota?: QuotaState; message?: string };
+
+      if (!response.ok) {
+        if (response.status === 429 || data.error === "QUOTA_EXCEEDED") {
+          fetchQuota();
+          const quotaMsg: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            sender: "ssd",
+            text:
+              data.message ||
+              "⚠️ لقد استنفدت رصيد طلبات الذكاء الاصطناعي في باقتك الحالية، أو انتهت الفترة التجريبية (3 أيام). يمكنك الترقية إلى Pro أو VIP الآن للاستمرار فوراً!",
+            time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
+            actions: [
+              {
+                label: "ترقية الباقة وتفعيل الكوبونات ⚡",
+                action: () => setIsUpgradeModalOpen(true),
+              },
+            ],
+          };
+          const updatedWithQuota = [...updatedWithUser, quotaMsg];
+          setMessages(updatedWithQuota);
+          saveSession(updatedWithQuota);
+          return;
+        }
+        throw new Error(data.error || "AI_UNAVAILABLE");
+      }
+
+      // Refresh quota in background
+      fetchQuota();
 
       const draft = data.projectDraft ?? undefined;
       const actions = data.actions
@@ -449,31 +610,32 @@ export function AiAssistantSsd() {
           ]
         : undefined;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: "ssd",
-          text: data.answer || "تعذر تجهيز الرد الكامل. حاول مرة أخرى من فضلك.",
-          projectDraft: draft,
-          resultCards: data.resultCards,
-          adminReport: data.adminReport,
-          pendingAdminAction: data.pendingAdminAction,
-          pendingAdminStatus: data.pendingAdminAction ? "pending" : undefined,
-          time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
-          actions,
-        },
-      ]);
+      const aiMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "ssd",
+        text: data.answer || "تعذر تجهيز الرد الكامل. حاول مرة أخرى من فضلك.",
+        projectDraft: draft,
+        resultCards: data.resultCards,
+        adminReport: data.adminReport,
+        pendingAdminAction: data.pendingAdminAction,
+        pendingAdminStatus: data.pendingAdminAction ? "pending" : undefined,
+        time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
+        actions,
+      };
+
+      const updatedWithAi = [...updatedWithUser, aiMsg];
+      setMessages(updatedWithAi);
+      saveSession(updatedWithAi);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: "ssd",
-          text: "⚠️ نعتذر، هناك مشكلة في الاتصال بنماذج الذكاء الاصطناعي (OpenRouter) حالياً. إدارة المنصة على علم بالأمر وسيقوم الأدمن بحلها قريباً جداً!",
-          time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "ssd",
+        text: "⚠️ نعتذر، هناك مشكلة في الاتصال بنماذج الذكاء الاصطناعي حالياً. يرجى المحاولة بعد قليل.",
+        time: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
+      };
+      const updatedWithError = [...updatedWithUser, errorMsg];
+      setMessages(updatedWithError);
+      saveSession(updatedWithError);
     } finally {
       setIsTyping(false);
     }
@@ -483,7 +645,7 @@ export function AiAssistantSsd() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  if (!systemSettings.isAiAssistantEnabled || !showSsdAssistant) return null;
+  if (userRole === "guest" || !systemSettings.isAiAssistantEnabled || !showSsdAssistant) return null;
 
   return (
     <>
@@ -573,15 +735,46 @@ export function AiAssistantSsd() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-sm font-black text-white">SSD AI Agent</h3>
-                  <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.2 rounded-full font-mono">
-                    PRO
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      quota?.plan === "vip"
+                        ? "bg-amber-400 text-neutral-950"
+                        : quota?.plan === "pro"
+                        ? "bg-emerald-500/30 text-emerald-200"
+                        : "bg-white/20 text-white"
+                    }`}
+                  >
+                    {quota?.plan ? quota.plan.toUpperCase() : "AI"}
                   </span>
+                  {quota?.isTrial && (
+                    <span className="text-[9px] bg-amber-500/30 text-amber-200 px-1 rounded-sm">
+                      تجريبي ({quota.trialDaysLeft} أيام)
+                    </span>
+                  )}
                 </div>
-                <p className="text-[11px] text-emerald-100/80">المساعد والوكيل المستقل لمنصة سكورا</p>
+                <div className="flex items-center gap-2 text-[11px] text-emerald-100/80">
+                  <span>المساعد والوكيل المستقل</span>
+                  {quota && !isAdmin && (
+                    <span className="text-emerald-200 font-mono text-[10px] bg-white/10 px-1.5 py-0.2 rounded-md">
+                      باقي اليوم: {quota.remainingToday}/{quota.dailyRequestsLimit}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              {!isAdmin && quota?.plan !== "vip" && (
+                <button
+                  type="button"
+                  onClick={() => setIsUpgradeModalOpen(true)}
+                  className="h-8 px-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-900 flex items-center gap-1 text-[11px] font-black transition-all cursor-pointer shadow-xs mr-1"
+                  title="ترقية الباقة"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">ترقية</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleResetChat}
@@ -713,9 +906,12 @@ export function AiAssistantSsd() {
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-2 text-[10px] text-[#526B5E] font-bold">
-                            <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6]">
-                              {msg.projectDraft.budgetFrom?.toLocaleString("ar-EG")} -{" "}
-                              {msg.projectDraft.budgetTo?.toLocaleString("ar-EG")} ج.م
+                            <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6] flex items-center gap-1">
+                              <span>
+                                {msg.projectDraft.budgetFrom?.toLocaleString("ar-EG")} -{" "}
+                                {msg.projectDraft.budgetTo?.toLocaleString("ar-EG")}
+                              </span>
+                              <EgpCurrencyIcon className="w-3.5 h-3.5 text-[#056B38]" />
                             </span>
                             <span className="bg-white px-2 py-0.5 rounded-md border border-[#D1E3D6]">
                               {msg.projectDraft.deadlineDays} يوم
@@ -794,7 +990,10 @@ export function AiAssistantSsd() {
                               <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#056B38]" />
                             </div>
                             <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-bold text-[#056B38]">
-                              <span className="rounded bg-white px-1.5 py-0.5">{card.budgetFrom.toLocaleString("ar-EG")} - {card.budgetTo.toLocaleString("ar-EG")} ج.م</span>
+                              <span className="rounded bg-white px-1.5 py-0.5 flex items-center gap-1">
+                                <span>{card.budgetFrom.toLocaleString("ar-EG")} - {card.budgetTo.toLocaleString("ar-EG")}</span>
+                                <EgpCurrencyIcon className="w-3 h-3 text-[#056B38]" />
+                              </span>
                               {card.deadlineDays && <span className="rounded bg-white px-1.5 py-0.5">{card.deadlineDays} يوم</span>}
                               {card.skills.slice(0, 3).map((skill) => <span key={skill} className="rounded bg-white px-1.5 py-0.5">{skill}</span>)}
                             </div>
@@ -887,6 +1086,30 @@ export function AiAssistantSsd() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Quota Exceeded / Trial Expired Warning Banner */}
+          {quota && !quota.canUseAi && !isAdmin && (
+            <div className="p-3 bg-amber-50 border-t border-amber-200 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2 text-xs text-amber-900 font-bold">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  {quota.blockReason === "TRIAL_EXPIRED"
+                    ? "انتهت الفترة التجريبية (3 أيام) لـ AI Agent."
+                    : quota.blockReason === "DAILY_LIMIT_REACHED"
+                    ? "وصلت للحد اليومي لطلبات الذكاء الاصطناعي."
+                    : "وصلت للحد الأسبوعي لطلبات الذكاء الاصطناعي."}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUpgradeModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-[#056B38] hover:bg-[#08592E] text-white text-xs font-black shrink-0 transition-all cursor-pointer shadow-xs flex items-center gap-1"
+              >
+                <Zap className="w-3 h-3" />
+                <span>ترقية الآن</span>
+              </button>
+            </div>
+          )}
+
           {/* Chat Input */}
           <form
             onSubmit={handleSend}
@@ -909,6 +1132,14 @@ export function AiAssistantSsd() {
           </form>
         </div>
       )}
+
+      {/* Subscription Checkout Modal */}
+      <SubscriptionCheckoutModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        initialPlan={quota?.plan === "vip" ? "vip" : "pro"}
+        onSuccess={() => fetchQuota()}
+      />
     </>
   );
 }

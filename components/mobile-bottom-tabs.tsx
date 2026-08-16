@@ -178,14 +178,12 @@ export function MobileBottomTabs() {
 
           {/* Logout Button */}
           <div className="pt-2 border-t border-neutral-100">
-            <a
-              href="/api/auth/logout"
-              onClick={() => setIsDropUpOpen(false)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-4 h-4 text-red-500" />
-              <span>تسجيل الخروج</span>
-            </a>
+            <form action="/api/auth/logout" method="post" onSubmit={() => setIsDropUpOpen(false)}>
+              <button type="submit" className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                <LogOut className="w-4 h-4 text-red-500" />
+                <span>تسجيل الخروج</span>
+              </button>
+            </form>
           </div>
 
         </div>
