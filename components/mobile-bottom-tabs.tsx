@@ -178,19 +178,21 @@ export function MobileBottomTabs() {
 
           {/* Logout Button */}
           <div className="pt-2 border-t border-neutral-100">
-            <a
-              href="/api/auth/logout"
-              onClick={() => {
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
                 setIsDropUpOpen(false);
                 try {
                   document.cookie = "scora_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
                 } catch {}
+                window.location.href = "/api/auth/logout";
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[13px] font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer text-right"
             >
               <LogOut className="w-4 h-4 text-red-500" />
               <span>تسجيل الخروج</span>
-            </a>
+            </button>
           </div>
 
         </div>

@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Bot, Building2, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, RefreshCw, Shield, User } from "lucide-react";
+import { Bot, Building2, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, LogOut, RefreshCw, Shield, User } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { useProfile } from "@/components/profile-provider";
@@ -164,15 +164,47 @@ function SettingsContent() {
 
         {activeTab === "profile" && <div className="animate-in fade-in duration-150">{profileInitialData ? <ProfileEditForm initialData={profileInitialData} /> : <LoadingPanel />}</div>}
 
-        {activeTab === "security" && <section className="bg-white rounded-[28px] border border-[#D1E3D6] p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-150">
-          <div className="border-b border-[#D1E3D6] pb-4 space-y-1"><h2 className="text-lg font-black text-[#05291A]">تغيير كلمة المرور</h2><p className="text-xs text-[#526B5E]">استخدم كلمة مرور قوية ولا تشاركها مع أي شخص.</p></div>
-          <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
-            <PasswordInput label="كلمة المرور الحالية" value={currentPassword} onChange={setCurrentPassword} visible={showCurrentPass} onToggle={() => setShowCurrentPass((value) => !value)} />
-            <PasswordInput label="كلمة المرور الجديدة" value={newPassword} onChange={setNewPassword} visible={showNewPass} onToggle={() => setShowNewPass((value) => !value)} />
-            <TextField label="تأكيد كلمة المرور الجديدة" value={confirmPassword} onChange={setConfirmPassword} type="password" required />
-            <ActionButton busy={isChangingPass} label="تحديث كلمة المرور" busyLabel="جاري الحفظ والتحديث..." />
-          </form>
-        </section>}
+        {activeTab === "security" && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <section className="bg-white rounded-[28px] border border-[#D1E3D6] p-6 sm:p-8 shadow-xs space-y-6">
+              <div className="border-b border-[#D1E3D6] pb-4 space-y-1">
+                <h2 className="text-lg font-black text-[#05291A]">تغيير كلمة المرور</h2>
+                <p className="text-xs text-[#526B5E]">استخدم كلمة مرور قوية ولا تشاركها مع أي شخص.</p>
+              </div>
+              <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
+                <PasswordInput label="كلمة المرور الحالية" value={currentPassword} onChange={setCurrentPassword} visible={showCurrentPass} onToggle={() => setShowCurrentPass((value) => !value)} />
+                <PasswordInput label="كلمة المرور الجديدة" value={newPassword} onChange={setNewPassword} visible={showNewPass} onToggle={() => setShowNewPass((value) => !value)} />
+                <TextField label="تأكيد كلمة المرور الجديدة" value={confirmPassword} onChange={setConfirmPassword} type="password" required />
+                <ActionButton busy={isChangingPass} label="تحديث كلمة المرور" busyLabel="جاري الحفظ والتحديث..." />
+              </form>
+            </section>
+
+            <section className="bg-white rounded-[28px] border border-[#D1E3D6] p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-[#D1E3D6] pb-3 space-y-1">
+                <h2 className="text-lg font-black text-[#05291A]">جلسة الحساب النشطة</h2>
+                <p className="text-xs text-[#526B5E]">يمكنك إنهاء الجلسة الحالية وتسجيل الخروج من المنصة بأمان.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                <div className="text-xs text-[#526B5E]">
+                  تسجيل الخروج سيمسح بيانات الجلسة من هذا المتصفح.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      document.cookie = "scora_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+                    } catch {}
+                    window.location.href = "/api/auth/logout";
+                  }}
+                  className="h-11 px-6 rounded-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs transition-all cursor-pointer shadow-xs flex items-center gap-2 self-start sm:self-auto"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>تسجيل الخروج الآن</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {activeTab === "ai" && <section className="bg-white rounded-[28px] border border-[#D1E3D6] p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-150">
           <div className="border-b border-[#D1E3D6] pb-4 space-y-1"><h2 className="text-xl font-black text-[#05291A]">إعدادات وكيل الذكاء الاصطناعي SSD</h2><p className="text-xs text-[#526B5E]">خصص أسلوب وسلوك وكيل SSD في المنصة.</p></div>
